@@ -43,12 +43,12 @@ export function render() {
 
   return `
 <div class="screen" id="s-members">
-  <div class="statusbar"><span class="num">9:41</span><span></span></div>
 
-  <div class="scroll-body" style="padding:0 18px calc(var(--safe-bottom) + 82px)">
+
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 82px)">
 
     <!-- 헤더 -->
-    <div class="anim-up" style="padding-top:4px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between">
+    <div class="anim-up" style="margin-bottom:14px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">참가자</h2>
         <p style="font-size:12px; color:#52525b; margin-top:2px">${MEMBERS.filter(m => !m.isSelf).length}명 참가 중</p>

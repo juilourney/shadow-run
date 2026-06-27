@@ -12,11 +12,7 @@ export function render() {
     <div id="card-orb-b" style="position:absolute; bottom:-15%; right:-15%; width:65%; aspect-ratio:1; border-radius:50%; filter:blur(50px); transition:background 1s;"></div>
   </div>
 
-  <div class="statusbar" style="position:relative; z-index:2;">
-    <span class="num">9:41</span><span style="letter-spacing:.05em">●●●</span>
-  </div>
-
-  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:0 26px calc(var(--safe-bottom) + 32px);">
+  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:calc(var(--safe-top) + 20px) 26px calc(var(--safe-bottom) + 32px);">
 
     <div class="anim-up" style="text-align:center; padding-top:12px; width:100%;">
       <p style="font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#3f3f46;">TEAM ASSIGNMENT</p>
@@ -118,10 +114,6 @@ function flipCard() {
   const isPacer = state.team === 'pacer';
   const inner = document.getElementById('flip-inner');
   inner.classList.add('spinning');
-  inner.addEventListener('animationend', () => {
-    inner.classList.remove('spinning');
-    inner.classList.add('flipped');
-  }, { once: true });
 
   const orbA = document.getElementById('card-orb-a');
   const orbB = document.getElementById('card-orb-b');
@@ -138,6 +130,8 @@ function flipCard() {
   applyTeamTheme(state.team);
 
   inner.addEventListener('animationend', () => {
+    // spinning 유지 (forwards fill-mode로 최종 위치 고정), flipped는 리셋용 마커
+    inner.classList.add('flipped');
     setTimeout(() => {
       const btn = document.getElementById('card-confirm-btn');
       btn.style.opacity       = '1';

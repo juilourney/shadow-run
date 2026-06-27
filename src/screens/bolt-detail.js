@@ -3,14 +3,13 @@ import { goToScreen } from '../utils/nav.js';
 export function render() {
   return `
 <div class="screen" id="s-bolt-detail">
-  <div class="statusbar">
-    <button class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:14px; border-radius:10px" id="bolt-detail-back">← 번개</button>
-    <span style="font-size:13px; font-weight:600; color:#52525b;">방장 뷰</span>
-    <span style="width:60px;"></span>
-  </div>
-
   <!-- 상세/대기 뷰 -->
-  <div id="bolt-detail-waiting" class="scroll-body" style="padding:0 18px 140px">
+  <div id="bolt-detail-waiting" class="scroll-body" style="padding:calc(var(--safe-top) + 10px) 18px 140px">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <button class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:14px; border-radius:10px" id="bolt-detail-back">← 번개</button>
+      <span style="font-size:13px; font-weight:600; color:#52525b;">방장 뷰</span>
+      <span style="width:60px;"></span>
+    </div>
     <div class="anim-up" style="padding-top:8px">
       <span class="chip" style="background:var(--accent-tint); color:var(--accent); margin-bottom:10px; display:inline-flex;">D-DAY · 05:30</span>
       <h2 style="font-size:26px; font-weight:700; letter-spacing:-.02em; margin-top:10px;">한강 새벽 LSD</h2>

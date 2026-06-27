@@ -23,9 +23,7 @@ export function render() {
       filter:blur(50px);"></div>
   </div>
 
-  <div class="statusbar" style="position:relative; z-index:2;"><span class="num">9:41</span><span style="letter-spacing:.05em">●●●</span></div>
-
-  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:0 26px calc(var(--safe-bottom) + 32px);">
+  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:calc(var(--safe-top) + 20px) 26px calc(var(--safe-bottom) + 32px);">
 
     <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-top:12px; padding-bottom:28px; min-height:0;">
 

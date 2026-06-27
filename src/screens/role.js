@@ -17,13 +17,9 @@ export function render() {
       filter:blur(40px); opacity:.7;"></div>
   </div>
 
-  <div class="statusbar" style="position:relative; z-index:2;">
-    <span class="num">9:41</span><span style="letter-spacing:.05em">●●●</span>
-  </div>
-
   <div class="scroll-body" style="position:relative; z-index:2;
     display:flex; flex-direction:column; align-items:center; justify-content:space-between;
-    padding:0 26px calc(var(--safe-bottom) + 32px);">
+    padding:calc(var(--safe-top) + 20px) 26px calc(var(--safe-bottom) + 32px);">
 
     <div class="anim-up" style="text-align:center; padding-top:12px; width:100%;">
       <span id="role-team-badge" class="chip" style="background:var(--accent-tint); color:var(--accent);"></span>
@@ -139,7 +135,8 @@ export function prepareRoleScreen() {
   document.getElementById('role-desc-headline').textContent = r.headline;
   document.getElementById('role-desc-detail').textContent   = r.detail;
 
-  document.getElementById('role-flip-inner').classList.remove('flipped');
+  const fi = document.getElementById('role-flip-inner');
+  fi.classList.remove('flipped', 'spinning');
   state.roleFlipped = false;
 
   const descEl = document.getElementById('role-desc-reveal');
@@ -152,8 +149,7 @@ export function prepareRoleScreen() {
   btnEl.style.pointerEvents  = 'none';
 
   const n = state.name;
-  document.getElementById('dash-name-badge').textContent    = n.length > 3 ? n.slice(0,-1)+'…' : n;
-  document.getElementById('settings-name').textContent      = n || '참가자';
+document.getElementById('settings-name').textContent      = n || '참가자';
   document.getElementById('settings-initial').textContent   = n ? n[0] : '?';
   document.getElementById('settings-team-chip').textContent = teamName;
   document.getElementById('settings-role-chip').textContent = '· ' + r.name;
@@ -165,12 +161,9 @@ function flipRoleCard() {
 
   const inner = document.getElementById('role-flip-inner');
   inner.classList.add('spinning');
-  inner.addEventListener('animationend', () => {
-    inner.classList.remove('spinning');
-    inner.classList.add('flipped');
-  }, { once: true });
 
   inner.addEventListener('animationend', () => {
+    inner.classList.add('flipped');
     setTimeout(() => {
       const descEl = document.getElementById('role-desc-reveal');
       const btnEl  = document.getElementById('role-confirm-btn');

@@ -22,12 +22,7 @@ export function render() {
       background:radial-gradient(circle, rgba(56,189,248,.3) 0%, transparent 70%);"></div>
   </div>
 
-  <div class="statusbar" style="position:relative; z-index:2;">
-    <span class="num">9:41</span>
-    <span></span>
-  </div>
-
-  <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 28px; gap:20px; text-align:center;">
+  <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:calc(var(--safe-top) + 8px) 28px calc(var(--safe-bottom) + 16px); gap:20px; text-align:center;">
 
     <p class="anim-up" style="font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#52525b;">BUFF CARD</p>
     <h2 class="anim-up-1" style="font-size:24px; font-weight:700; letter-spacing:-.02em;">버프 카드 뽑기</h2>

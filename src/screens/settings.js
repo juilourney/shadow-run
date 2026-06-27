@@ -3,9 +3,8 @@ import { goToScreen } from '../utils/nav.js';
 export function render() {
   return `
 <div class="screen" id="s-settings">
-  <div class="statusbar"><span class="num">9:41</span><span style="letter-spacing:.05em">●●●</span></div>
-  <div class="scroll-body pb-tab" style="padding:0 18px">
-    <div class="anim-up" style="padding-top:4px; margin-bottom:16px">
+  <div class="scroll-body pb-tab" style="padding:calc(var(--safe-top) + 12px) 18px 0">
+    <div class="anim-up" style="margin-bottom:16px">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">설정</h2>
     </div>
 

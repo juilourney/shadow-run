@@ -10,12 +10,7 @@ export function render() {
       background:radial-gradient(circle, rgba(251,146,60,.2) 0%, transparent 70%);"></div>
   </div>
 
-  <div class="statusbar" style="position:relative; z-index:2;">
-    <span class="num">9:41</span>
-    <span></span>
-  </div>
-
-  <div class="scroll-body" style="position:relative; z-index:2; padding:0 22px calc(var(--safe-bottom) + 100px);">
+  <div class="scroll-body" style="position:relative; z-index:2; padding:calc(var(--safe-top) + 20px) 22px calc(var(--safe-bottom) + 100px);">
 
     <!-- 헤더 -->
     <div class="anim-up" style="padding-top:8px; text-align:center; margin-bottom:20px;">

@@ -76,10 +76,8 @@ export function render() {
 
   return `
 <div class="screen" id="s-vote" style="position:relative;">
-  <div class="statusbar"><span class="num">9:41</span><span></span></div>
-
   <!-- 투표 컨텐츠 -->
-  <div class="scroll-body" style="padding:0 18px calc(var(--safe-bottom) + 82px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 82px)">
 
     <!-- 상단 정보 카드 -->
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px">

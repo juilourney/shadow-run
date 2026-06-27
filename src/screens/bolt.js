@@ -66,13 +66,8 @@ function boltCard(bolt, animClass) {
 export function render() {
   return `
 <div class="screen" id="s-bolt">
-  <div class="statusbar">
-    <span class="num">9:41</span>
-    <span></span>
-  </div>
-
   <!-- 번개 목록 뷰 -->
-  <div id="bolt-list-view" class="scroll-body" style="padding:0 18px 120px">
+  <div id="bolt-list-view" class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 120px">
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">번개</h2>

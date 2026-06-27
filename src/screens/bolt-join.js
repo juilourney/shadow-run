@@ -4,13 +4,12 @@ import { cancelJoin } from './bolt.js';
 export function render() {
   return `
 <div class="screen" id="s-bolt-join">
-  <div class="statusbar">
-    <button class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:14px; border-radius:10px" id="bolt-join-back">← 번개</button>
-    <span style="letter-spacing:.05em"></span>
-  </div>
-
   <!-- 대기 뷰 -->
-  <div id="bolt-join-waiting" class="scroll-body" style="padding:0 18px 120px">
+  <div id="bolt-join-waiting" class="scroll-body" style="padding:calc(var(--safe-top) + 10px) 18px 120px">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <button class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:14px; border-radius:10px" id="bolt-join-back">← 번개</button>
+      <span></span>
+    </div>
     <div class="anim-up" style="padding-top:8px">
       <span class="chip" style="background:var(--accent-tint); color:var(--accent); margin-bottom:10px; display:inline-flex;">참여 완료</span>
       <h2 style="font-size:24px; font-weight:700; letter-spacing:-.02em; margin-top:10px;">한강 새벽 LSD</h2>

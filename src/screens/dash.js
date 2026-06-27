@@ -3,12 +3,7 @@ import { goToScreen } from '../utils/nav.js';
 export function render() {
   return `
 <div class="screen" id="s-dash">
-  <div class="statusbar">
-    <span class="num">9:41</span>
-    <span id="dash-name-badge" style="display:none"></span>
-  </div>
-
-  <div class="scroll-body pb-tab" style="padding:0 18px">
+  <div class="scroll-body pb-tab" style="padding:calc(var(--safe-top) + 12px) 18px 0">
 
     <!-- ① 실시간 줄다리기 (게이지 카드 — 최상단) -->
     <div class="bezel anim-up" style="margin-top:10px; padding:18px 20px; border-radius:24px;">

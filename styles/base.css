@@ -1,0 +1,84 @@
+/* ═══════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { word-break: keep-all; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; background: var(--ink); }
+body {
+  min-height: 100%;
+  font-family: 'Pretendard', system-ui, sans-serif;
+  font-size: 16px;
+  color: #fafafa;
+  background: #050505;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-family: 'Space Grotesk', sans-serif; font-feature-settings: 'tnum'; }
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+#app {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN SYSTEM
+═══════════════════════════════════════ */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s var(--spring), transform .45s var(--spring);
+  transform: translateX(32px);
+}
+.screen.active {
+  opacity: 1; pointer-events: all;
+  transform: translateX(0);
+}
+.screen.exit-left { opacity: 0; transform: translateX(-24px); }
+
+.scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.scroll-body::-webkit-scrollbar { display: none; }
+
+/* ── ambient mesh ── */
+.mesh-pacer {
+  background:
+    radial-gradient(60% 45% at 15% 5%, rgba(56,189,248,.14), transparent 55%),
+    radial-gradient(50% 50% at 90% -5%, rgba(125,211,252,.07), transparent 50%),
+    radial-gradient(70% 60% at 50% 100%, rgba(14,165,233,.06), transparent 60%);
+}
+.mesh-ghost {
+  background:
+    radial-gradient(60% 45% at 15% 5%, rgba(192,132,252,.16), transparent 55%),
+    radial-gradient(50% 50% at 90% -5%, rgba(168,85,247,.08), transparent 50%),
+    radial-gradient(70% 60% at 50% 100%, rgba(139,92,246,.06), transparent 60%);
+}
+.mesh-neutral {
+  background:
+    radial-gradient(60% 45% at 15% 5%, rgba(113,113,122,.10), transparent 55%);
+}
+
+/* ── noise grain ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 999;
+  pointer-events: none; opacity: .028;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ═══════════════════════════════════════
+   SAFE AREA HELPERS
+═══════════════════════════════════════ */
+.pt-safe { padding-top: calc(var(--safe-top) + 54px); }
+.pb-safe { padding-bottom: calc(var(--safe-bottom) + 16px); }
+.pb-tab  { padding-bottom: calc(var(--safe-bottom) + 82px); }

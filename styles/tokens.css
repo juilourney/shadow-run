@@ -1,0 +1,34 @@
+/* ═══════════════════════════════════════
+   DESIGN TOKENS — SUPANOVA VANTABLACK LUXE
+═══════════════════════════════════════ */
+:root {
+  --spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ink: #050505;
+
+  /* default: neutral before team assign */
+  --accent: #38bdf8;
+  --accent-deep: #0ea5e9;
+  --accent-glow: rgba(56,189,248,.4);
+  --accent-tint: rgba(56,189,248,.12);
+  --accent-border: rgba(56,189,248,.28);
+
+  --danger: #fb7185;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* ── TEAM THEMES ── */
+[data-team="pacer"] {
+  --accent: #38bdf8;
+  --accent-deep: #0ea5e9;
+  --accent-glow: rgba(56,189,248,.45);
+  --accent-tint: rgba(56,189,248,.13);
+  --accent-border: rgba(56,189,248,.30);
+}
+[data-team="ghost"] {
+  --accent: #c084fc;
+  --accent-deep: #a855f7;
+  --accent-glow: rgba(192,132,252,.45);
+  --accent-tint: rgba(192,132,252,.12);
+  --accent-border: rgba(192,132,252,.28);
+}

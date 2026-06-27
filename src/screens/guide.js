@@ -1,0 +1,123 @@
+import { goToScreen } from '../utils/nav.js';
+
+function section(emoji, title, content) {
+  return `
+  <div class="bezel" style="padding:20px; border-radius:22px; margin-bottom:12px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+      <span style="font-size:18px; line-height:1;">${emoji}</span>
+      <h3 style="font-size:15px; font-weight:700; letter-spacing:-.01em;">${title}</h3>
+    </div>
+    ${content}
+  </div>`;
+}
+
+function row(label, value, color = '#a1a1aa') {
+  return `
+  <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">
+    <p style="font-size:13px; font-weight:600; color:#e4e4e7; min-width:56px; flex-shrink:0;">${label}</p>
+    <p style="font-size:13px; color:${color}; line-height:1.6;">${value}</p>
+  </div>`;
+}
+
+function roleRow(role, ability, value) {
+  return `
+  <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+      <p style="font-size:13px; font-weight:700; color:#e4e4e7;">${role}</p>
+    </div>
+    <p style="font-size:12px; color:#60a5fa; margin-bottom:3px;">${ability}</p>
+    <p style="font-size:12px; color:#71717a; line-height:1.5;">${value}</p>
+  </div>`;
+}
+
+function para(text) {
+  return `<p style="font-size:13px; color:#a1a1aa; line-height:1.75; margin-bottom:10px;">${text}</p>`;
+}
+
+export function render() {
+  return `
+<div class="screen" id="s-guide">
+  <div class="statusbar"><span class="num">9:41</span><span></span></div>
+
+  <div class="scroll-body" style="padding:0 18px calc(var(--safe-bottom) + 82px)">
+
+    <div class="anim-up" style="padding-top:4px; margin-bottom:20px;">
+      <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">가이드</h2>
+      <p style="font-size:12px; color:#52525b; margin-top:2px;">정체를 숨기고 아군을 찾아라! 3주간의 줄다리기 레이스</p>
+    </div>
+
+    ${section('🎯', '게임 개요 및 승리 조건', `
+      ${para('페이서팀과 고스트팀이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.')}
+      ${row('페이서', '게이지를 오른쪽(+)으로 당깁니다', '#38bdf8')}
+      ${row('고스트', '게이지를 왼쪽(-)으로 당깁니다', '#a78bfa')}
+      ${row('승리', '3주 후 게이지가 더 기운 팀이 우승하며, 전원 보상과 최고 기여자 표창이 수여됩니다', '#34d399')}
+    `)}
+
+    ${section('🎭', '팀 및 특수 역할 배정', `
+      ${para('게임 시작 시 팀(페이서/고스트)과 5가지 특수 역할이 모두 랜덤으로 배정됩니다. 각 팀에는 엘리트, 앵커, 더블, 탐정, 밀정이 하나씩 존재하며, 본인의 정체와 역할은 팀원들에게도 비공개입니다.')}
+      ${roleRow('👑 엘리트', '번개 마일리지 2배 적립', '팀의 메인 화력. 단, 투표로 적발되면 화력이 0.5배로 급감합니다.')}
+      ${roleRow('⚓ 앵커', '달린 만큼 상대팀 마일리지 즉시 삭감', '줄다리기 기간(목~토)에 능력이 2배로 중첩되어 강력한 역전 기회를 만듭니다.')}
+      ${roleRow('×2 더블', '투표 시 2표 행사', '투표 결과를 좌우하여 상대 팀의 핵심 멤버를 색출하는 도구입니다.')}
+      ${roleRow('🔍 탐정', '누군가의 팀 확인 (3회)', '[참가자 탭]에서 아군인지 적군인지 은밀히 판별합니다.')}
+      ${roleRow('🕵️ 밀정', '누군가의 역할 확인 (3회)', '[참가자 탭]에서 상대의 구체적인 역할(엘리트/앵커 등)을 파악합니다.')}
+    `)}
+
+    ${section('📅', '주간 운영 체계', `
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="background:rgba(255,255,255,.04); border-radius:14px; padding:14px 16px;">
+          <p style="font-size:12px; font-weight:700; color:#a1a1aa; letter-spacing:.04em; margin-bottom:6px;">탐색 기간 · 일 ~ 수</p>
+          <p style="font-size:13px; color:#e4e4e7; line-height:1.65;">달린 마일리지가 1:1로 게이지에 반영됩니다. 아군을 탐색하고 상대팀 정보를 수집하는 시기입니다.</p>
+        </div>
+        <div style="background:rgba(255,255,255,.04); border-radius:14px; padding:14px 16px;">
+          <p style="font-size:12px; font-weight:700; color:#a1a1aa; letter-spacing:.04em; margin-bottom:6px;">줄다리기 기간 · 목 ~ 토</p>
+          <p style="font-size:13px; color:#e4e4e7; line-height:1.65;">달린 마일리지만큼 상대팀 게이지에서 직접 삭감합니다. 본격적인 승부를 벌이는 시기입니다.</p>
+        </div>
+      </div>
+    `)}
+
+    ${section('⚡', '번개와 팀 고유 스킬', `
+      ${para('번개는 최대 4명까지 모일 수 있으며, 팀 구성에 따라 스킬이 발동됩니다.')}
+      ${row('단일팀 번개', '3~4명이 같은 팀일 때 팀 고유 스킬이 자동 발동됩니다.')}
+      ${row('페이서 시너지', '참여 인원 × 50km의 마일리지를 추가 적립합니다.', '#38bdf8')}
+      ${row('고스트 게이지', '상대팀 마일리지 삭감에 더해 게이지 바를 고스트 쪽으로 100km 즉시 이동시킵니다.', '#a78bfa')}
+      ${row('일반 번개', '팀 혼합 시 스킬 없음. 대신 랜덤 특수 버프 카드(최대 3배)가 발동할 수 있습니다.')}
+      ${row('잠금 기능', '방장이 아군끼리만 달리기 위해 방을 잠금 처리하여 상대팀의 난입을 막을 수 있습니다.')}
+    `)}
+
+    ${section('🗳️', '투표 및 정체 공개', `
+      ${row('일시', '주 2회 — 월요일, 목요일 18:00 ~ 22:00')}
+      ${row('진행', '상대 팀으로 의심되는 플레이어 1명을 지목합니다. 더블 역할은 2표를 행사합니다.')}
+      ${row('결과', '최다 득표자는 팀 소속이 공개되며, 모든 마일리지 화력이 영구적으로 50% 감소합니다.')}
+    `)}
+
+    ${section('📱', '주요 화면 활용', `
+      ${row('홈 탭', "개인의 순수 달리기 거리와 실시간 게이지, 타임라인으로 전체 흐름을 확인합니다.")}
+      ${row('참가자 탭', '탐정과 밀정이 능력을 사용하는 공간입니다. 확인된 정보는 본인의 기기에만 표시되어 개인 전략 자산으로 활용됩니다.')}
+      ${row('투표 탭', '투표 기간에만 활성화되며, 지목하기 버튼으로 상대 팀의 정체를 폭로합니다.')}
+    `)}
+
+    <!-- 마지막 팁 -->
+    <div style="background:rgba(56,189,248,.06); border:1px solid rgba(56,189,248,.15);
+      border-radius:20px; padding:18px 20px; margin-bottom:12px;">
+      <p style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase;">전략 팁</p>
+      <p style="font-size:13px; color:#a1a1aa; line-height:1.75;">탐색 기간에는 아군을 찾아 세력을 확보하고, 줄다리기 기간에는 고유 스킬과 앵커의 능력을 총동원해 게이지를 뺏어오세요. 투표를 통해 상대팀의 엘리트를 찾아내는 것이 역전의 발판입니다.</p>
+    </div>
+
+  </div>
+
+  <div class="tabbar" style="padding:6px 2px;">
+    <div class="tab" id="tab-home-g"><div class="tab-icon"><span class="ti-home-dot"></span></div><span>홈</span></div>
+    <div class="tab" id="tab-bolt-g"><div class="tab-icon"><span class="ti-bolt"></span></div><span>번개</span></div>
+    <div class="tab" id="tab-vote-g"><div class="tab-icon"><span class="ti-vote"></span></div><span>투표</span></div>
+    <div class="tab" id="tab-members-g"><div class="tab-icon"><span class="ti-users"></span></div><span>참가자</span></div>
+    <div class="tab on"><div class="tab-icon"><span class="ti-book"></span></div><span>가이드</span></div>
+  </div>
+</div>`;
+}
+
+export function init() {
+  document.getElementById('tab-home-g').addEventListener('click', () => goToScreen('s-dash'));
+  document.getElementById('tab-bolt-g').addEventListener('click', () => goToScreen('s-bolt'));
+  document.getElementById('tab-vote-g').addEventListener('click', () => goToScreen('s-vote'));
+  document.getElementById('tab-members-g').addEventListener('click', () => goToScreen('s-members'));
+}

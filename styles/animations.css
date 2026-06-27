@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════
+   KEYFRAMES & ANIMATION UTILITIES
+═══════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 30px -5px var(--accent-glow); }
+  50%       { box-shadow: 0 0 50px 5px var(--accent-glow); }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes orb-drift-a {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(12%, 14%) scale(1.12); }
+}
+@keyframes orb-drift-b {
+  from { transform: translate(0, 0) scale(1.05); }
+  to   { transform: translate(-10%, 10%) scale(.92); }
+}
+@keyframes phase-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(251,113,133,.25); }
+  50%       { box-shadow: 0 0 0 8px rgba(251,113,133,.08); }
+}
+
+.anim-up   { animation: fadeUp .6s var(--spring) both; }
+.anim-up-1 { animation: fadeUp .6s .08s var(--spring) both; }
+.anim-up-2 { animation: fadeUp .6s .16s var(--spring) both; }
+.anim-up-3 { animation: fadeUp .6s .24s var(--spring) both; }
+.anim-up-4 { animation: fadeUp .6s .32s var(--spring) both; }
+.float     { animation: float 6s ease-in-out infinite; }

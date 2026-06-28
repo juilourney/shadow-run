@@ -98,21 +98,12 @@ export function render() {
         <span style="font-size:11px; color:var(--accent); font-weight:600; letter-spacing:.04em; cursor:pointer;"
           id="timeline-open-btn">전체 보기</span>
       </div>
-      <div style="display:flex; flex-direction:column; gap:1px; border-radius:20px; overflow:hidden;">
-        <div class="bezel" style="border-radius:20px 20px 0 0; padding:14px 16px; display:flex; align-items:flex-start; gap:12px;">
-          <div style="width:7px; height:7px; border-radius:50%; background:#38bdf8; margin-top:4px; flex-shrink:0;"></div>
-          <div>
-            <p style="font-size:13px; font-weight:600;">김민수의 번개 완료</p>
-            <p style="font-size:12px; color:#52525b; margin-top:2px; line-height:1.5;">한강 새벽 LSD · 8km · 참여 3명</p>
-            <p class="num" style="font-size:11px; color:#3f3f46; margin-top:4px;">오늘 07:42</p>
-          </div>
-        </div>
-        <div class="bezel" style="border-radius:0 0 20px 20px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px; cursor:pointer;" id="timeline-open-btn2">
-          <div style="width:7px; height:7px; border-radius:50%; background:#3f3f46; margin-top:4px; flex-shrink:0;"></div>
-          <div style="flex:1;">
-            <p style="font-size:12px; color:#52525b;">+ 게이지 변동 · 이서연의 번개 개설 · 투표 결과 외 4건</p>
-          </div>
-          <span style="font-size:11px; color:var(--accent); font-weight:600; align-self:center;">보기</span>
+      <div class="bezel" style="border-radius:20px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px;">
+        <div style="width:7px; height:7px; border-radius:50%; background:#38bdf8; margin-top:4px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:13px; font-weight:600;">김민수의 번개 완료</p>
+          <p style="font-size:12px; color:#52525b; margin-top:2px; line-height:1.5;">한강 새벽 LSD · 8km · 참여 3명</p>
+          <p class="num" style="font-size:11px; color:#3f3f46; margin-top:4px;">오늘 07:42</p>
         </div>
       </div>
     </div>
@@ -270,7 +261,6 @@ export function render() {
 
 export function init() {
   document.getElementById('timeline-open-btn').addEventListener('click', openTimeline);
-  document.getElementById('timeline-open-btn2').addEventListener('click', openTimeline);
   document.getElementById('timeline-close-btn').addEventListener('click', closeTimeline);
   document.getElementById('timeline-backdrop').addEventListener('click', closeTimeline);
 }

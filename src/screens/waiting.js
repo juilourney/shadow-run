@@ -118,7 +118,7 @@ export function render() {
 
   <!-- 홈 패널 -->
   <div id="wpanel-home" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:82px;
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 12px) + 74px);
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:20px;">
@@ -160,7 +160,7 @@ export function render() {
 
   <!-- 참가자 패널 -->
   <div id="wpanel-members" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:82px; display:none;
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 12px) + 74px); display:none;
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:16px;">
@@ -175,7 +175,7 @@ export function render() {
 
   <!-- 가이드 패널 -->
   <div id="wpanel-guide" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:82px; display:none;
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 12px) + 74px); display:none;
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:16px;">
@@ -187,8 +187,7 @@ export function render() {
   </div>
 
   <!-- 내부 탭바 (홈·참가자·가이드만) -->
-  <div class="tabbar" id="waiting-tabbar"
-    style="position:absolute; bottom:0; left:12px; right:12px; padding:8px 4px max(var(--safe-bottom),8px);">
+  <div class="tabbar" id="waiting-tabbar">
     <div class="tab on" id="wtab-home">
       <div class="tab-icon"><span class="ti-home-dot"></span></div><span>홈</span>
     </div>

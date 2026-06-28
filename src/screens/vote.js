@@ -100,8 +100,14 @@ export function render() {
       </div>
     </div>
 
+    <div class="bezel" style="border-radius:16px; padding:14px 16px; margin-bottom:14px;">
+      <p style="font-size:13px; color:#a1a1aa; line-height:1.6;">
+        상대 팀으로 의심되는 사람을 지목하세요. 최다 득표자는 팀 소속이 공개되고 마일리지가 50% 감소합니다.
+      </p>
+    </div>
+
     <p style="font-size:11px; color:#52525b; margin-bottom:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;">
-      정체가 의심되는 사람을 지목하세요
+      상대 팀을 찾아 지목하기
     </p>
 
     <div style="display:flex; flex-direction:column; gap:8px;" id="player-list">
@@ -204,7 +210,7 @@ export function render() {
         <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
       </div>
       <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;">지목 확인</p>
-      <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 지목합니다</p>
+      <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 상대 팀으로 지목합니다</p>
       <p style="font-size:13px; color:#52525b; margin-bottom:20px;">이 행동은 취소할 수 없습니다</p>
       <div style="display:flex; gap:10px;">
         <button id="vote-confirm-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>

@@ -106,7 +106,8 @@
 
 /* tab bar */
 .tabbar {
-  position: absolute; bottom: 0; left: 12px; right: 12px; z-index: 20;
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 24px); max-width: 406px; z-index: 20;
   border-radius: 26px 26px 0 0;
   background: rgba(18,18,20,.75);
   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);

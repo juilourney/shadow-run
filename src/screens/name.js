@@ -69,7 +69,7 @@ export function render() {
         placeholder="홍길동"
         autocomplete="off" autocorrect="off" spellcheck="false"
         style="font-size:17px; font-weight:500;" />
-      <p style="font-size:12px; color:#3f3f46; margin-top:8px; line-height:1.5;">실명으로 입장하세요.</p>
+      <p style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
     </div>
 
     <button class="btn btn-primary anim-up-4"

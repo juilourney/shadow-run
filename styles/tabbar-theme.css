@@ -10,8 +10,8 @@
   --tb-height:      64px;
   --tb-radius:      32px;
 
-  /* ── 위치 — safe area 경계 위 여백 ── */
-  --tb-bottom:      calc(var(--safe-bottom) + 10px);
+  /* ── 위치 — safe area 경계 바로 위 (safe-fill이 아래를 채움) ── */
+  --tb-bottom:      var(--safe-bottom);
 
   /* ── iPhone 글라스 블러 (iOS vibrancy) ── */
   --tb-bg:          rgba(16, 16, 20, 0.60);

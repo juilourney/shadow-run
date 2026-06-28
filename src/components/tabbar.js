@@ -22,5 +22,12 @@ export function createTabbar(mount) {
     tab.addEventListener('click', () => goToScreen(TAB_SCREEN_MAP[tab.dataset.tab]));
   });
   mount.appendChild(tabbar);
+
+  // safe area 채우개 — 탭바 아래 safe area 구역을 동일한 glass 배경으로 메워
+  // 탭바가 보일 때 같이 보이고, 숨길 때 같이 숨김
+  const safeFill = document.createElement('div');
+  safeFill.id = 'tabbar-safe-fill';
+  mount.appendChild(safeFill);
+
   return tabbar;
 }

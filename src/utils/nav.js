@@ -18,15 +18,18 @@ export function goToScreen(id) {
 }
 
 export function syncTabbar(id) {
-  const tb = document.getElementById('global-tabbar');
+  const tb   = document.getElementById('global-tabbar');
+  const fill = document.getElementById('tabbar-safe-fill');
   if (!tb) return;
   if (TAB_SCREENS.has(id)) {
-    tb.style.display = 'flex';
+    tb.style.display   = 'flex';
+    if (fill) fill.style.display = 'block';
     tb.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
     const key = SCREEN_TAB[id];
     const active = tb.querySelector(`[data-tab="${key}"]`);
     if (active) active.classList.add('on');
   } else {
-    tb.style.display = 'none';
+    tb.style.display   = 'none';
+    if (fill) fill.style.display = 'none';
   }
 }

@@ -65,6 +65,19 @@
 }
 .tab.on .tab-icon { background: var(--accent-tint); }
 
+/* safe area 글라스 채우개 — 탭바 아래 safe zone을 동일 glass로 메움 */
+#tabbar-safe-fill {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  height: var(--safe-bottom);
+  background: var(--tb-bg);
+  backdrop-filter: blur(var(--tb-blur)) saturate(var(--tb-saturate)) brightness(var(--tb-brightness));
+  -webkit-backdrop-filter: blur(var(--tb-blur)) saturate(var(--tb-saturate)) brightness(var(--tb-brightness));
+  z-index: 19;
+}
+
 /* ── 탭 아이콘 모양 ── */
 [class^="ti-"] {
   display: block; position: relative; margin: 0 auto; color: inherit;

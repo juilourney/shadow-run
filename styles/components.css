@@ -115,8 +115,8 @@
   border-bottom: none;
   box-shadow: 0 20px 50px -20px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.06);
   display: flex; align-items: flex-end; justify-content: space-around;
-  padding: 8px 4px max(var(--safe-bottom), 8px);
-  height: auto; min-height: 62px;
+  padding: 8px 4px max(calc(var(--safe-bottom) - 12px), 6px);
+  height: auto; min-height: 58px;
 }
 .tab {
   display: flex; flex-direction: column; align-items: center; gap: 3px;

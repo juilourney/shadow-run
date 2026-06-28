@@ -63,16 +63,9 @@ tabbarEl.querySelectorAll('.tab').forEach(tab => {
 });
 document.getElementById('app').appendChild(tabbarEl);
 
-// ── 하단 검은 여백을 대체하는 Safe Area 전용 블러 독 (인스타 스타일) ──
-const safeAreaDock = document.createElement('div');
-safeAreaDock.style.cssText = `
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
-  height: var(--safe-bottom);
-  background: rgba(18,18,20,.65);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255,255,255,.05);
-  pointer-events: none;
-`;
-document.getElementById('app').appendChild(safeAreaDock);
+// ── 하단 여백을 부드럽게 덮는 그라데이션 블러 (버튼 가림 방지) ──
+const bottomBlur = document.createElement('div');
+bottomBlur.className = 'bottom-fade-blur';
+document.getElementById('app').appendChild(bottomBlur);
 
 

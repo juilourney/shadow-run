@@ -15,7 +15,6 @@ import { render as renderSettings, init as initSettings }       from './screens/
 import { render as renderWaiting, init as initWaiting }         from './screens/waiting.js';
 
 document.getElementById('app').innerHTML =
-  '<div id="screens">' +
   renderName() +
   renderCard() +
   renderRole() +
@@ -29,8 +28,7 @@ document.getElementById('app').innerHTML =
   renderMembers() +
   renderGuide() +
   renderSettings() +
-  renderWaiting() +
-  '</div>';
+  renderWaiting();
 
 initName();
 initCard();

@@ -118,7 +118,7 @@ export function render() {
 
   <!-- 홈 패널 -->
   <div id="wpanel-home" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 8px) + 62px);
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(var(--safe-bottom) + 78px);
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:20px;">
@@ -160,7 +160,7 @@ export function render() {
 
   <!-- 참가자 패널 -->
   <div id="wpanel-members" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 8px) + 62px); display:none;
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(var(--safe-bottom) + 78px); display:none;
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:16px;">
@@ -175,7 +175,7 @@ export function render() {
 
   <!-- 가이드 패널 -->
   <div id="wpanel-guide" class="scroll-body"
-    style="position:absolute; top:0; left:0; right:0; bottom:calc(max(var(--safe-bottom), 8px) + 62px); display:none;
+    style="position:absolute; top:0; left:0; right:0; bottom:calc(var(--safe-bottom) + 78px); display:none;
       padding:calc(var(--safe-top) + 16px) 18px 20px;">
 
     <div style="margin-bottom:16px;">

@@ -67,7 +67,7 @@ export function render() {
   return `
 <div class="screen" id="s-bolt">
   <!-- 번개 목록 뷰 -->
-  <div id="bolt-list-view" class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 20px">
+  <div id="bolt-list-view" class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 120px)">
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">번개</h2>

@@ -63,21 +63,28 @@ tabbarEl.querySelectorAll('.tab').forEach(tab => {
 });
 document.getElementById('app').appendChild(tabbarEl);
 
-// ── 임시 진단 배너 (원인 파악용, 확인 후 제거) ──
-(function debugBanner() {
+// ── 임시 진단 (어느 방식이 화면 바닥에 닿는지 측정) ──
+(function debugProbe() {
+  // fixed bottom:0 프로브 (파랑)
+  const pf = document.createElement('div');
+  pf.style.cssText = 'position:fixed; bottom:0; left:0; width:40px; height:4px; background:#0af; z-index:99998;';
+  document.body.appendChild(pf);
+  // absolute bottom:0 (body 기준) 프로브 (초록)
+  const pa = document.createElement('div');
+  pa.style.cssText = 'position:absolute; bottom:0; right:0; width:40px; height:4px; background:#0f0; z-index:99998;';
+  document.body.appendChild(pa);
+
   function read() {
-    const app = document.getElementById('app');
-    const ar = app.getBoundingClientRect();
-    const cs = getComputedStyle(document.documentElement);
+    const SH = window.screen.height;
     return [
+      'screenH=' + SH,
       'innerH=' + window.innerHeight,
-      'screenH=' + window.screen.height,
-      'visualVP=' + (window.visualViewport ? Math.round(window.visualViewport.height) : 'n/a'),
-      'appH=' + Math.round(ar.height) + ' appBottom=' + Math.round(ar.bottom),
-      'standalone=' + (window.navigator.standalone === true),
-      'safeBottom=' + cs.getPropertyValue('--safe-bottom').trim(),
-      'dvh100=' + (CSS.supports && CSS.supports('height','100dvh')),
-    ].join('  ·  ');
+      'docClientH=' + document.documentElement.clientHeight,
+      'bodyH=' + Math.round(document.body.getBoundingClientRect().height),
+      'FIXEDbottom=' + Math.round(pf.getBoundingClientRect().bottom),
+      'ABSbottom=' + Math.round(pa.getBoundingClientRect().bottom),
+      'standalone=' + (navigator.standalone === true),
+    ].join(' · ');
   }
   const d = document.createElement('div');
   d.style.cssText = 'position:fixed; left:0; right:0; bottom:0; z-index:99999;' +
@@ -86,6 +93,7 @@ document.getElementById('app').appendChild(tabbarEl);
   document.body.appendChild(d);
   const tick = () => { d.textContent = read(); };
   tick();
+  setTimeout(tick, 300);
   window.addEventListener('resize', tick);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', tick);
 })();

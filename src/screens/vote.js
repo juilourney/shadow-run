@@ -77,7 +77,7 @@ export function render() {
   return `
 <div class="screen" id="s-vote" style="position:relative;">
   <!-- 투표 컨텐츠 -->
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 82px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 20px">
 
     <!-- 상단 정보 카드 -->
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px">
@@ -132,7 +132,7 @@ export function render() {
 
   <!-- ① 비활성 오버레이 (투표 기간 외) -->
   <div id="vote-inactive-overlay"
-    style="position:absolute; top:0; left:0; right:0; bottom:calc(var(--safe-bottom) + 80px); z-index:40;
+    style="position:absolute; inset:0; z-index:40;
       background:rgba(5,5,5,.82); backdrop-filter:blur(8px);
       display:flex; flex-direction:column; align-items:center; justify-content:center;
       padding:32px; text-align:center;">
@@ -156,7 +156,7 @@ export function render() {
     style="position:absolute; inset:0; z-index:50;
       background:rgba(5,5,5,.88); backdrop-filter:blur(10px);
       display:none; flex-direction:column; align-items:center; justify-content:center;
-      padding:32px; text-align:center; padding-bottom:calc(var(--safe-bottom) + 82px);">
+      padding:32px; text-align:center;">
 
     <p style="font-size:11px; color:#52525b; letter-spacing:.14em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">투표 결과</p>
     <p style="font-size:13px; color:#a1a1aa; margin-bottom:20px;">이번 투표의 최다 득표자</p>

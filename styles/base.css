@@ -5,7 +5,8 @@
 * { word-break: keep-all; -webkit-tap-highlight-color: transparent; }
 html { height: 100%; background: var(--ink); }
 body {
-  min-height: 100%;
+  height: 100vh;
+  height: 100dvh;
   font-family: 'Pretendard', system-ui, sans-serif;
   font-size: 16px;
   color: #fafafa;
@@ -19,10 +20,19 @@ body {
    APP SHELL
 ═══════════════════════════════════════ */
 #app {
-  position: fixed; inset: 0;
+  position: relative;
+  height: 100%;
   display: flex; flex-direction: column;
   max-width: 430px;
   margin: 0 auto;
+  overflow: hidden;
+}
+
+/* 화면들을 담는 영역 — flex:1 로 탭바 위 공간을 모두 차지 */
+#screens {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════
@@ -81,4 +91,4 @@ body::after {
 ═══════════════════════════════════════ */
 .pt-safe { padding-top: calc(var(--safe-top) + 54px); }
 .pb-safe { padding-bottom: calc(var(--safe-bottom) + 16px); }
-.pb-tab  { padding-bottom: calc(var(--safe-bottom) + 82px); }
+.pb-tab  { padding-bottom: 20px; }

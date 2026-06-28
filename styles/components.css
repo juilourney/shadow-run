@@ -104,10 +104,10 @@
   z-index: 2;
 }
 
-/* tab bar */
+/* tab bar — #app flex 흐름상 맨 아래 항목 */
 .tabbar {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: calc(100% - 24px); max-width: 406px; z-index: 20;
+  flex-shrink: 0; z-index: 20;
+  margin: 0 12px;
   border-radius: 26px 26px 0 0;
   background: rgba(18,18,20,.75);
   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -115,7 +115,7 @@
   border-bottom: none;
   box-shadow: 0 20px 50px -20px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.06);
   display: flex; align-items: flex-end; justify-content: space-around;
-  padding: 8px 4px 6px;
+  padding: 8px 4px max(var(--safe-bottom), 8px);
   height: auto; min-height: 52px;
 }
 .tab {
@@ -125,6 +125,9 @@
   transition: color .3s var(--spring);
 }
 .tab.on { color: var(--accent); }
+
+/* 대기 화면 내부 탭바 — 화면 흐름이 아닌 절대 위치로 바닥 고정 */
+#waiting-tabbar { position: absolute; bottom: 0; left: 0; right: 0; }
 .tab-icon {
   width: 40px; height: 28px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;

@@ -164,7 +164,7 @@
   position: relative; transform-style: preserve-3d;
 }
 .flip-inner.spinning {
-  animation: card-spin-reveal 2s cubic-bezier(0.25, 0.1, 0.1, 1) forwards;
+  animation: card-spin-reveal 3.5s linear forwards;
 }
 .flip-inner.flipped { transform: rotateY(1260deg); }
 .flip-face {

@@ -32,11 +32,17 @@
 
 @keyframes card-spin-reveal {
   0%   { transform: rotateY(0deg); }
-  35%  { transform: rotateY(540deg); }
-  60%  { transform: rotateY(900deg); }
-  80%  { transform: rotateY(1080deg); }
-  92%  { transform: rotateY(1170deg); }
-  100% { transform: rotateY(1260deg); }
+  7%   { transform: rotateY(360deg); }   /* 빠른 가속 */
+  16%  { transform: rotateY(900deg); }   /* 풀스피드 */
+  28%  { transform: rotateY(1440deg); }
+  42%  { transform: rotateY(1980deg); }  /* 최고속 유지 */
+  56%  { transform: rotateY(2340deg); }  /* 감속 시작 */
+  68%  { transform: rotateY(2520deg); }
+  77%  { transform: rotateY(2610deg); }  /* 급격히 느려짐 */
+  84%  { transform: rotateY(2640deg); }  /* 거의 멈춤 — 긴장 최고조 */
+  88%  { transform: rotateY(2648deg); }  /* 멈추는 척 */
+  91%  { transform: rotateY(2638deg); }  /* 살짝 역방향 당김 */
+  100% { transform: rotateY(2700deg); }  /* 최종 공개 (7.5회전 = 뒷면 정면) */
 }
 
 .anim-up   { animation: fadeUp .6s var(--spring) both; }

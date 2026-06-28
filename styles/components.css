@@ -108,7 +108,7 @@
 .tabbar {
   position: relative; z-index: 20;
   margin: 0 12px;
-  margin-bottom: calc(var(--safe-bottom) + 10px);
+  margin-bottom: max(var(--safe-bottom), 12px);
   border-radius: 26px;
   background: rgba(18,18,20,.75);
   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);

@@ -18,26 +18,26 @@ export const state = {
   roleConfirmed: false,
 };
 
-const STORAGE_KEY = 'sr_player';
+// 이름별 팀·역할 배정 저장소 — 같은 이름으로 재입장 시 재추첨 없이 복원
+// (추후 Firebase 연동 시 서버 조회로 교체)
+const STORAGE_KEY = 'sr_assignments';
 
-export function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    name:          state.name,
-    team:          state.team,
-    role:          state.role,
-    cardFlipped:   state.cardFlipped,
-    roleFlipped:   state.roleFlipped,
-    roleConfirmed: state.roleConfirmed,
-  }));
+function readAll() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
 }
 
-export function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const saved = JSON.parse(raw);
-    if (!saved.name || !saved.team || !saved.role) return false;
-    Object.assign(state, saved);
-    return true;
-  } catch { return false; }
+// 현재 state.name 의 팀·역할을 이름에 묶어 저장
+export function saveState() {
+  if (!state.name) return;
+  const all = readAll();
+  all[state.name] = { team: state.team, role: state.role };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+}
+
+// 해당 이름에 이미 배정된 팀·역할이 있으면 반환, 없으면 null
+export function getAssignment(name) {
+  const saved = readAll()[name];
+  if (saved && saved.team && saved.role) return saved;
+  return null;
 }

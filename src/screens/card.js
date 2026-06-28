@@ -1,4 +1,4 @@
-import { state, saveState } from '../state.js';
+import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { applyTeamTheme } from '../utils/theme.js';
 import { prepareRoleScreen } from './role.js';
@@ -125,7 +125,6 @@ function flipCard() {
   inner.addEventListener('animationend', () => {
     inner.classList.add('flipped');
     state.cardFlipped = true;
-    saveState();
 
     // 스핀 멈춘 후 뒷면 내용 채우기
     const back    = document.getElementById('card-back');

@@ -1,4 +1,4 @@
-import { state, ROLES, saveState } from '../state.js';
+import { state, ROLES } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { initPhase } from '../utils/phase.js';
 import { prepareWaiting } from './waiting.js';
@@ -95,7 +95,6 @@ export function init() {
   document.getElementById('role-confirm-btn').addEventListener('click', () => {
     initPhase();
     state.roleConfirmed = true;
-    saveState();
     prepareWaiting();
     goToScreen('s-waiting');
   });
@@ -146,7 +145,6 @@ function flipRoleCard() {
 
   inner.addEventListener('animationend', () => {
     inner.classList.add('flipped');
-    saveState();
 
     // 스핀 멈춘 후 뒷면 내용 채우기
     const r        = ROLES[state.role];

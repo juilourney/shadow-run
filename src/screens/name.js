@@ -1,4 +1,4 @@
-import { state, SPECIAL_ROLES, saveState } from '../state.js';
+import { state, SPECIAL_ROLES, saveState, getAssignment } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareCard } from './card.js';
 
@@ -96,13 +96,22 @@ function enterGame() {
   if (!name) { input.focus(); input.style.borderColor = 'rgba(251,113,133,.6)'; return; }
   input.style.borderColor = '';
   state.name = name;
-  state.team = Math.random() < .5 ? 'pacer' : 'ghost';
-  // TODO: 실제 배포 시 서버 배정으로 교체
-  state.role = SPECIAL_ROLES[Math.floor(Math.random() * SPECIAL_ROLES.length)];
+
+  // 같은 이름으로 이미 배정된 적이 있으면 재추첨 없이 복원
+  const prev = getAssignment(name);
+  if (prev) {
+    state.team = prev.team;
+    state.role = prev.role;
+  } else {
+    state.team = Math.random() < .5 ? 'pacer' : 'ghost';
+    // TODO: 실제 배포 시 서버 배정으로 교체
+    state.role = SPECIAL_ROLES[Math.floor(Math.random() * SPECIAL_ROLES.length)];
+    saveState();
+  }
+
   state.cardFlipped = false;
   state.roleFlipped = false;
   state.roleConfirmed = false;
-  saveState();
   prepareCard();
   goToScreen('s-card');
 }

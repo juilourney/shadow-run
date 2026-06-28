@@ -1,9 +1,7 @@
-import { goToScreen, syncTabbar } from './utils/nav.js';
-import { loadState, state } from './state.js';
-import { applyTeamTheme } from './utils/theme.js';
+import { goToScreen } from './utils/nav.js';
 import { render as renderName, init as initName }               from './screens/name.js';
-import { render as renderCard, init as initCard, prepareCard }  from './screens/card.js';
-import { render as renderRole, init as initRole, prepareRoleScreen } from './screens/role.js';
+import { render as renderCard, init as initCard }              from './screens/card.js';
+import { render as renderRole, init as initRole }              from './screens/role.js';
 import { render as renderDash, init as initDash }               from './screens/dash.js';
 import { render as renderBolt, init as initBolt }               from './screens/bolt.js';
 import { render as renderBoltJoin, init as initBoltJoin }       from './screens/bolt-join.js';
@@ -14,7 +12,7 @@ import { render as renderVote, init as initVote }               from './screens/
 import { render as renderMembers, init as initMembers }         from './screens/members.js';
 import { render as renderGuide, init as initGuide }             from './screens/guide.js';
 import { render as renderSettings, init as initSettings }       from './screens/settings.js';
-import { render as renderWaiting, init as initWaiting, prepareWaiting } from './screens/waiting.js';
+import { render as renderWaiting, init as initWaiting }         from './screens/waiting.js';
 
 document.getElementById('app').innerHTML =
   renderName() +
@@ -64,25 +62,3 @@ tabbarEl.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => goToScreen(TAB_SCREEN_MAP[tab.dataset.tab]));
 });
 document.getElementById('app').appendChild(tabbarEl);
-
-// 저장된 상태 복원 — 새로고침 시 이미 배정된 팀·역할 유지
-if (loadState()) {
-  applyTeamTheme(state.team);
-  if (state.roleConfirmed) {
-    // 역할까지 확인 완료 → 대기 화면
-    prepareWaiting();
-    goToScreen('s-waiting');
-  } else if (state.roleFlipped) {
-    // 역할 공개됐지만 시작하기 미클릭 → 역할 화면 (이미 뒤집힌 상태)
-    prepareRoleScreen();
-    goToScreen('s-role');
-  } else if (state.cardFlipped) {
-    // 팀만 공개 → 역할 배정 화면으로
-    prepareRoleScreen();
-    goToScreen('s-role');
-  } else {
-    // 이름·팀·역할 배정됐지만 카드 미공개 → 카드 화면
-    prepareCard();
-    goToScreen('s-card');
-  }
-}

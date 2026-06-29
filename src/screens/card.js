@@ -48,18 +48,16 @@ export function render() {
           <p id="card-team-name" style="font-family:'Space Grotesk'; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1;"></p>
           <div style="width:36px; height:1.5px; border-radius:99px;" id="card-divider"></div>
           <p id="card-team-desc" style="font-size:13px; text-align:center; padding:0 24px; line-height:1.6; opacity:.65;"></p>
+          <p id="card-continue-hint"
+            style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+              margin-top:6px; opacity:0; transition:opacity .5s var(--spring);">
+            탭하여 계속
+          </p>
         </div>
 
       </div>
     </div>
 
-    <div style="width:100%; text-align:center; height:20px;">
-      <p id="card-continue-hint"
-        style="font-size:13px; letter-spacing:.04em; color:#52525b; font-weight:600;
-          opacity:0; transition:opacity .5s var(--spring);">
-        탭하여 계속
-      </p>
-    </div>
 
   </div>
 </div>`;
@@ -136,6 +134,7 @@ function flipCard() {
     const nameEl  = document.getElementById('card-team-name');
     const divider = document.getElementById('card-divider');
     const desc    = document.getElementById('card-team-desc');
+    const hint    = document.getElementById('card-continue-hint');
 
     if (isPacer) {
       back.style.background    = 'linear-gradient(160deg, rgba(56,189,248,.20) 0%, rgba(14,165,233,.06) 100%)';
@@ -145,6 +144,7 @@ function flipCard() {
       nameEl.style.color       = '#38bdf8';
       divider.style.background = '#38bdf8';
       desc.style.color         = 'rgba(125,211,252,.65)';
+      hint.style.color         = 'rgba(125,211,252,.6)';
       nameEl.textContent       = '페이서';
       desc.textContent         = '번개를 달려 게이지를\n오른쪽으로 당겨라';
     } else {
@@ -155,6 +155,7 @@ function flipCard() {
       nameEl.style.color       = '#c084fc';
       divider.style.background = '#c084fc';
       desc.style.color         = 'rgba(216,180,254,.65)';
+      hint.style.color         = 'rgba(216,180,254,.6)';
       nameEl.textContent       = '고스트';
       desc.textContent         = '보이지 않게 달려 게이지를\n왼쪽으로 당겨라';
     }
@@ -162,7 +163,7 @@ function flipCard() {
 
     setTimeout(() => {
       revealComplete = true;
-      document.getElementById('card-continue-hint').style.opacity = '1';
+      hint.style.opacity = '1';
     }, 300);
   }, { once: true });
 }

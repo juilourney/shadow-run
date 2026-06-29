@@ -61,6 +61,11 @@ export function render() {
           <p id="role-card-name" style="font-family:'Space Grotesk'; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1;"></p>
           <div style="width:36px; height:1.5px; border-radius:99px;" id="role-card-divider"></div>
           <p id="role-card-sub" style="font-size:13px; text-align:center; padding:0 24px; line-height:1.6; opacity:.65;"></p>
+          <p id="role-continue-hint"
+            style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+              margin-top:6px; opacity:0; transition:opacity .45s .12s var(--spring);">
+            탭하여 계속
+          </p>
         </div>
 
       </div>
@@ -78,11 +83,6 @@ export function render() {
         </div>
       </div>
 
-      <p id="role-continue-hint"
-        style="font-size:13px; letter-spacing:.04em; color:#52525b; font-weight:600; text-align:center;
-          opacity:0; transition:opacity .45s .12s var(--spring);">
-        탭하여 계속
-      </p>
 
     </div>
   </div>
@@ -131,7 +131,9 @@ export function prepareRoleScreen() {
   descEl.style.maxHeight     = '0';
   descEl.style.opacity       = '0';
   descEl.style.pointerEvents = 'none';
-  document.getElementById('role-continue-hint').style.opacity = '0';
+  const hint = document.getElementById('role-continue-hint');
+  hint.style.opacity = '0';
+  hint.style.color   = '';
 
   const n = state.name;
   document.getElementById('settings-name').textContent      = n || '참가자';
@@ -159,6 +161,7 @@ function flipRoleCard() {
     const divider  = document.getElementById('role-card-divider');
     const sub      = document.getElementById('role-card-sub');
 
+    const hint = document.getElementById('role-continue-hint');
     if (isRunner) {
       back.style.background    = 'rgba(255,255,255,.04)';
       back.style.border        = '1px solid rgba(255,255,255,.09)';
@@ -167,6 +170,7 @@ function flipRoleCard() {
       nameEl.style.color       = '#fafafa';
       divider.style.background = 'rgba(255,255,255,.2)';
       sub.style.color          = 'rgba(255,255,255,.4)';
+      hint.style.color         = 'rgba(255,255,255,.5)';
     } else {
       back.style.background    = 'var(--accent-tint)';
       back.style.border        = '1px solid var(--accent-border)';
@@ -175,6 +179,7 @@ function flipRoleCard() {
       nameEl.style.color       = 'var(--accent)';
       divider.style.background = 'var(--accent)';
       sub.style.color          = 'var(--accent)';
+      hint.style.color         = 'var(--accent)';
     }
     label.textContent  = 'YOUR ROLE';
     nameEl.textContent = r.name;
@@ -189,7 +194,7 @@ function flipRoleCard() {
       descEl.style.opacity       = '1';
       descEl.style.pointerEvents = 'auto';
       revealComplete = true;
-      document.getElementById('role-continue-hint').style.opacity = '1';
+      hint.style.opacity = isRunner ? '1' : '0.55';
     }, 300);
   }, { once: true });
 }

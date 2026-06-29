@@ -184,10 +184,10 @@ function flipRoleCard() {
       const btnEl  = document.getElementById('role-confirm-btn');
       descEl.style.maxHeight     = descEl.scrollHeight + 'px';
       descEl.style.opacity       = '1';
-      descEl.style.pointerEvents = 'all';
+      descEl.style.pointerEvents = 'auto';
       btnEl.style.opacity        = '1';
       btnEl.style.transform      = 'translateY(0)';
-      btnEl.style.pointerEvents  = 'all';
+      btnEl.style.pointerEvents  = 'auto';
     }, 300);
   }, { once: true });
 }

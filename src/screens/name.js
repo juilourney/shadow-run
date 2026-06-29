@@ -73,7 +73,7 @@ export function render() {
     </div>
 
     <button class="btn btn-primary anim-up-4"
-      style="width:100%; height:56px; margin-top:14px; font-size:16px; border-radius:18px;
+      style="width:100%; height:56px; margin-top:auto; font-size:16px; border-radius:18px;
         background:linear-gradient(135deg, #0ea5e9, #7c3aed);
         box-shadow: 0 10px 36px -8px rgba(100,100,240,.45), inset 0 1px 0 rgba(255,255,255,.2);"
       id="enter-btn">

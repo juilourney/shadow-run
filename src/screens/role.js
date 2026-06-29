@@ -19,7 +19,7 @@ export function render() {
   </div>
 
   <div class="scroll-body" style="position:relative; z-index:2;
-    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32px;
     padding:calc(var(--safe-top) + 20px) 26px 30px;">
 
     <div class="anim-up" style="text-align:center; padding-top:12px; width:100%;">

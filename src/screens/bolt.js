@@ -67,7 +67,7 @@ export function render() {
   return `
 <div class="screen" id="s-bolt">
   <!-- 번개 목록 뷰 -->
-  <div id="bolt-list-view" class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 120px)">
+  <div id="bolt-list-view" class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 24px)">
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">번개</h2>
@@ -288,7 +288,7 @@ function showToast(msg) {
   toast.id = 'bolt-toast';
   toast.textContent = msg;
   toast.style.cssText = `
-    position:absolute; bottom:calc(var(--safe-bottom) + 90px); left:18px; right:18px;
+    position:absolute; bottom:calc(var(--safe-bottom) + 20px); left:18px; right:18px;
     background:#1c1c1e; border:1px solid rgba(255,255,255,.1); border-radius:14px;
     padding:14px 16px; font-size:13px; color:#a1a1aa; text-align:center;
     z-index:100; animation:fadeUp .3s var(--spring);

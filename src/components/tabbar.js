@@ -40,10 +40,5 @@ export function createTabbar(mount) {
     }
   }, { capture: false });
 
-  // 상단 타이틀바
-  const titleEl = document.createElement('div');
-  titleEl.id = 'screen-title';
-  mount.appendChild(titleEl);
-
   return tabbar;
 }

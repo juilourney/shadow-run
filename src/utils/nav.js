@@ -1,8 +1,11 @@
 let currentScreen = 's-name';
 
-const TAB_SCREENS = new Set(['s-dash', 's-bolt', 's-vote', 's-members', 's-guide', 's-settings']);
-const SCREEN_TAB   = { 's-dash': 'home', 's-bolt': 'bolt', 's-vote': 'vote', 's-members': 'members', 's-guide': 'guide', 's-settings': 'guide' };
-const SCREEN_TITLE = { 's-dash': '홈', 's-bolt': '번개', 's-vote': '투표', 's-members': '참가자', 's-guide': '가이드', 's-settings': '설정' };
+const TAB_SCREENS = new Set(['s-dash', 's-bolt', 's-vote', 's-members', 's-guide', 's-settings', 's-waiting']);
+const SCREEN_TAB  = {
+  's-dash': 'home', 's-bolt': 'bolt', 's-vote': 'vote',
+  's-members': 'members', 's-guide': 'guide', 's-settings': 'guide',
+  's-waiting': 'home',
+};
 
 export function goToScreen(id) {
   const prev = document.getElementById(currentScreen);
@@ -19,17 +22,14 @@ export function goToScreen(id) {
 }
 
 export function syncTabbar(id) {
-  const tb    = document.getElementById('global-tabbar');
-  const title = document.getElementById('screen-title');
+  const tb = document.getElementById('global-tabbar');
   if (!tb) return;
   if (TAB_SCREENS.has(id)) {
     tb.style.display = 'flex';
-    if (title) { title.textContent = SCREEN_TITLE[id] || ''; title.style.display = 'flex'; }
     tb.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
     const active = tb.querySelector(`[data-tab="${SCREEN_TAB[id]}"]`);
     if (active) active.classList.add('on');
   } else {
     tb.style.display = 'none';
-    if (title) title.style.display = 'none';
   }
 }

@@ -45,7 +45,7 @@ export function render() {
 <div class="screen" id="s-members">
 
 
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 88px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 24px)">
 
     <!-- 헤더 -->
     <div class="anim-up" style="margin-bottom:14px; display:flex; align-items:center; justify-content:space-between">
@@ -253,7 +253,7 @@ function showInfoToast(msg) {
   const el = document.createElement('div');
   el.textContent = msg;
   el.style.cssText = `
-    position:fixed; bottom:calc(var(--safe-bottom) + 96px); left:50%; transform:translateX(-50%);
+    position:fixed; bottom:calc(var(--safe-bottom) + 20px); left:50%; transform:translateX(-50%);
     background:#1c1c1e; border:1px solid rgba(255,255,255,.12); color:#e4e4e7;
     font-size:13px; padding:10px 18px; border-radius:14px; z-index:9999;
     white-space:nowrap; max-width:90vw; white-space:normal; text-align:center;

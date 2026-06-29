@@ -77,7 +77,7 @@ export function render() {
   return `
 <div class="screen" id="s-vote">
   <!-- 투표 컨텐츠 -->
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 88px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 24px)">
 
     <!-- 상단 정보 카드 -->
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px">
@@ -334,7 +334,7 @@ function showTooltip(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.style.cssText = `
-    position:absolute; bottom:calc(var(--safe-bottom) + 90px); left:18px; right:18px;
+    position:absolute; bottom:calc(var(--safe-bottom) + 20px); left:18px; right:18px;
     background:#1c1c1e; border:1px solid rgba(251,113,133,.25); border-radius:14px;
     padding:14px 16px; font-size:13px; color:#fb7185; text-align:center;
     z-index:35; animation:fadeUp .3s var(--spring);

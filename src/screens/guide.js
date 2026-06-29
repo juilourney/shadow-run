@@ -36,7 +36,7 @@ function para(text) {
 export function render() {
   return `
 <div class="screen" id="s-guide">
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 24px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 40px">
 
     <div class="anim-up" style="padding-top:4px; margin-bottom:20px;">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">가이드</h2>

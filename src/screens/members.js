@@ -45,7 +45,7 @@ export function render() {
 <div class="screen" id="s-members">
 
 
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 24px)">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 40px">
 
     <!-- 헤더 -->
     <div class="anim-up" style="margin-bottom:14px; display:flex; align-items:center; justify-content:space-between">

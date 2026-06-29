@@ -82,7 +82,8 @@ body::after {
 ═══════════════════════════════════════ */
 .pt-safe { padding-top: calc(var(--safe-top) + 54px); }
 .pb-safe { padding-bottom: calc(var(--safe-bottom) + 36px); }
-.pb-tab  { padding-bottom: calc(var(--safe-bottom) + 32px); }
+/* 관리앱 패턴: 하단 safe-area를 더하지 않고 고정값 — 콘텐츠가 인디케이터까지 자연스럽게 확장 */
+.pb-tab  { padding-bottom: 40px; }
 
 /* ── 하단 그라데이션 블러 (인스타 스타일 자연스러운 페이드 엣지) ── */
 .bottom-fade-blur {

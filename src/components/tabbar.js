@@ -16,29 +16,36 @@ export function createTabbar(mount) {
   tabbar.className = 'tabbar';
   tabbar.style.display = 'none';
   tabbar.innerHTML = TAB_MARKUP;
+  mount.appendChild(tabbar);
 
-  // 탭 선택: 화면 이동 후 즉시 닫힘
+  // 볼록한 손잡이 — 평소엔 이것만 보이고, 누르면 탭바가 나옴
+  const handle = document.createElement('div');
+  handle.id = 'tabbar-handle';
+  handle.style.display = 'none';
+  handle.innerHTML = '<span class="handle-grip"></span>';
+  mount.appendChild(handle);
+
+  const open  = () => { tabbar.classList.add('open');    handle.classList.add('hidden'); };
+  const close = () => { tabbar.classList.remove('open'); handle.classList.remove('hidden'); };
+
+  // 손잡이 터치 → 탭바 펼침
+  handle.addEventListener('click', e => { e.stopPropagation(); open(); });
+
+  // 탭 선택 → 화면 이동 후 즉시 닫힘
   tabbar.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', e => {
       e.stopPropagation();
       goToScreen(TAB_SCREEN_MAP[tab.dataset.tab]);
-      tabbar.classList.remove('open');
+      close();
     });
   });
 
-  // 탭바 본체 클릭(탭 외 영역 또는 peek 상태): 토글
-  tabbar.addEventListener('click', () => {
-    tabbar.classList.toggle('open');
-  });
-
-  mount.appendChild(tabbar);
-
   // 바깥 터치 → 닫힘
   document.addEventListener('click', e => {
-    if (tabbar.classList.contains('open') && !tabbar.contains(e.target)) {
-      tabbar.classList.remove('open');
+    if (tabbar.classList.contains('open') && !tabbar.contains(e.target) && e.target !== handle) {
+      close();
     }
-  }, { capture: false });
+  });
 
   return tabbar;
 }

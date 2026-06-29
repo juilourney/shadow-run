@@ -22,14 +22,20 @@ export function goToScreen(id) {
 }
 
 export function syncTabbar(id) {
-  const tb = document.getElementById('global-tabbar');
+  const tb     = document.getElementById('global-tabbar');
+  const handle = document.getElementById('tabbar-handle');
   if (!tb) return;
+  // 화면 전환 시 항상 닫힌(손잡이) 상태로 시작
+  tb.classList.remove('open');
+  if (handle) handle.classList.remove('hidden');
   if (TAB_SCREENS.has(id)) {
     tb.style.display = 'flex';
+    if (handle) handle.style.display = 'flex';
     tb.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
     const active = tb.querySelector(`[data-tab="${SCREEN_TAB[id]}"]`);
     if (active) active.classList.add('on');
   } else {
     tb.style.display = 'none';
+    if (handle) handle.style.display = 'none';
   }
 }

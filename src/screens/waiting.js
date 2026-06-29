@@ -186,52 +186,49 @@ export function render() {
     ${guideContent}
   </div>
 
-  <!-- 내부 탭바 (홈·참가자·가이드만) - 하단 플로팅 스타일 적용 -->
+  <!-- 내부 탭바 (홈·참가자·가이드만) - 본게임처럼 오른쪽 사이드 스타일 적용 -->
   <style>
-    #waiting-tabbar {
-      position: absolute;
-      bottom: calc(var(--safe-bottom) + 12px);
-      left: 18px; right: 18px;
-      height: 64px;
-      background: var(--tb-bg, rgba(16, 16, 20, 0.65));
-      backdrop-filter: blur(32px) saturate(200%);
-      -webkit-backdrop-filter: blur(32px) saturate(200%);
-      border: 1px solid var(--tb-border-side, rgba(255,255,255,0.08));
-      border-radius: 20px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-around;
-      z-index: 50;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-      transform: none; /* override right-side peek defaults */
-      opacity: 1; pointer-events: auto;
+    #waiting-tabbar-handle {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 60px; z-index: 51; border-radius: 40px 0 0 40px; cursor: pointer;
+      background: var(--tb-bg);
+      backdrop-filter: blur(var(--tb-blur)) saturate(var(--tb-saturate)) brightness(var(--tb-brightness));
+      -webkit-backdrop-filter: blur(var(--tb-blur)) saturate(var(--tb-saturate)) brightness(var(--tb-brightness));
+      border: 1px solid var(--tb-border-side); border-right: none;
+      box-shadow: -4px 0 14px rgba(0, 0, 0, 0.40), inset 1px 0 0 var(--tb-border-top);
+      display: flex; align-items: center; justify-content: center; transition: all 0.25s var(--spring);
     }
-    #waiting-tabbar .tab {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-      color: rgba(255,255,255,0.35); font-size: 11px; font-weight: 600;
-    }
-    #waiting-tabbar .tab.on { color: var(--accent); }
-    #waiting-tabbar .tab-icon { margin-bottom: 2px; }
+    #waiting-tabbar-handle:active { transform: translateY(-50%) scale(0.94); }
+    #waiting-tabbar-handle.hidden { opacity: 0; transform: translateY(-50%) translateX(12px); pointer-events: none; }
+    
+    #waiting-tabbar { z-index: 50; }
   </style>
-  <div id="waiting-tabbar">
-    <div class="tab on" id="wtab-home">
-      <div class="tab-icon"><span class="ti-home-dot"></span></div><span>홈</span>
-    </div>
-    <div class="tab" id="wtab-members">
-      <div class="tab-icon"><span class="ti-users"></span></div><span>참가자</span>
-    </div>
-    <div class="tab" id="wtab-guide">
-      <div class="tab-icon"><span class="ti-book"></span></div><span>가이드</span>
-    </div>
+  <div id="waiting-tabbar-handle"><span class="handle-grip"></span></div>
+  <div id="waiting-tabbar" class="tabbar">
+    <div class="tab on" id="wtab-home"><div class="tab-icon"><span class="ti-home-dot"></span></div></div>
+    <div class="tab" id="wtab-members"><div class="tab-icon"><span class="ti-users"></span></div></div>
+    <div class="tab" id="wtab-guide"><div class="tab-icon"><span class="ti-book"></span></div></div>
   </div>
-
 </div>`;
 }
 
 export function init() {
   document.getElementById('waiting-start-sim').addEventListener('click', () => {
     goToScreen('s-dash');
+  });
+
+  const tb = document.getElementById('waiting-tabbar');
+  const handle = document.getElementById('waiting-tabbar-handle');
+
+  const open  = () => { tb.classList.add('open');    handle.classList.add('hidden'); };
+  const close = () => { tb.classList.remove('open'); handle.classList.remove('hidden'); };
+
+  handle.addEventListener('click', e => { e.stopPropagation(); open(); });
+
+  document.addEventListener('click', e => {
+    if (tb.classList.contains('open') && !tb.contains(e.target) && e.target !== handle) {
+      close();
+    }
   });
 
   // 내부 탭 전환
@@ -242,13 +239,15 @@ export function init() {
   ];
 
   tabs.forEach(({ tab, panel }) => {
-    document.getElementById(tab).addEventListener('click', () => {
+    document.getElementById(tab).addEventListener('click', e => {
+      e.stopPropagation();
       tabs.forEach(t => {
         document.getElementById(t.tab).classList.remove('on');
         document.getElementById(t.panel).style.display = 'none';
       });
       document.getElementById(tab).classList.add('on');
       document.getElementById(panel).style.display = 'block';
+      close();
     });
   });
 }

@@ -83,7 +83,7 @@ body::after {
 ═══════════════════════════════════════ */
 .pt-safe { padding-top: calc(var(--safe-top) + 54px); }
 .pb-safe { padding-bottom: calc(var(--safe-bottom) + 36px); }
-.pb-tab  { padding-bottom: calc(var(--safe-bottom) + 64px + 10px + 16px); }
+.pb-tab  { padding-bottom: calc(var(--safe-bottom) + 32px); }
 
 /* ── 하단 그라데이션 블러 (인스타 스타일 자연스러운 페이드 엣지) ── */
 .bottom-fade-blur {

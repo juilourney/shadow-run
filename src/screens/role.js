@@ -5,7 +5,7 @@ import { prepareWaiting } from './waiting.js';
 
 export function render() {
   return `
-<div class="screen" id="s-role" style="background:#050505; overflow:hidden;">
+<div class="screen" id="s-role" style="overflow:hidden;">
 
   <div style="position:absolute; inset:0; pointer-events:none;">
     <div style="position:absolute; bottom:-15%; right:-20%; width:70%; aspect-ratio:1;

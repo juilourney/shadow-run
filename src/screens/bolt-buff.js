@@ -14,7 +14,7 @@ const SINGLE_TEAM_SKILLS = [
 
 export function render() {
   return `
-<div class="screen" id="s-bolt-buff" style="background:#050505; overflow:hidden;">
+<div class="screen" id="s-bolt-buff" style="overflow:hidden;">
 
   <div style="position:absolute; inset:0; pointer-events:none;">
     <div id="buff-orb" style="position:absolute; top:-10%; left:50%; transform:translateX(-50%); width:80%; aspect-ratio:1;

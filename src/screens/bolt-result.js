@@ -2,7 +2,7 @@ import { goToScreen } from '../utils/nav.js';
 
 export function render() {
   return `
-<div class="screen" id="s-bolt-result" style="background:#050505; overflow:hidden;">
+<div class="screen" id="s-bolt-result" style="overflow:hidden;">
 
   <div style="position:absolute; inset:0; pointer-events:none;">
     <div style="position:absolute; bottom:-10%; left:50%; transform:translateX(-50%); width:90%; aspect-ratio:1;

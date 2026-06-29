@@ -4,7 +4,7 @@ import { prepareCard } from './card.js';
 
 export function render() {
   return `
-<div class="screen active" id="s-name" style="background:#050505; overflow:hidden;">
+<div class="screen active" id="s-name" style="overflow:hidden;">
 
   <div style="position:absolute; inset:0; pointer-events:none; overflow:hidden;">
     <div style="position:absolute; top:-18%; left:-20%; width:70%; aspect-ratio:1;

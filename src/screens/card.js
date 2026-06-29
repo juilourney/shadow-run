@@ -5,7 +5,7 @@ import { prepareRoleScreen } from './role.js';
 
 export function render() {
   return `
-<div class="screen" id="s-card" style="background:#050505; overflow:hidden;">
+<div class="screen" id="s-card" style="overflow:hidden;">
 
   <div id="card-bg-orb" style="position:absolute; inset:0; pointer-events:none; transition:opacity 1.2s var(--spring); opacity:0;">
     <div id="card-orb-a" style="position:absolute; top:-20%; left:-15%; width:75%; aspect-ratio:1; border-radius:50%; filter:blur(50px); transition:background 1s;"></div>

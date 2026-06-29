@@ -114,7 +114,7 @@ const guideContent = `
 
 export function render() {
   return `
-<div class="screen" id="s-waiting" style="background:#050505;">
+<div class="screen" id="s-waiting" >
 
   <!-- 홈 패널 -->
   <div id="wpanel-home" class="scroll-body"

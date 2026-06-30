@@ -3,13 +3,19 @@
 ═══════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 * { word-break: keep-all; -webkit-tap-highlight-color: transparent; }
-html { background: var(--ink); }
+html {
+  background: var(--ink);
+  overflow: hidden;
+  height: 100%;
+}
 body {
   font-family: 'Pretendard', system-ui, sans-serif;
   font-size: 16px;
   color: #fafafa;
   background: #050505;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100%;
 }
 .num { font-family: 'Space Grotesk', sans-serif; font-feature-settings: 'tnum'; }
 

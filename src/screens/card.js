@@ -12,7 +12,7 @@ export function render() {
     <div id="card-orb-b" style="position:absolute; bottom:-15%; right:-15%; width:65%; aspect-ratio:1; border-radius:50%; filter:blur(50px); transition:background 1s;"></div>
   </div>
 
-  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:36px; padding:calc(var(--safe-top) + 20px) 26px 30px;">
+  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:36px; padding:calc(var(--safe-top) + 20px) 26px env(safe-area-inset-bottom, 30px);">
 
     <div class="anim-up" style="text-align:center; padding-top:12px; width:100%;">
       <p style="font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#3f3f46;">TEAM ASSIGNMENT</p>

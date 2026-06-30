@@ -23,7 +23,7 @@ export function render() {
       filter:blur(50px);"></div>
   </div>
 
-  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:calc(var(--safe-top) + 20px) 26px 30px;">
+  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:calc(var(--safe-top) + 20px) 26px env(safe-area-inset-bottom, 30px);">
 
     <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-top:12px; padding-bottom:28px; min-height:0;">
 

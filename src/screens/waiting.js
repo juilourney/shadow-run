@@ -110,7 +110,7 @@ export function render() {
   <!-- 홈 패널 -->
   <div id="wpanel-home" class="scroll-body"
     style="position:absolute; inset:0;
-      padding:calc(var(--safe-top) + 16px) 18px 40px;">
+      padding:calc(var(--safe-top) + 16px) 18px env(safe-area-inset-bottom, 40px);">
 
     <div style="margin-bottom:20px;">
       <p style="font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:700;
@@ -152,7 +152,7 @@ export function render() {
   <!-- 참가자 패널 -->
   <div id="wpanel-members" class="scroll-body"
     style="position:absolute; inset:0; display:none;
-      padding:calc(var(--safe-top) + 16px) 18px 40px;">
+      padding:calc(var(--safe-top) + 16px) 18px env(safe-area-inset-bottom, 40px);">
 
     <div style="margin-bottom:16px;">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">참가자</h2>
@@ -167,7 +167,7 @@ export function render() {
   <!-- 가이드 패널 -->
   <div id="wpanel-guide" class="scroll-body"
     style="position:absolute; inset:0; display:none;
-      padding:calc(var(--safe-top) + 16px) 18px 40px;">
+      padding:calc(var(--safe-top) + 16px) 18px env(safe-area-inset-bottom, 40px);">
 
     <div style="margin-bottom:16px;">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">가이드</h2>

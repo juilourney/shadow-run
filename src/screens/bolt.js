@@ -1,50 +1,15 @@
 import { goToScreen } from '../utils/nav.js';
+import { subscribe, getBolts, getJoinedBoltId,
+         createBolt as storeCreateBolt, joinBolt as storeJoinBolt, leaveBolt } from '../store.js';
 
-let selectedBolt = null;
-let joinedBoltId = null;
-
-const BOLTS = [
-  {
-    id: 'b1',
-    title: '한강 새벽 LSD',
-    place: '반포 잠수교',
-    distance: 8,
-    pace: '5:30/km',
-    time: '오늘 05:30',
-    host: '김민수',
-    count: 2,
-    max: 4,
-    locked: false,
-  },
-  {
-    id: 'b2',
-    title: '강남역 번개',
-    place: '강남역 11번 출구',
-    distance: 5,
-    pace: '6:00/km',
-    time: '오늘 19:00',
-    host: '이서연',
-    count: 1,
-    max: 4,
-    locked: false,
-  },
-  {
-    id: 'b3',
-    title: '비밀 작전조',
-    place: '탄천',
-    distance: 10,
-    pace: '미공개',
-    time: '내일 07:00',
-    host: '서준',
-    count: 3,
-    max: 4,
-    locked: true,
-  },
-];
+let selectedBolt = null; // 참여 확인 시트용 임시 선택
 
 function boltCard(bolt, animClass) {
   const lockedPrefix = bolt.locked
     ? `<span style="font-size:13px; margin-right:4px">🔒</span>` : '';
+  const joinedChip = bolt.joined
+    ? `<span style="font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); border-radius:8px; padding:2px 8px;">${bolt.isHost ? '방장' : '참여중'}</span>`
+    : '';
   return `
   <div class="bezel ${animClass}" id="bolt-card-${bolt.id}"
     style="padding:16px 18px; border-radius:22px; cursor:pointer;${bolt.locked ? ' opacity:.55;' : ''}">
@@ -54,9 +19,9 @@ function boltCard(bolt, animClass) {
     </div>
     <p style="font-size:12px; color:#52525b; margin-top:5px">${bolt.place} · ${bolt.distance.toFixed(1)}km · ${bolt.pace}</p>
     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px">
-      <p style="font-size:12px; color:#52525b">방장 · ${bolt.host}</p>
+      <p style="font-size:12px; color:#52525b">방장 · ${bolt.hostName}</p>
       <div style="display:flex; align-items:center; gap:8px">
-        <span id="joined-chip-${bolt.id}" style="display:none; font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); border-radius:8px; padding:2px 8px;">참여중</span>
+        ${joinedChip}
         <span class="num" style="font-size:12px; color:#52525b">${bolt.count}/${bolt.max}명</span>
       </div>
     </div>
@@ -71,7 +36,7 @@ export function render() {
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">번개</h2>
-        <p style="font-size:12px; color:#52525b; margin-top:2px">진행 중인 번개 3</p>
+        <p id="bolt-count-label" style="font-size:12px; color:#52525b; margin-top:2px">진행 중인 번개</p>
       </div>
       <button id="bolt-create-btn"
         style="background:var(--accent-tint); border:1px solid var(--accent-border); color:var(--accent);
@@ -80,11 +45,7 @@ export function render() {
         ⚡ 번개 만들기
       </button>
     </div>
-    <div style="display:flex; flex-direction:column; gap:10px">
-      ${boltCard(BOLTS[0], 'anim-up-1')}
-      ${boltCard(BOLTS[1], 'anim-up-2')}
-      ${boltCard(BOLTS[2], 'anim-up-3')}
-    </div>
+    <div id="bolt-cards" style="display:flex; flex-direction:column; gap:10px"></div>
   </div>
 
   <!-- 번개 생성 패널 (오른쪽 → 왼쪽 슬라이드) -->
@@ -210,66 +171,83 @@ export function render() {
 
 export function init() {
   document.getElementById('bolt-create-btn').addEventListener('click', () => {
-    if (joinedBoltId) { showToast('참여 중인 번개가 있으면 새 번개를 만들 수 없습니다'); return; }
+    if (getJoinedBoltId()) { showToast('참여 중인 번개가 있으면 새 번개를 만들 수 없습니다'); return; }
     openCreateOverlay();
   });
   document.getElementById('bolt-create-close').addEventListener('click', closeCreateOverlay);
 
-  document.getElementById('create-submit-btn').addEventListener('click', () => {
+  document.getElementById('create-submit-btn').addEventListener('click', async () => {
     const title = document.getElementById('create-title').value.trim();
     if (!title) { document.getElementById('create-title').focus(); return; }
-    closeCreateOverlay();
+    const place = document.getElementById('create-place').value.trim();
+    const distance = document.getElementById('create-distance').value;
+    const pace = document.getElementById('create-pace').value.trim();
+    const time = formatBoltTime(document.getElementById('create-datetime').value);
+    try {
+      await storeCreateBolt({ title, place, distance, pace, time });
+      closeCreateOverlay();
+    } catch (e) {
+      showToast(e.message);
+    }
   });
 
   // 페이스 선택 피커
   initPacePicker();
 
-  // 번개 카드 탭
-  ['b1', 'b2'].forEach(id => {
-    document.getElementById(`bolt-card-${id}`).addEventListener('click', () => {
-      if (joinedBoltId && joinedBoltId !== id) {
-        showToast('이미 다른 번개에 참여 중입니다');
-        return;
-      }
-      if (joinedBoltId === id) {
-        goToScreen('s-bolt-join');
-        return;
-      }
-      selectedBolt = BOLTS.find(b => b.id === id);
-      openJoinOverlay(selectedBolt);
-    });
-  });
-
-  document.getElementById('bolt-card-b3').addEventListener('click', () => {
-    showToast('이미 잠긴 번개입니다.');
-  });
-
+  // 참여 확인 시트
   document.getElementById('bolt-join-backdrop').addEventListener('click', () => { closeJoinOverlay(); showSidebar(); });
   document.getElementById('join-cancel-btn').addEventListener('click',   () => { closeJoinOverlay(); showSidebar(); });
-  document.getElementById('join-confirm-btn').addEventListener('click', () => {
-    joinedBoltId = selectedBolt.id;
-    markJoined(joinedBoltId);
-    closeJoinOverlay(); // sidebar는 goToScreen('s-bolt-join')이 숨김 처리
-    setTimeout(() => goToScreen('s-bolt-join'), 300);
+  document.getElementById('join-confirm-btn').addEventListener('click', async () => {
+    try {
+      await storeJoinBolt(selectedBolt.id);
+      closeJoinOverlay(); // sidebar는 goToScreen('s-bolt-join')이 숨김 처리
+      setTimeout(() => goToScreen('s-bolt-join'), 300);
+    } catch (e) {
+      closeJoinOverlay(); showSidebar();
+      showToast(e.message);
+    }
   });
 
   document.getElementById('progress-result-btn').addEventListener('click', () => {
     goToScreen('s-bolt-result');
   });
+
+  renderBoltList();
+  subscribe(renderBoltList);
 }
 
-// 참여 취소 시 외부에서 호출
-export function cancelJoin() {
-  if (joinedBoltId) {
-    const chip = document.getElementById(`joined-chip-${joinedBoltId}`);
-    if (chip) chip.style.display = 'none';
-    joinedBoltId = null;
-  }
+// store 기준으로 번개 목록 렌더 + 카드 탭 핸들러 부착
+function renderBoltList() {
+  const bolts = getBolts();
+  const wrap  = document.getElementById('bolt-cards');
+  if (!wrap) return;
+  wrap.innerHTML = bolts.map((b, i) => boltCard(b, `anim-up-${Math.min(i + 1, 4)}`)).join('');
+  document.getElementById('bolt-count-label').textContent = `진행 중인 번개 ${bolts.length}`;
+
+  bolts.forEach(b => {
+    document.getElementById(`bolt-card-${b.id}`).addEventListener('click', () => {
+      if (b.locked && !b.joined) { showToast('잠긴 번개입니다.'); return; }
+      const joinedId = getJoinedBoltId();
+      if (b.joined) { goToScreen('s-bolt-join'); return; }
+      if (joinedId)  { showToast('이미 다른 번개에 참여 중입니다'); return; }
+      selectedBolt = b;
+      openJoinOverlay(b);
+    });
+  });
 }
 
-function markJoined(id) {
-  const chip = document.getElementById(`joined-chip-${id}`);
-  if (chip) chip.style.display = 'inline-block';
+// 참여 취소 시 외부(bolt-join)에서 호출
+export async function cancelJoin() {
+  await leaveBolt();
+}
+
+// datetime-local 값(2026-07-05T05:30) → 'MM.DD HH:MM' 표시용 (앱 공통 날짜 스타일)
+function formatBoltTime(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // 7:00 ~ 4:00, 30초 단위

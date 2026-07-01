@@ -306,6 +306,12 @@ function showSidebar() {
 function showToast(msg) {
   const existing = document.getElementById('bolt-toast');
   if (existing) existing.remove();
+  if (!document.getElementById('toast-keyframe')) {
+    const s = document.createElement('style');
+    s.id = 'toast-keyframe';
+    s.textContent = `@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(14px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`;
+    document.head.appendChild(s);
+  }
   const toast = document.createElement('div');
   toast.id = 'bolt-toast';
   toast.textContent = msg;
@@ -314,7 +320,7 @@ function showToast(msg) {
     max-width:360px; width:calc(100% - 36px);
     background:#1c1c1e; border:1px solid rgba(255,255,255,.12); border-radius:14px;
     padding:14px 16px; font-size:13px; color:#e4e4e7; text-align:center;
-    z-index:9999; animation:fadeUp .3s var(--spring);
+    z-index:9999; animation:toastIn .3s var(--spring) both;
   `;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2500);

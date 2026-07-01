@@ -79,6 +79,11 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
 
   body.addEventListener('touchmove', e => {
     if (chaining) return;
+
+    // 내용이 화면에 다 들어오는 섹션은 네이티브 scroll-snap이 처리 →
+    // JS 체이닝을 돌리면 이중 스크롤로 튐. 실제 내부 스크롤이 있을 때만 보완.
+    if (body.scrollHeight <= body.clientHeight + 2) return;
+
     const dy = e.touches[0].clientY - startY;
     const idx = SECTION_IDS.indexOf(section.id);
     if (idx === -1) return;

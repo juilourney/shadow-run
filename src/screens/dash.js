@@ -1,4 +1,7 @@
 import { goToScreen } from '../utils/nav.js';
+import { subscribe, getGauge, getMe } from '../store.js';
+
+const fmt = n => Math.round(n).toLocaleString('en-US');
 
 export function render() {
   return `
@@ -15,27 +18,27 @@ export function render() {
         <div>
           <p style="font-size:10px; color:#a78bfa; font-weight:700; letter-spacing:.06em;">GHOST</p>
           <p class="num" style="font-size:24px; font-weight:800; color:#a78bfa; margin-top:3px; line-height:1;">
-            956<span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
+            <span id="gauge-ghost">956</span><span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
           </p>
         </div>
         <div style="text-align:center; padding-bottom:2px;">
           <p style="font-size:10px; color:#3f3f46; letter-spacing:.04em;">격차</p>
-          <p class="num" style="font-size:13px; font-weight:700; color:#38bdf8; margin-top:2px;">+292 km</p>
+          <p class="num" id="gauge-diff" style="font-size:13px; font-weight:700; color:#38bdf8; margin-top:2px;">+292 km</p>
         </div>
         <div style="text-align:right;">
           <p style="font-size:10px; color:#38bdf8; font-weight:700; letter-spacing:.06em;">PACER</p>
           <p class="num" style="font-size:24px; font-weight:800; color:#38bdf8; margin-top:3px; line-height:1;">
-            1,248<span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
+            <span id="gauge-pacer">1,248</span><span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
           </p>
         </div>
       </div>
 
       <div class="gauge-wrap">
         <div class="gauge-center"></div>
-        <div style="position:absolute; left:50%; top:0; bottom:0; border-radius:0 99px 99px 0; width:22%;
-          background:linear-gradient(90deg,#0ea5e9,#38bdf8); box-shadow:0 0 14px rgba(56,189,248,.5);"></div>
-        <div style="position:absolute; right:50%; top:0; bottom:0; border-radius:99px 0 0 99px; width:12%;
-          background:linear-gradient(270deg,#a855f7,#7c3aed); box-shadow:0 0 12px rgba(168,85,247,.45);"></div>
+        <div id="gauge-bar-pacer" style="position:absolute; left:50%; top:0; bottom:0; border-radius:0 99px 99px 0; width:22%;
+          background:linear-gradient(90deg,#0ea5e9,#38bdf8); box-shadow:0 0 14px rgba(56,189,248,.5); transition:width .6s var(--spring);"></div>
+        <div id="gauge-bar-ghost" style="position:absolute; right:50%; top:0; bottom:0; border-radius:99px 0 0 99px; width:12%;
+          background:linear-gradient(270deg,#a855f7,#7c3aed); box-shadow:0 0 12px rgba(168,85,247,.45); transition:width .6s var(--spring);"></div>
       </div>
     </div>
 
@@ -56,14 +59,14 @@ export function render() {
         <p style="font-size:11px; color:#52525b; line-height:1.4;">순수 기여<br/>
           <span style="font-size:10px; color:#3f3f46;">보너스 제외 실제 달린 거리</span></p>
         <p class="num" style="font-size:26px; font-weight:700; color:var(--accent); margin-top:8px;">
-          64<span style="font-size:13px; color:#52525b; font-weight:400;"> km</span>
+          <span id="stat-pure-km">64</span><span style="font-size:13px; color:#52525b; font-weight:400;"> km</span>
         </p>
       </div>
       <div class="bezel" style="padding:16px; border-radius:20px;">
         <p style="font-size:11px; color:#52525b; line-height:1.4;">번개 참여<br/>
           <span style="font-size:10px; color:#3f3f46;">완료한 번개 수</span></p>
         <p class="num" style="font-size:26px; font-weight:700; margin-top:8px;">
-          7<span style="font-size:13px; color:#52525b; font-weight:400;"> 회</span>
+          <span id="stat-bolts">7</span><span style="font-size:13px; color:#52525b; font-weight:400;"> 회</span>
         </p>
       </div>
     </div>
@@ -97,4 +100,27 @@ export function render() {
 </div>`;
 }
 
-export function init() {}
+export function init() {
+  renderFromStore();
+  subscribe(renderFromStore);
+}
+
+function renderFromStore() {
+  const g  = getGauge();
+  const me = getMe();
+
+  document.getElementById('gauge-ghost').textContent = fmt(g.ghost);
+  document.getElementById('gauge-pacer').textContent = fmt(g.pacer);
+
+  const diffEl = document.getElementById('gauge-diff');
+  const sign = g.diff >= 0 ? '+' : '−';
+  diffEl.textContent = `${sign}${fmt(Math.abs(g.diff))} km`;
+  diffEl.style.color = g.leader === 'ghost' ? '#a78bfa' : '#38bdf8';
+
+  // 점유율 비례 × 50% (중앙에서 뻗음)
+  document.getElementById('gauge-bar-pacer').style.width = `${(g.pacerRatio * 50).toFixed(1)}%`;
+  document.getElementById('gauge-bar-ghost').style.width = `${(g.ghostRatio * 50).toFixed(1)}%`;
+
+  document.getElementById('stat-pure-km').textContent = fmt(me.pureKm);
+  document.getElementById('stat-bolts').textContent   = me.boltsCompleted;
+}

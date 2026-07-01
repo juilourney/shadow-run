@@ -310,12 +310,13 @@ function showToast(msg) {
   toast.id = 'bolt-toast';
   toast.textContent = msg;
   toast.style.cssText = `
-    position:absolute; bottom:20px; left:18px; right:18px;
-    background:#1c1c1e; border:1px solid rgba(255,255,255,.1); border-radius:14px;
-    padding:14px 16px; font-size:13px; color:#a1a1aa; text-align:center;
-    z-index:100; animation:fadeUp .3s var(--spring);
+    position:fixed; bottom:36px; left:50%; transform:translateX(-50%);
+    max-width:360px; width:calc(100% - 36px);
+    background:#1c1c1e; border:1px solid rgba(255,255,255,.12); border-radius:14px;
+    padding:14px 16px; font-size:13px; color:#e4e4e7; text-align:center;
+    z-index:9999; animation:fadeUp .3s var(--spring);
   `;
-  document.getElementById('s-bolt').appendChild(toast);
+  document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2500);
 }
 

@@ -129,7 +129,8 @@ export function render() {
           </div>
           <div>
             <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; font-weight:600; letter-spacing:.04em;">페이스</label>
-            <input class="input" type="text" id="create-pace" placeholder="5:30/km" />
+            <input class="input" type="text" id="create-pace" placeholder="선택" readonly
+              style="cursor:pointer;" />
           </div>
         </div>
 
@@ -145,6 +146,22 @@ export function render() {
         </button>
 
       </div>
+    </div>
+  </div>
+
+  <!-- 페이스 선택 바텀시트 -->
+  <div id="pace-picker-overlay"
+    style="position:absolute; inset:0; z-index:70; display:none; align-items:flex-end;">
+    <div style="position:absolute; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(4px);" id="pace-picker-backdrop"></div>
+    <div id="pace-picker-sheet"
+      style="position:relative; z-index:1; background:#111113; border-radius:28px 28px 0 0;
+        width:100%; transform:translateY(100%); transition:transform .4s var(--spring);
+        border-top:1px solid rgba(255,255,255,.08); padding:24px 20px; padding-bottom:28px;">
+      <div style="display:flex; justify-content:center; margin-bottom:18px;">
+        <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
+      </div>
+      <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:16px;">페이스 선택</p>
+      <div id="pace-options" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
   </div>
 
@@ -204,6 +221,9 @@ export function init() {
     closeCreateOverlay();
   });
 
+  // 페이스 선택 피커
+  initPacePicker();
+
   // 번개 카드 탭
   ['b1', 'b2'].forEach(id => {
     document.getElementById(`bolt-card-${id}`).addEventListener('click', () => {
@@ -250,6 +270,47 @@ export function cancelJoin() {
 function markJoined(id) {
   const chip = document.getElementById(`joined-chip-${id}`);
   if (chip) chip.style.display = 'inline-block';
+}
+
+// 7:00 ~ 4:00, 30초 단위
+const PACE_OPTIONS = ['7:00', '6:30', '6:00', '5:30', '5:00', '4:30', '4:00'];
+
+function initPacePicker() {
+  const input = document.getElementById('create-pace');
+  const opts  = document.getElementById('pace-options');
+
+  opts.innerHTML = PACE_OPTIONS.map(p => `
+    <button type="button" class="pace-opt" data-pace="${p}"
+      style="width:100%; height:52px; border-radius:16px; cursor:pointer;
+        background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+        color:#e4e4e7; font-size:16px; font-weight:600; font-family:'Space Grotesk',sans-serif;">
+      ${p} <span style="font-size:12px; color:#52525b; font-weight:400;">/km</span>
+    </button>`).join('');
+
+  input.addEventListener('click', openPacePicker);
+  document.getElementById('pace-picker-backdrop').addEventListener('click', closePacePicker);
+
+  opts.querySelectorAll('.pace-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      input.value = `${btn.dataset.pace}/km`;
+      closePacePicker();
+    });
+  });
+}
+
+function openPacePicker() {
+  const overlay = document.getElementById('pace-picker-overlay');
+  const sheet   = document.getElementById('pace-picker-sheet');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sheet.style.transform = 'translateY(0)';
+  }));
+}
+
+function closePacePicker() {
+  const sheet = document.getElementById('pace-picker-sheet');
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => { document.getElementById('pace-picker-overlay').style.display = 'none'; }, 380);
 }
 
 function openCreateOverlay() {

@@ -18,6 +18,10 @@ const CARD_GAP = 14;
 const CARD_SLOT = CARD_W + CARD_GAP;
 const POOL_SIZE = 4; // 루프 단위
 
+// 모듈 스코프 — openBuffView에서 RAF 취소·상태 리셋을 위해
+let _raf    = null;
+let _locked = false;
+
 export function render() {
   const backs = Array(POOL_SIZE * 3).fill(0).map(() => `
     <div style="width:${CARD_W}px;height:${CARD_H}px;flex-shrink:0;border-radius:18px;
@@ -83,11 +87,55 @@ export function render() {
 </div>`;
 }
 
+export function openBuffView() {
+  // 이전 RAF & 잠금 상태 초기화
+  if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
+  _locked = false;
+
+  const shaker = document.getElementById('slot-shaker');
+  if (!shaker) return;
+
+  // 슬롯 복구
+  shaker.style.display    = '';
+  shaker.style.opacity    = '1';
+  shaker.style.transform  = '';
+  shaker.style.animation  = '';
+  shaker.style.transition = '';
+
+  // 공개 카드 & 설명 숨김
+  const rev = document.getElementById('buff-revealed');
+  rev.style.display   = 'none';
+  rev.style.animation = '';
+
+  const details = document.getElementById('buff-rev-details');
+  details.style.display   = 'none';
+  details.style.animation = '';
+
+  // 힌트 & 하이라이트 초기화
+  const hint = document.getElementById('slot-hint');
+  hint.textContent  = '탭하여 뽑기';
+  hint.style.opacity = '1';
+
+  const hl = document.getElementById('slot-highlight');
+  hl.style.opacity     = '.35';
+  hl.style.borderColor = 'var(--accent)';
+  hl.style.boxShadow   = '';
+
+  // 오브 초기화
+  const orb = document.getElementById('buff-orb-inner');
+  orb.style.opacity = '0';
+
+  // 확인 버튼 숨김
+  const btn = document.getElementById('buff-confirm-btn');
+  btn.style.opacity       = '0';
+  btn.style.pointerEvents = 'none';
+  btn.style.transform     = 'translateY(8px)';
+}
+
 export function init() {
   ensureKeyframes();
 
   let drawnCard = null;
-  let locked    = false;
   let pool      = BUFF_CARDS; // 탭 시점에 갱신
 
   const track   = document.getElementById('slot-track');
@@ -95,7 +143,6 @@ export function init() {
   const outer   = document.getElementById('slot-outer');
 
   // ── 슬롯 RAF 애니메이션 ──────────────────────────────────
-  let raf = null;
   let lastTs = null;
   let slotX  = 0;
 
@@ -120,21 +167,22 @@ export function init() {
     if (slotX < resetThreshold) slotX += loopWidth;
 
     track.style.transform = `translateX(${slotX}px)`;
-    raf = requestAnimationFrame(spinTick);
+    _raf = requestAnimationFrame(spinTick);
   }
 
   // 첫 번째 requestAnimationFrame 에서 offsetWidth가 준비됨
   requestAnimationFrame(() => {
     initSlot();
-    raf = requestAnimationFrame(spinTick);
+    _raf = requestAnimationFrame(spinTick);
   });
 
   // ── 탭: 슬롯 잠금 ────────────────────────────────────────
   outer.addEventListener('click', () => {
-    if (locked) return;
-    locked = true;
+    if (_locked) return;
+    _locked = true;
 
-    cancelAnimationFrame(raf);
+    cancelAnimationFrame(_raf);
+    _raf = null;
     lastTs = null;
 
     // 탭 시점에 pendingBolt 읽기 (init 시점엔 아직 null)

@@ -1,5 +1,6 @@
 import { goToScreen } from '../utils/nav.js';
 import { getBolts, getPlayers, setPendingBolt, toggleBoltLock } from '../store.js';
+import { openBuffView } from './bolt-buff.js';
 
 let activeBoltId = 'b1'; // 현재 방장 뷰로 연 번개
 let targetKm   = 8;      // 번개 설정 거리 (이 이상 달려야 인증)
@@ -188,6 +189,7 @@ export function init() {
         team: bolt?.isSingleTeam ? (firstParticipant?.team ?? null) : null,
         boltTitle: bolt?.title ?? '번개',
       });
+      openBuffView();
       goToScreen('s-bolt-buff');
     }
   });

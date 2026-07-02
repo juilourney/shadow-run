@@ -305,6 +305,11 @@ function closePacePicker() {
 function openCreateOverlay() {
   const overlay = document.getElementById('bolt-create-overlay');
   const sheet   = document.getElementById('bolt-create-sheet');
+  // 이전 입력값 초기화
+  document.getElementById('create-title').value    = '';
+  document.getElementById('create-place').value    = '';
+  document.getElementById('create-distance').value = '';
+  document.getElementById('create-pace').value     = '';
   overlay.style.display = 'block';
   document.documentElement.style.overflow = 'hidden';
   hideSidebar();

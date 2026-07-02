@@ -149,7 +149,8 @@ export function getJoinedBoltId() {
 
 export function getVote() {
   const me = state.me;
-  const total = me.role === 'double' ? 2 : 1;
+  // 적발되면 더블 능력 박탈 → 1표
+  const total = (me.role === 'double' && !me.votePenalized) ? 2 : 1;
   return {
     total,
     used: state.vote.myVotesUsed,
@@ -161,13 +162,16 @@ export function getVote() {
 // 능력 남은 횟수 (탐정/밀정만)
 export function getAbility() {
   const me = state.me;
-  const isSpecial = me.role === 'detective' || me.role === 'spy';
+  // 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
+  const stripped = me.votePenalized;
+  const isSpecial = (me.role === 'detective' || me.role === 'spy') && !stripped;
   return {
     isSpecial,
+    stripped,
     kind: me.role === 'detective' ? 'team' : me.role === 'spy' ? 'role' : null,
     limit: CONFIG.abilityLimit,
     used: me.abilityUsed,
-    left: CONFIG.abilityLimit - me.abilityUsed,
+    left: stripped ? 0 : CONFIG.abilityLimit - me.abilityUsed,
     revealed: { ...me.revealed },
   };
 }
@@ -256,21 +260,23 @@ export async function completeBolt(boltId, distanceKm, participantIds) {
     const p = playerById(pid);
     if (!p) return;
 
-    // 1) 역할 배수 (엘리트 2배)
+    // 1) 역할 배수 — 적발 시 능력 박탈 + 마일리지 영구 50% 감소
+    const penalized = isPenalized(p);
     let km = distanceKm;
-    if (p.role === 'elite' && !isPenalized(p)) km *= CONFIG.eliteMultiplier;
+    if (p.role === 'elite' && !penalized) km *= CONFIG.eliteMultiplier;
+    if (penalized) km *= CONFIG.votePenalty;
 
     // 2) 단계별 반영
     if (isTug) {
       // 줄다리기: 상대팀 게이지에서 삭감
       subtractOpponent(p.team, km);
-      // 앵커: 달린 만큼 상대팀 추가 삭감 (줄다리기 2배 중첩 효과)
-      if (p.role === 'anchor') subtractOpponent(p.team, km);
+      // 앵커: 달린 만큼 상대팀 추가 삭감 (적발 시 능력 박탈)
+      if (p.role === 'anchor' && !penalized) subtractOpponent(p.team, km);
     } else {
       // 탐색전: 내 팀 게이지 1:1 적립
       state.game.gauge[p.team] += km;
-      // 앵커: 탐색전에도 상대팀 삭감
-      if (p.role === 'anchor') subtractOpponent(p.team, distanceKm);
+      // 앵커: 탐색전에도 상대팀 삭감 (적발 시 능력 박탈)
+      if (p.role === 'anchor' && !penalized) subtractOpponent(p.team, km);
     }
 
     // 개인 순수 누적거리 (보너스 제외한 실제 거리)
@@ -335,6 +341,7 @@ export async function tallyVote() {
 export async function useAbility(targetId) {
   const me = state.me;
   if (me.role !== 'detective' && me.role !== 'spy') throw new Error('능력이 없습니다');
+  if (me.votePenalized) throw new Error('적발되어 능력이 박탈되었습니다');
   if (me.abilityUsed >= CONFIG.abilityLimit) throw new Error('사용 횟수를 모두 소진했습니다');
   if (me.revealed[targetId]) return me.revealed[targetId]; // 이미 확인함
 

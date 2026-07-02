@@ -8,8 +8,12 @@ export function render() {
 <div class="game-section" id="gs-dash">
   <div class="scroll-body pb-tab" style="padding:calc(var(--safe-top) + 12px) 18px 0">
 
+    <div class="anim-up" style="padding-top:4px; margin-bottom:16px;">
+      <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">대시보드</h2>
+    </div>
+
     <!-- ① 실시간 줄다리기 (게이지 카드 — 최상단) -->
-    <div class="bezel anim-up" style="margin-top:10px; padding:18px 20px; border-radius:24px;">
+    <div class="bezel anim-up-1" style="padding:18px 20px; border-radius:24px;">
       <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;">
         <h2 style="font-size:16px; font-weight:700; letter-spacing:-.01em;">실시간 줄다리기</h2>
         <p style="font-size:11px; color:#52525b; letter-spacing:.04em;">2026 July · D-14</p>

@@ -55,16 +55,21 @@ export function render() {
           ${backs}
         </div>
       </div>
+      <!-- 공개된 카드 — 슬롯 카드와 동일 크기, 중앙 고정 (margin으로 centering → transform 충돌 방지) -->
+      <div id="buff-revealed" style="display:none;position:absolute;left:50%;top:50%;
+        margin-left:-${CARD_W/2}px;margin-top:-${CARD_H/2}px;
+        width:${CARD_W}px;height:${CARD_H}px;
+        border-radius:18px;flex-direction:column;align-items:center;justify-content:center;gap:6px;z-index:6;">
+        <p id="buff-rev-icon" style="font-family:'Space Grotesk';font-size:36px;font-weight:700;line-height:1;"></p>
+        <p id="buff-rev-name" style="font-size:12px;font-weight:700;letter-spacing:-.01em;"></p>
+      </div>
       <p id="slot-hint" style="position:absolute;bottom:4px;left:0;right:0;z-index:6;
         font-size:12px;letter-spacing:.1em;color:#3f3f46;text-align:center;pointer-events:none;">탭하여 뽑기</p>
     </div>
 
-    <!-- 공개된 카드 -->
-    <div id="buff-revealed" style="display:none;width:calc(100% - 48px);max-width:300px;border-radius:26px;
-      padding:32px 24px;flex-direction:column;align-items:center;gap:12px;text-align:center;">
-      <p id="buff-rev-icon" style="font-family:'Space Grotesk';font-size:60px;font-weight:700;line-height:1;"></p>
-      <p id="buff-rev-name" style="font-family:'Space Grotesk';font-size:28px;font-weight:700;"></p>
-      <div id="buff-rev-divider" style="width:36px;height:2px;border-radius:99px;"></div>
+    <!-- 카드 설명 (공개 후 카드 아래 등장) -->
+    <div id="buff-rev-details" style="display:none;text-align:center;padding:0 28px;">
+      <div id="buff-rev-divider" style="width:32px;height:2px;border-radius:99px;margin:0 auto 10px;"></div>
       <p id="buff-rev-desc" style="font-size:13px;line-height:1.6;opacity:.7;"></p>
     </div>
 
@@ -106,7 +111,7 @@ export function init() {
     const dt = Math.min((ts - lastTs) / 1000, 0.05);
     lastTs = ts;
 
-    slotX -= 170 * dt;
+    slotX -= 340 * dt;
 
     // 루프: POOL_SIZE 장 단위로 리셋
     const loopWidth = POOL_SIZE * CARD_SLOT;
@@ -171,13 +176,14 @@ export function init() {
   function burst() {
     spawnParticles(drawnCard.color);
 
-    // 슬롯 사라짐
-    outer.style.transition = 'opacity .18s, transform .18s';
-    outer.style.opacity    = '0';
-    outer.style.transform  = 'scale(.88)';
+    // 슬롯 트랙만 사라짐 (outer는 유지 — buff-revealed가 안에 있음)
+    shaker.style.transition = 'opacity .18s, transform .18s';
+    shaker.style.opacity    = '0';
+    shaker.style.transform  = 'scale(.88)';
+    document.getElementById('slot-hint').style.opacity = '0';
 
     setTimeout(() => {
-      outer.style.display = 'none';
+      shaker.style.display = 'none';
       showReveal();
     }, 180);
   }
@@ -190,17 +196,24 @@ export function init() {
     document.getElementById('buff-rev-name').style.color      = drawnCard.color;
     document.getElementById('buff-rev-divider').style.background = drawnCard.color;
     document.getElementById('buff-rev-desc').textContent      = drawnCard.desc;
-    rev.style.background  = drawnCard.bg;
-    rev.style.border      = `1px solid ${drawnCard.border}`;
-    rev.style.display     = 'flex';
-    rev.style.animation   = 'buff-pop .45s cubic-bezier(.17,.67,.36,1.35) both';
+    rev.style.background = drawnCard.bg;
+    rev.style.border     = `1px solid ${drawnCard.border}`;
+    rev.style.display    = 'flex';
+    rev.style.animation  = 'buff-pop .45s cubic-bezier(.17,.67,.36,1.35) both';
+
+    // 설명 텍스트 (카드 아래, 살짝 늦게)
+    setTimeout(() => {
+      const details = document.getElementById('buff-rev-details');
+      details.style.display    = 'block';
+      details.style.animation  = 'buff-pop .35s cubic-bezier(.17,.67,.36,1.35) both';
+    }, 220);
 
     setTimeout(() => {
       const btn = document.getElementById('buff-confirm-btn');
-      btn.style.opacity      = '1';
+      btn.style.opacity       = '1';
       btn.style.pointerEvents = 'auto';
-      btn.style.transform    = 'translateY(0)';
-    }, 400);
+      btn.style.transform     = 'translateY(0)';
+    }, 420);
   }
 
   // ── 파티클 ────────────────────────────────────────────────

@@ -1,10 +1,20 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, ROLES } from '../store.js';
+import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, injectVotes, ROLES } from '../store.js';
 
 const TEAM_META = {
   pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.1)',  border: 'rgba(56,189,248,.25)' },
   ghost: { label: '고스트', color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.25)' },
 };
+
+// 역할 지목 후보 (기권 기본 + 5개 특수역할)
+const ROLE_GUESS = [
+  { key: '',          label: '기권' },
+  { key: 'elite',     label: '엘리트' },
+  { key: 'double',    label: '더블' },
+  { key: 'detective', label: '탐정' },
+  { key: 'spy',       label: '밀정' },
+  { key: 'anchor',    label: '앵커' },
+];
 
 // 투표 기간 체크 — 월(1), 목(4) 18:00~22:00
 function getVoteStatus() {
@@ -90,7 +100,7 @@ export function render() {
 
     <div class="bezel" style="border-radius:16px; padding:14px 16px; margin-bottom:14px;">
       <p style="font-size:13px; color:#a1a1aa; line-height:1.6;">
-        상대 팀으로 의심되는 사람을 지목하세요. 최다 득표자는 팀 소속이 공개되고 마일리지가 50% 감소합니다.
+        상대 팀 의심 인물을 지목하세요. 최다 득표자는 팀이 공개되고 마일리지 50% 감소. 역할까지 지목할 수 있고, 같은 역할이 60% 이상 모이면 능력이 박탈됩니다.
       </p>
     </div>
 
@@ -166,11 +176,14 @@ export function render() {
           <span style="font-size:14px;">⚡</span>
           <p style="font-size:13px; color:#e4e4e7;">이후 모든 번개 마일리지 <b style="color:#fb7185;">50% 감소</b></p>
         </div>
-        <div id="vote-result-elite-penalty" style="display:none; align-items:center; gap:10px;">
-          <span style="font-size:14px;">👑</span>
-          <p style="font-size:13px; color:#e4e4e7;">엘리트 능력 <b style="color:#fb7185;">박탈</b> + 마일리지 추가 0.5× 적용</p>
+        <div id="vote-result-role" style="display:none; align-items:center; gap:10px;">
+          <span style="font-size:14px;">🎭</span>
+          <p style="font-size:13px; color:#e4e4e7;"><b id="vote-result-role-name" style="color:#fb7185;"></b> 역할 공개 + 능력 <b style="color:#fb7185;">박탈</b></p>
         </div>
       </div>
+      <p id="vote-result-fail" style="display:none; font-size:12px; color:#71717a; line-height:1.6; margin-top:12px;
+        padding-top:12px; border-top:1px solid rgba(255,255,255,.06);">
+        🕵️ 다수가 <b id="vote-result-fail-role" style="color:#a1a1aa;"></b>로 지목했지만 <b style="color:#a1a1aa;">추리 실패</b> — 실제 역할이 달라 능력은 보존됩니다.</p>
     </div>
 
     <button id="vote-result-close"
@@ -193,7 +206,13 @@ export function render() {
       </div>
       <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;">지목 확인</p>
       <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 상대 팀으로 지목합니다</p>
-      <p style="font-size:13px; color:#52525b; margin-bottom:20px;">이 행동은 취소할 수 없습니다</p>
+      <p style="font-size:13px; color:#52525b; margin-bottom:16px;">이 행동은 취소할 수 없습니다</p>
+
+      <!-- 역할 지목 (선택) -->
+      <p style="font-size:11px; color:#52525b; font-weight:600; margin-bottom:8px;">
+        역할 지목 <span style="color:#3f3f46; font-weight:400;">· 확실할 때만, 기본은 기권</span></p>
+      <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
+
       <div style="display:flex; gap:10px;">
         <button id="vote-confirm-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>
         <button id="vote-confirm-ok" class="btn" style="flex:2; height:52px;
@@ -222,6 +241,26 @@ export function init() {
   // 투표 상태는 store가 보유
   let pendingPlayerId = null;
   let pendingPlayerName = null;
+  let pendingRole = '';   // 역할 지목 (기본 기권)
+
+  // 역할 지목 칩 렌더 + 선택
+  const roleWrap = document.getElementById('role-guess-options');
+  roleWrap.innerHTML = ROLE_GUESS.map(r => `
+    <button class="role-opt" data-role="${r.key}"
+      style="border-radius:10px; padding:0 12px; height:34px; font-size:13px; font-weight:600;
+        cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+        color:#a1a1aa;">${r.label}</button>`).join('');
+  const paintRoleOpts = () => {
+    roleWrap.querySelectorAll('.role-opt').forEach(b => {
+      const on = b.dataset.role === pendingRole;
+      b.style.background  = on ? 'rgba(251,113,133,.15)' : 'rgba(255,255,255,.04)';
+      b.style.borderColor = on ? 'rgba(251,113,133,.4)'  : 'rgba(255,255,255,.08)';
+      b.style.color       = on ? '#fb7185' : '#a1a1aa';
+    });
+  };
+  roleWrap.querySelectorAll('.role-opt').forEach(b => {
+    b.addEventListener('click', () => { pendingRole = b.dataset.role; paintRoleOpts(); });
+  });
 
   // 시뮬레이션: 비활성 → 활성
   document.getElementById('sim-activate-vote').addEventListener('click', () => {
@@ -234,6 +273,8 @@ export function init() {
       if (getVote().left <= 0) return;
       pendingPlayerId   = btn.dataset.id;
       pendingPlayerName = btn.dataset.name;
+      pendingRole       = '';   // 매 지목마다 기권으로 초기화
+      paintRoleOpts();
       document.getElementById('confirm-target-name').textContent = pendingPlayerName;
       openConfirmSheet();
     });
@@ -243,8 +284,9 @@ export function init() {
   document.getElementById('vote-confirm-backdrop').addEventListener('click', closeConfirmSheet);
   document.getElementById('vote-confirm-cancel').addEventListener('click', closeConfirmSheet);
   document.getElementById('vote-confirm-ok').addEventListener('click', () => {
+    const role = pendingRole;
     closeConfirmSheet();
-    setTimeout(() => castVote(pendingPlayerId, pendingPlayerName), 350);
+    setTimeout(() => castVote(pendingPlayerId, pendingPlayerName, role), 350);
   });
 
   // 결과 오버레이 닫기
@@ -252,16 +294,33 @@ export function init() {
     document.getElementById('vote-result-overlay').style.display = 'none';
   });
 
-  // 결과 시뮬레이션 → store 집계로 최다 득표자 산출
+  // 결과 시뮬레이션 → 가상 상대 투표 주입 후 집계
   document.getElementById('sim-result-btn').addEventListener('click', async () => {
+    injectSimVotes();
     const result = await tallyVote();
     if (result) showVoteResult(result);
     document.getElementById('vote-result-overlay').style.display = 'flex';
   });
 }
 
-async function castVote(playerId, playerName) {
-  const v = await storeCastVote(playerId);
+// 시뮬레이션: 내가 지목한 대상에 가상 상대 표를 몰아 60% 역할 합의를 재현
+function injectSimVotes() {
+  const v = getVote();
+  const entries = Object.entries(v.castCount);
+  if (entries.length === 0) return;
+  const topId = entries.sort((a, b) => b[1] - a[1])[0][0];
+  const target = getPlayers().find(p => p.id === topId);
+  // 대상 실제 역할을 다수(3명)가 지목 → 60% 이상 합의 재현 (일치 시 공개·박탈)
+  const guess = target?.role && target.role !== 'runner' ? target.role : 'elite';
+  injectVotes([
+    { targetId: topId, roleGuess: guess },
+    { targetId: topId, roleGuess: guess },
+    { targetId: topId, roleGuess: guess },
+  ]);
+}
+
+async function castVote(playerId, playerName, roleGuess) {
+  const v = await storeCastVote(playerId, roleGuess);
   document.getElementById('votes-remaining').textContent = v.left;
 
   // 지목된 행 하이라이트 + 지목 횟수 배지
@@ -302,7 +361,24 @@ function showVoteResult(r) {
   teamEl.style.color      = t.color;
   teamEl.style.background  = t.bg;
   teamEl.style.border      = `1px solid ${t.border}`;
-  document.getElementById('vote-result-elite-penalty').style.display = r.isElite ? 'flex' : 'none';
+
+  // 역할 공개 + 능력 박탈 (60% 적중 시)
+  const roleEl = document.getElementById('vote-result-role');
+  if (r.roleRevealed) {
+    document.getElementById('vote-result-role-name').textContent = ROLES[r.revealedRole]?.name ?? '역할';
+    roleEl.style.display = 'flex';
+  } else {
+    roleEl.style.display = 'none';
+  }
+
+  // 추리 실패 (60% 합의했지만 실제 역할과 불일치)
+  const failEl = document.getElementById('vote-result-fail');
+  if (r.guessFailed) {
+    document.getElementById('vote-result-fail-role').textContent = ROLES[r.guessedRole]?.name ?? '특정 역할';
+    failEl.style.display = 'block';
+  } else {
+    failEl.style.display = 'none';
+  }
 }
 
 let _okUnlockTimer = null;

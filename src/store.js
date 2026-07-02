@@ -20,6 +20,7 @@ export const CONFIG = {
   weeks: 3,
   eliteMultiplier: 2,           // 엘리트 마일리지 배수
   votePenalty: 0.5,             // 투표 적발 시 마일리지 감소율
+  roleRevealThreshold: 0.6,     // 역할 공개·능력 박탈: 지목 인원 중 동일 역할 비율 기준
   pacerSynergyPerHead: 50,      // 페이서 시너지: 인원 × 50km
   ghostGaugeShift: 100,         // 고스트 게이지 스킬: 100km 즉시 이동
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
@@ -45,7 +46,7 @@ const state = {
     boltsCompleted: 7,
     abilityUsed: 0,                       // 탐정/밀정 사용 횟수
     revealed: {},                         // { [playerId]: {team} | {role} } — 능력 확인 결과
-    votePenalized: false,                 // 투표로 적발됐는지
+    abilityStripped: false,               // 역할 60% 적중 적발 → 능력 박탈됐는지
   },
 
   // 참가자 (나 제외 목록도 여기 포함)
@@ -70,9 +71,9 @@ const state = {
   // 내가 참여 중인 번개 (b4 단일팀 데모 — 참여 뷰 진입 시 팀 컬러 글로우 확인용)
   joinedBoltId: 'b4',
 
-  // 투표
+  // 투표 — 개별 지목 기록 (각 투표 1건 = 1명분, 더블은 2건 행사 가능)
   vote: {
-    castCount: {},   // { [playerId]: 지목받은 횟수 }
+    ballots: [],     // [{ voterId, targetId, roleGuess: role|null }]
     myVotesUsed: 0,
   },
 };
@@ -159,21 +160,24 @@ export function getJoinedBoltId() {
 
 export function getVote() {
   const me = state.me;
-  // 적발되면 더블 능력 박탈 → 1표
-  const total = (me.role === 'double' && !me.votePenalized) ? 2 : 1;
+  // 역할(더블) 박탈되면 1표
+  const total = (me.role === 'double' && !me.abilityStripped) ? 2 : 1;
+  // 지목 표수 집계 (ballots에서 파생)
+  const castCount = {};
+  for (const b of state.vote.ballots) castCount[b.targetId] = (castCount[b.targetId] || 0) + 1;
   return {
     total,
     used: state.vote.myVotesUsed,
     left: total - state.vote.myVotesUsed,
-    castCount: { ...state.vote.castCount },
+    castCount,
   };
 }
 
 // 능력 남은 횟수 (탐정/밀정만)
 export function getAbility() {
   const me = state.me;
-  // 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
-  const stripped = me.votePenalized;
+  // 역할 적중 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
+  const stripped = me.abilityStripped;
   const isSpecial = (me.role === 'detective' || me.role === 'spy') && !stripped;
   return {
     isSpecial,
@@ -270,23 +274,24 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     const p = playerById(pid);
     if (!p) return;
 
-    // 1) 역할 배수 — 적발 시 능력 박탈 + 마일리지 영구 50% 감소
-    const penalized = isPenalized(p);
+    // 1) 마일리지 페널티(팀 적발=무조건) / 역할 능력 박탈(역할 60% 적중=조건부) 분리
+    const penalized = isPenalized(p);       // 팀 적발 → 마일리지 -50%
+    const stripped  = isAbilityStripped(p); // 역할 적중 적발 → 역할 능력 무효
     let km = distanceKm * (singleTeam ? 1 : buffMultiplier); // 혼합팀만 버프 배수 적용
-    if (p.role === 'elite' && !penalized) km *= CONFIG.eliteMultiplier;
+    if (p.role === 'elite' && !stripped) km *= CONFIG.eliteMultiplier;
     if (penalized) km *= CONFIG.votePenalty;
 
     // 2) 단계별 반영
     if (isTug) {
       // 줄다리기: 상대팀 게이지에서 삭감
       subtractOpponent(p.team, km);
-      // 앵커: 달린 만큼 상대팀 추가 삭감 (적발 시 능력 박탈)
-      if (p.role === 'anchor' && !penalized) subtractOpponent(p.team, km);
+      // 앵커: 달린 만큼 상대팀 추가 삭감 (능력 박탈 시 무효)
+      if (p.role === 'anchor' && !stripped) subtractOpponent(p.team, km);
     } else {
       // 탐색전: 내 팀 게이지 1:1 적립
       state.game.gauge[p.team] += km;
-      // 앵커: 탐색전에도 상대팀 삭감 (적발 시 능력 박탈)
-      if (p.role === 'anchor' && !penalized) subtractOpponent(p.team, km);
+      // 앵커: 탐색전에도 상대팀 삭감 (능력 박탈 시 무효)
+      if (p.role === 'anchor' && !stripped) subtractOpponent(p.team, km);
     }
 
     // 개인 순수 누적거리 (보너스 제외한 실제 거리)
@@ -318,34 +323,70 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
   return { singleTeam, isTug, distanceKm, buffMultiplier, participantIds, participantCount: participantIds.length, boltTeam };
 }
 
-// 투표 지목
-export async function castVote(targetId) {
+// 투표 지목 — 팀 지목(targetId) + 역할 지목(roleGuess: role|null=기권)
+export async function castVote(targetId, roleGuess = null) {
   const v = getVote();
   if (v.left <= 0) throw new Error('투표권을 모두 사용했습니다');
-  state.vote.castCount[targetId] = (state.vote.castCount[targetId] || 0) + 1;
+  state.vote.ballots.push({ voterId: state.me.id, targetId, roleGuess: roleGuess || null });
   state.vote.myVotesUsed += 1;
   notify();
   return getVote();
 }
 
-// 투표 종료 집계 → 최다 득표자 페널티 적용
+// 시뮬레이션: 가상 상대 투표 주입 (역할 60% 합의 시연용)
+export function injectVotes(list) {
+  list.forEach(({ targetId, roleGuess }) => {
+    state.vote.ballots.push({ voterId: `sim-${state.vote.ballots.length}`, targetId, roleGuess: roleGuess || null });
+  });
+  notify();
+}
+
+// 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정
 export async function tallyVote() {
-  const entries = Object.entries(state.vote.castCount);
-  if (entries.length === 0) return null;
-  const [topId] = entries.sort((a, b) => b[1] - a[1])[0];
+  const ballots = state.vote.ballots;
+  if (ballots.length === 0) return null;
+
+  // ① 팀: 지목 표수 최다 (더블의 2건도 각각 1표)
+  const teamCount = {};
+  for (const b of ballots) teamCount[b.targetId] = (teamCount[b.targetId] || 0) + 1;
+  const topId = Object.entries(teamCount).sort((a, b) => b[1] - a[1])[0][0];
   const target = playerById(topId);
   if (!target) return null;
 
-  target.publicTeam = target.team;   // 팀 공개
-  target.penalized = true;           // 마일리지 영구 50% 감소 플래그
-  if (topId === state.me.id) state.me.votePenalized = true;
+  // 팀 공개 + 마일리지 -50% (무조건)
+  target.publicTeam = target.team;
+  target.penalized  = true;
+
+  // ② 역할: 대상 지목 인원 중 동일 역할 ≥60% → 실제 역할과 일치 시 공개·박탈
+  const targetBallots = ballots.filter(b => b.targetId === topId);
+  const roleCount = {};
+  for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
+  let consensusRole = null, consensusN = 0;
+  for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
+  const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+
+  let roleRevealed = false, guessFailed = false, guessedRole = null;
+  if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
+    if (consensusRole === target.role) {
+      roleRevealed = true;
+      target.publicRole      = target.role;   // 역할 공개(박제)
+      target.abilityStripped = true;          // 능력 박탈
+      if (topId === state.me.id) state.me.abilityStripped = true;
+    } else {
+      guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
+      guessedRole = consensusRole;
+    }
+  }
 
   notify();
   return {
     id: target.id,
     name: target.name,
     team: target.team,
-    isElite: target.role === 'elite',
+    roleRevealed,
+    revealedRole: roleRevealed ? target.role : null,
+    guessFailed,
+    guessedRole,
   };
 }
 
@@ -353,7 +394,7 @@ export async function tallyVote() {
 export async function useAbility(targetId) {
   const me = state.me;
   if (me.role !== 'detective' && me.role !== 'spy') throw new Error('능력이 없습니다');
-  if (me.votePenalized) throw new Error('적발되어 능력이 박탈되었습니다');
+  if (me.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
   if (me.abilityUsed >= CONFIG.abilityLimit) throw new Error('사용 횟수를 모두 소진했습니다');
   if (me.revealed[targetId]) return me.revealed[targetId]; // 이미 확인함
 
@@ -377,7 +418,11 @@ function subtractOpponent(myTeam, km) {
 }
 
 function isPenalized(player) {
-  return !!player.penalized;
+  return !!player.penalized;        // 팀 적발 → 마일리지 -50%
+}
+
+function isAbilityStripped(player) {
+  return !!player.abilityStripped;  // 역할 적중 적발 → 역할 능력 무효
 }
 
 // 상수 재노출 (화면이 store 하나만 import하면 되도록)

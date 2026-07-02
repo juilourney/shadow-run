@@ -10,6 +10,11 @@ html {
   scroll-padding-top: 0;
   scroll-behavior: smooth; /* 스냅이 순간이동하지 않고 부드럽게 붙음 */
 }
+/* 오버레이 화면이 떠 있을 때 배경 게임 섹션 스크롤 잠금 */
+html.lock-scroll {
+  overflow: hidden;
+  scroll-snap-type: none;
+}
 body {
   font-family: 'Pretendard', system-ui, sans-serif;
   font-size: 16px;

@@ -23,6 +23,11 @@ export function goToScreen(id) {
   next.classList.add('active');
   currentScreen = id;
 
+  // 오버레이(.screen)가 뜨면 뒤의 게임 섹션(html) 스크롤 잠금 —
+  // 안 그러면 오버레이 내부에 스크롤이 없을 때 드래그가 배경으로 새어
+  // 다른 섹션(투표 등)이 올라옴
+  document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
+
   const tb     = document.getElementById('global-tabbar');
   const handle = document.getElementById('tabbar-handle');
   if (!tb) return;

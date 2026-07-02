@@ -162,7 +162,7 @@ function renderList() {
       const t = TEAM_META[m.publicTeam];
       publicBadge = `<span style="font-size:11px; font-weight:700; color:${t.color};
         background:${t.bg}; border:1px solid ${t.border};
-        border-radius:8px; padding:2px 8px; margin-left:6px; flex-shrink:0;">🔍 ${t.label}</span>`;
+        border-radius:8px; padding:2px 8px; margin-left:6px; flex-shrink:0;">🗳️ ${t.label}</span>`;
     }
 
     // 개인 능력으로 확인한 정보 (본인만 보임)

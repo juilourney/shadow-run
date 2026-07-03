@@ -38,26 +38,6 @@ function sectionG(emoji, title, content) {
   </div>`;
 }
 
-const memberRows = WAIT_MEMBERS.map(m => `
-  <div style="display:flex; align-items:center; gap:12px; padding:14px 0;
-    border-bottom:1px solid rgba(255,255,255,.05);">
-    <span style="width:38px; height:38px; border-radius:50%;
-      background:${m.isSelf ? 'var(--accent-tint)' : 'rgba(255,255,255,.06)'};
-      display:flex; align-items:center; justify-content:center;
-      font-size:14px; font-weight:700; flex-shrink:0;
-      color:${m.isSelf ? 'var(--accent)' : '#e4e4e7'};">
-      ${m.name[0]}
-    </span>
-    <div style="flex:1; min-width:0;">
-      <p style="font-size:15px; font-weight:${m.isSelf ? '700' : '600'};">
-        ${m.name}${m.isSelf ? ' <span style="font-size:11px; color:var(--accent); font-weight:600;">나</span>' : ''}
-      </p>
-      <p class="num" style="font-size:11px; color:#52525b; margin-top:2px;">${m.km} km</p>
-    </div>
-    <span style="font-size:11px; color:#3f3f46; font-weight:600;">준비 중</span>
-  </div>
-`).join('');
-
 const guideContent = `
   ${sectionG('🎯', '게임 개요 및 승리 조건', `
     <p style="font-size:12px; color:#a1a1aa; line-height:1.75; margin-bottom:8px;">페이서팀과 고스트팀이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.</p>
@@ -156,21 +136,6 @@ export function render() {
     </button>
   </div>
 
-  <!-- 참가자 패널 -->
-  <div id="wpanel-members" class="scroll-body"
-    style="position:absolute; inset:0; display:none;
-      padding:calc(var(--safe-top) + 16px) 18px 0;">
-
-    <div style="margin-bottom:16px;">
-      <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">참가자</h2>
-      <p style="font-size:12px; color:#52525b; margin-top:2px;">${WAIT_MEMBERS.length}명 등록 · 배정 대기 중</p>
-    </div>
-
-    <div class="bezel" style="border-radius:20px; padding:0 16px;">
-      ${memberRows}
-    </div>
-  </div>
-
   <!-- 가이드 패널 -->
   <div id="wpanel-guide" class="scroll-body"
     style="position:absolute; inset:0; display:none;
@@ -184,11 +149,10 @@ export function render() {
     ${guideContent}
   </div>
 
-  <!-- 내부 탭바 (홈·참가자·가이드만) - 본게임처럼 오른쪽 사이드 스타일 적용 -->
+  <!-- 내부 탭바 (홈·가이드만) - 본게임처럼 오른쪽 사이드 스타일 적용 -->
   <div id="waiting-tabbar-handle"><span class="handle-grip"></span></div>
   <div id="waiting-tabbar" class="tabbar">
     <div class="tab on" id="wtab-home"><div class="tab-icon"><span class="ti-home-dot"></span></div></div>
-    <div class="tab" id="wtab-members"><div class="tab-icon"><span class="ti-users"></span></div></div>
     <div class="tab" id="wtab-guide"><div class="tab-icon"><span class="ti-book"></span></div></div>
   </div>
 </div>`;
@@ -226,9 +190,8 @@ export function init() {
 
   // 내부 탭 전환
   const tabs = [
-    { tab: 'wtab-home',    panel: 'wpanel-home' },
-    { tab: 'wtab-members', panel: 'wpanel-members' },
-    { tab: 'wtab-guide',   panel: 'wpanel-guide' },
+    { tab: 'wtab-home',  panel: 'wpanel-home' },
+    { tab: 'wtab-guide', panel: 'wpanel-guide' },
   ];
 
   tabs.forEach(({ tab, panel }) => {
@@ -251,9 +214,9 @@ export function prepareWaiting() {
     `${WAIT_MEMBERS.length}<span style="font-size:13px; font-weight:600; color:#52525b;"> 명</span>`;
 
   // 홈 탭 초기화
-  ['wtab-home','wtab-members','wtab-guide'].forEach(id =>
+  ['wtab-home','wtab-guide'].forEach(id =>
     document.getElementById(id).classList.remove('on'));
-  ['wpanel-home','wpanel-members','wpanel-guide'].forEach(id =>
+  ['wpanel-home','wpanel-guide'].forEach(id =>
     document.getElementById(id).style.display = 'none');
   document.getElementById('wtab-home').classList.add('on');
   document.getElementById('wpanel-home').style.display = 'block';

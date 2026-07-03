@@ -21,7 +21,7 @@ export function render() {
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32px;
     padding:calc(var(--safe-top) + 20px) 26px 0;">
 
-    <div class="anim-up" style="text-align:center; padding-top:12px; width:100%;">
+    <div class="anim-up" style="position:absolute; top:calc(var(--safe-top) + 40px); left:0; right:0; text-align:center; padding:0 26px;">
       <span id="role-team-badge" class="chip" style="background:var(--accent-tint); color:var(--accent);"></span>
       <p style="font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#3f3f46; margin-top:14px;">ROLE ASSIGNMENT</p>
       <h2 style="font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.25; margin-top:10px;">
@@ -147,7 +147,10 @@ function flipRoleCard() {
   const inner = document.getElementById('role-flip-inner');
   inner.classList.add('spinning');
 
-  inner.addEventListener('animationend', () => {
+  let revealed = false;
+  const finishReveal = () => {
+    if (revealed) return;
+    revealed = true;
     inner.classList.add('flipped');
 
     // 스핀 멈춘 후 뒷면 내용 채우기
@@ -194,5 +197,7 @@ function flipRoleCard() {
       revealComplete = true;
       hint.style.opacity = isRunner ? '1' : '0.55';
     }, 300);
-  }, { once: true });
+  };
+  inner.addEventListener('animationend', finishReveal, { once: true });
+  setTimeout(finishReveal, 3700);   // animationend 미발생(모바일/백그라운드) 대비 안전망
 }

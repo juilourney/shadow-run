@@ -100,12 +100,12 @@ export function render() {
 
     <div class="bezel" style="border-radius:16px; padding:14px 16px; margin-bottom:14px;">
       <p style="font-size:13px; color:#a1a1aa; line-height:1.6;">
-        상대 팀 의심 인물을 지목하세요. 최다 득표자는 팀이 공개되고 마일리지 50% 감소. 역할까지 지목할 수 있고, 같은 역할이 60% 이상 모이면 능력이 박탈됩니다.
+        전체 참여자 가운데 의심스러운 1명을 지목하세요. 최다 득표자는 팀이 공개되고 마일리지 50% 감소. 역할까지 지목할 수 있고, 같은 역할이 60% 이상 모이면 능력이 박탈됩니다.
       </p>
     </div>
 
     <p style="font-size:11px; color:#52525b; margin-bottom:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;">
-      상대 팀을 찾아 지목하기
+      참여자 중 지목하기
     </p>
 
     <div style="display:flex; flex-direction:column; gap:8px;" id="player-list">
@@ -206,9 +206,9 @@ export function render() {
       </div>
       <!-- STEP 1 · 팀 지목 -->
       <div id="vote-step-team">
-        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">1단계 · 팀 지목</p>
-        <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 상대 팀으로 지목합니다</p>
-        <p style="font-size:13px; color:#52525b; margin-bottom:20px;">이 행동은 취소할 수 없습니다</p>
+        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">1단계 · 인물 지목</p>
+        <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 지목합니다</p>
+        <p style="font-size:13px; color:#52525b; margin-bottom:20px;">가장 많이 지목되면 이 참여자의 팀이 공개됩니다 · 취소할 수 없습니다</p>
         <div style="display:flex; gap:10px;">
           <button id="vote-team-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>
           <button id="vote-team-next" class="btn" style="flex:2; height:52px;

@@ -1,5 +1,6 @@
 import { goToScreen } from '../utils/nav.js';
 import { subscribe, getGauge, getMe, getCalendar } from '../store.js';
+import { openEndView } from './end.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -100,6 +101,11 @@ export function render() {
       </div>
     </div>
 
+    <button class="btn" id="dash-end-btn" style="width:100%; height:48px; margin-top:20px;
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a1a1aa; font-size:14px;">
+      🏁 게임 종료 결과 보기
+    </button>
+
   </div>
 
 </div>`;
@@ -108,6 +114,11 @@ export function render() {
 export function init() {
   renderFromStore();
   subscribe(renderFromStore);
+
+  document.getElementById('dash-end-btn').addEventListener('click', () => {
+    openEndView();
+    goToScreen('s-end');
+  });
 }
 
 function renderFromStore() {

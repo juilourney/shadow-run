@@ -15,10 +15,11 @@ import * as vote       from './screens/vote.js';
 import * as members    from './screens/members.js';
 import * as guide      from './screens/guide.js';
 import * as waiting    from './screens/waiting.js';
+import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
 const GAME     = [dash, bolt, vote, members, guide];
-const OVERLAYS = [boltJoin, boltDetail, boltBuff, boltResult];
+const OVERLAYS = [boltJoin, boltDetail, boltBuff, boltResult, end];
 
 const app = document.getElementById('app');
 

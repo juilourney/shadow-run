@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, injectVotes, ROLES } from '../store.js';
+import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, injectVotes, getCalendar, ROLES } from '../store.js';
 
 const TEAM_META = {
   pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.1)',  border: 'rgba(56,189,248,.25)' },
@@ -16,12 +16,14 @@ const ROLE_GUESS = [
   { key: 'anchor',    label: '앵커' },
 ];
 
-// 투표 기간 체크 — 월(1), 목(4) 18:00~22:00
+// 투표 기간 체크 — 게임 기간 안 & 월(1)·목(4) 18:00~22:00
 function getVoteStatus() {
   const now = new Date();
   const day  = now.getDay();   // 0=일 1=월 … 4=목
   const hour = now.getHours();
-  const isVotingNow = (day === 1 || day === 4) && hour >= 18 && hour < 22;
+  const cal = getCalendar(now);
+  const inGame = cal.started && !cal.ended;   // 게임 종료 후에는 투표 비활성
+  const isVotingNow = inGame && (day === 1 || day === 4) && hour >= 18 && hour < 22;
 
   // 다음 투표 일시 계산
   const VOTING_DAYS = [1, 4];

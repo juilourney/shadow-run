@@ -1,9 +1,10 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGauge, getMe } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar } from '../store.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export function render() {
+  const cal = getCalendar();
   return `
 <div class="game-section" id="gs-dash">
   <div class="scroll-body pb-tab" style="padding:calc(var(--safe-top) + 12px) 18px 0">
@@ -16,7 +17,7 @@ export function render() {
     <div class="bezel anim-up-1" style="padding:18px 20px; border-radius:24px;">
       <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;">
         <h2 style="font-size:16px; font-weight:700; letter-spacing:-.01em;">실시간 줄다리기</h2>
-        <p style="font-size:11px; color:#52525b; letter-spacing:.04em;">2026 July · D-14</p>
+        <p style="font-size:11px; color:#52525b; letter-spacing:.04em;">${cal.monthLabel} · D-${cal.dday}</p>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px;">
         <div>

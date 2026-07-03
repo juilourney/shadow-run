@@ -120,16 +120,40 @@ export function getGauge() {
   };
 }
 
-// 현재 단계: 탐색전(일~수) / 줄다리기(목~토)
-// 지금은 로컬 요일 기반. 나중에 CONFIG.startDate + 서버시간으로 대체.
-export function getPhase() {
-  const day = new Date().getDay(); // 0=일 … 6=토
+// 게임 캘린더 — CONFIG.startDate + weeks 를 단일 출처로 파생값 계산.
+// 나중에 관리자 페이지에서 startDate/weeks만 바꾸면 전체가 따라 움직인다.
+export function getCalendar(now = new Date()) {
+  const [y, m, d] = CONFIG.startDate.split('-').map(Number);
+  const start = new Date(y, m - 1, d);                 // 게임 1일차 00:00 (로컬)
+  const totalDays = CONFIG.weeks * 7;
+  const end = new Date(start);
+  end.setDate(start.getDate() + totalDays);            // 종료 경계(마지막날 다음 00:00)
+
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayIndex = Math.round((today0 - start) / 86400000); // 경과일 (0-base)
+  const started = dayIndex >= 0;
+  const ended = dayIndex >= totalDays;
+  const week = !started ? 0 : (ended ? CONFIG.weeks : Math.floor(dayIndex / 7) + 1);
+  const dday = Math.ceil((end - today0) / 86400000);   // 종료까지 남은 일수 → 헤더 D-N
+  const monthLabel = `${now.getFullYear()} ${now.toLocaleDateString('en-US', { month: 'long' })}`;
+
+  return { start, end, dayIndex, totalDays, week, weeks: CONFIG.weeks, started, ended, dday, monthLabel };
+}
+
+// 현재 단계: 탐색전(일~수) / 줄다리기(목~토) — 게임 캘린더와 묶어 한 곳에서 계산.
+export function getPhase(now = new Date()) {
+  const cal = getCalendar(now);
+  const day = now.getDay(); // 0=일 … 6=토
   const isTug = day >= 4 && day <= 6;
   return {
     phase: isTug ? 'tug' : 'scout',
     isTug,
     label: isTug ? '줄다리기 진행 중' : '탐색전',
     days: isTug ? '목 · 금 · 토' : '일 · 월 · 화 · 수',
+    week: cal.week,
+    dday: cal.dday,
+    started: cal.started,
+    ended: cal.ended,
   };
 }
 

@@ -100,7 +100,7 @@ export function render() {
 
     <div class="bezel" style="border-radius:16px; padding:14px 16px; margin-bottom:14px;">
       <p style="font-size:13px; color:#a1a1aa; line-height:1.6;">
-        전체 참여자 가운데 의심스러운 1명을 지목하세요. 최다 득표자는 팀이 공개되고 마일리지 50% 감소. 역할까지 지목할 수 있고, 같은 역할이 60% 이상 모이면 능력이 박탈됩니다.
+        의심스러운 참여자 1명을 지목하세요. 최다 득표 시 팀 공개 · 마일리지 50% 감소.
       </p>
     </div>
 
@@ -228,7 +228,7 @@ export function render() {
       <p style="font-size:11px; color:#fb7185; letter-spacing:.12em; text-transform:uppercase; font-weight:700;">2 · 역할 지목 · 선택</p>
       <h2 style="font-size:22px; font-weight:700;"><span id="vc-name-2"></span>님의 역할은?</h2>
       <p style="font-size:13px; color:#52525b;">확신이 있을 때만 · 애매하면 기권</p>
-      <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:320px; margin-top:6px;"></div>
+      <div id="role-guess-options" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; max-width:300px; margin-top:6px;"></div>
     </div>
 
     <!-- STEP 3 · 최종 확인 -->
@@ -281,7 +281,7 @@ export function init() {
   const roleWrap = document.getElementById('role-guess-options');
   roleWrap.innerHTML = ROLE_GUESS.map(r => `
     <button class="role-opt" data-role="${r.key}"
-      style="border-radius:10px; padding:0 12px; height:34px; font-size:13px; font-weight:600;
+      style="width:100%; height:44px; border-radius:12px; font-size:14px; font-weight:600;
         cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
         color:#a1a1aa;">${r.label}</button>`).join('');
   const paintRoleOpts = () => {

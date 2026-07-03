@@ -44,7 +44,17 @@ export function render() {
 
         <div class="flip-face flip-back" id="card-back"
           style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; border:1px solid transparent;">
-          <p id="card-back-q" style="font-family:'Space Grotesk'; font-size:64px; font-weight:700; letter-spacing:-.04em; color:#1a1a1e; line-height:1;">?</p>
+          <div id="card-back-cover" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px;">
+            <div style="text-align:center; line-height:1;">
+              <p style="font-family:'Space Grotesk'; font-size:11px; letter-spacing:.3em; color:#2a2a2e; text-transform:uppercase; margin-bottom:20px;">SHADOW RUN</p>
+              <p style="font-family:'Space Grotesk'; font-size:64px; font-weight:700; letter-spacing:-.04em; color:#1a1a1e; line-height:1; user-select:none;">?</p>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <div style="width:28px; height:1px; background:rgba(255,255,255,.12);"></div>
+              <p style="font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#3f3f46; font-weight:600;">탭하여 공개</p>
+              <div style="width:28px; height:1px; background:rgba(255,255,255,.12);"></div>
+            </div>
+          </div>
           <p class="eyebrow" id="card-team-label" style="letter-spacing:.22em;"></p>
           <p id="card-team-name" style="font-family:'Space Grotesk'; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1;"></p>
           <div style="width:36px; height:1.5px; border-radius:99px;" id="card-divider"></div>
@@ -89,8 +99,8 @@ export function prepareCard() {
   label.textContent     = '';
   nameEl.textContent    = '';
 
-  // 회전 중 뒷면: 물음표만 보이고 이름/구분선은 숨김
-  document.getElementById('card-back-q').style.display = '';
+  // 회전 중 뒷면: 앞면과 동일한 커버 표시, 공개용 이름/구분선은 숨김
+  document.getElementById('card-back-cover').style.display = 'flex';
   document.getElementById('card-divider').style.opacity = '0';
 
   // 플립 상태 리셋
@@ -161,8 +171,8 @@ function flipCard() {
     }
     label.textContent = 'YOUR TEAM';
 
-    // 물음표 감추고 구분선 노출
-    document.getElementById('card-back-q').style.display = 'none';
+    // 커버 감추고 구분선 노출
+    document.getElementById('card-back-cover').style.display = 'none';
     divider.style.opacity = '1';
 
     revealComplete = true;                                  // 공개 즉시 다음 탭 허용

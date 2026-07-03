@@ -204,20 +204,31 @@ export function render() {
       <div style="display:flex; justify-content:center; margin-bottom:18px;">
         <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
       </div>
-      <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;">지목 확인</p>
-      <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 상대 팀으로 지목합니다</p>
-      <p style="font-size:13px; color:#52525b; margin-bottom:16px;">이 행동은 취소할 수 없습니다</p>
+      <!-- STEP 1 · 팀 지목 -->
+      <div id="vote-step-team">
+        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">1단계 · 팀 지목</p>
+        <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 상대 팀으로 지목합니다</p>
+        <p style="font-size:13px; color:#52525b; margin-bottom:20px;">이 행동은 취소할 수 없습니다</p>
+        <div style="display:flex; gap:10px;">
+          <button id="vote-team-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>
+          <button id="vote-team-next" class="btn" style="flex:2; height:52px;
+            background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
+            box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">다음</button>
+        </div>
+      </div>
 
-      <!-- 역할 지목 (선택) -->
-      <p style="font-size:11px; color:#52525b; font-weight:600; margin-bottom:8px;">
-        역할 지목 <span style="color:#3f3f46; font-weight:400;">· 확실할 때만, 기본은 기권</span></p>
-      <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
-
-      <div style="display:flex; gap:10px;">
-        <button id="vote-confirm-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>
-        <button id="vote-confirm-ok" class="btn" style="flex:2; height:52px;
-          background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
-          box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">지목하기</button>
+      <!-- STEP 2 · 역할 지목 (선택) -->
+      <div id="vote-step-role" style="display:none;">
+        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">2단계 · 역할 지목 <span style="color:#3f3f46; font-weight:400; text-transform:none; letter-spacing:0;">· 선택</span></p>
+        <p style="font-size:15px; font-weight:600; margin-bottom:4px;"><span id="confirm-target-name-2"></span>님의 역할을 지목할까요?</p>
+        <p style="font-size:13px; color:#52525b; margin-bottom:16px;">확실할 때만 · 애매하면 기권</p>
+        <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
+        <div style="display:flex; gap:10px;">
+          <button id="vote-role-back" class="btn btn-secondary" style="flex:1; height:52px;">뒤로</button>
+          <button id="vote-confirm-ok" class="btn" style="flex:2; height:52px;
+            background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
+            box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">지목하기</button>
+        </div>
       </div>
     </div>
   </div>
@@ -267,7 +278,13 @@ export function init() {
     document.getElementById('vote-inactive-overlay').style.display = 'none';
   });
 
-  // 지목하기 버튼들
+  // 단계 전환 헬퍼
+  const showStep = (n) => {
+    document.getElementById('vote-step-team').style.display = n === 1 ? 'block' : 'none';
+    document.getElementById('vote-step-role').style.display = n === 2 ? 'block' : 'none';
+  };
+
+  // 지목하기 버튼들 → 1단계(팀 지목)부터
   document.querySelectorAll('.vote-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (getVote().left <= 0) return;
@@ -275,14 +292,24 @@ export function init() {
       pendingPlayerName = btn.dataset.name;
       pendingRole       = '';   // 매 지목마다 기권으로 초기화
       paintRoleOpts();
-      document.getElementById('confirm-target-name').textContent = pendingPlayerName;
+      document.getElementById('confirm-target-name').textContent   = pendingPlayerName;
+      document.getElementById('confirm-target-name-2').textContent = pendingPlayerName;
+      showStep(1);
       openConfirmSheet();
     });
   });
 
+  // 1단계 → 2단계(역할 지목)
+  document.getElementById('vote-team-next').addEventListener('click', () => {
+    showStep(2);
+    lockOkBriefly();  // 되돌릴 수 없는 지목 — 오탭 방지
+  });
+  // 2단계 → 1단계
+  document.getElementById('vote-role-back').addEventListener('click', () => showStep(1));
+
   // 확인 팝업
   document.getElementById('vote-confirm-backdrop').addEventListener('click', closeConfirmSheet);
-  document.getElementById('vote-confirm-cancel').addEventListener('click', closeConfirmSheet);
+  document.getElementById('vote-team-cancel').addEventListener('click', closeConfirmSheet);
   document.getElementById('vote-confirm-ok').addEventListener('click', () => {
     const role = pendingRole;
     closeConfirmSheet();
@@ -383,15 +410,9 @@ function showVoteResult(r) {
 
 let _okUnlockTimer = null;
 
-function openConfirmSheet() {
-  const overlay = document.getElementById('vote-confirm-overlay');
-  const sheet   = document.getElementById('vote-confirm-sheet');
-  const okBtn   = document.getElementById('vote-confirm-ok');
-  overlay.style.display = 'flex';
-  setScrollLock(true);
-
-  // 되돌릴 수 없는 지명 — 시트가 올라오는 동안 확인 버튼을 잠깐 잠가
-  // 연속 탭으로 인한 실수 확정을 방지 (슬라이드 애니메이션 .4s 후 해제)
+// 되돌릴 수 없는 지목 — '지목하기'가 나타난 직후 잠깐 잠가 오탭 방지
+function lockOkBriefly() {
+  const okBtn = document.getElementById('vote-confirm-ok');
   okBtn.style.pointerEvents = 'none';
   okBtn.style.opacity       = '.45';
   clearTimeout(_okUnlockTimer);
@@ -399,7 +420,13 @@ function openConfirmSheet() {
     okBtn.style.pointerEvents = '';
     okBtn.style.opacity       = '';
   }, 450);
+}
 
+function openConfirmSheet() {
+  const overlay = document.getElementById('vote-confirm-overlay');
+  const sheet   = document.getElementById('vote-confirm-sheet');
+  overlay.style.display = 'flex';
+  setScrollLock(true);
   requestAnimationFrame(() => requestAnimationFrame(() => {
     sheet.style.transform = 'translateY(0)';
   }));

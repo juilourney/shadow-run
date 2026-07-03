@@ -3,9 +3,17 @@ let _programmaticScroll = false;
 
 export function isProgrammaticScroll() { return _programmaticScroll; }
 
-// 바텀시트 등 오버레이가 뜬 동안 배경(게임 섹션) 스크롤 잠금
+// 바텀시트 등 오버레이가 뜬 동안 배경(게임 섹션) 스크롤 잠금 + 사이드 메뉴(탭바) 비활성
 export function setScrollLock(locked) {
   document.documentElement.classList.toggle('lock-scroll', locked);
+  const tb     = document.getElementById('global-tabbar');
+  const handle = document.getElementById('tabbar-handle');
+  if (locked) {
+    tb?.classList.remove('open');                 // 열려 있던 사이드 메뉴 닫기
+    if (handle) handle.style.visibility = 'hidden'; // 손잡이 비활성 (팝업 위로 못 열게)
+  } else if (handle) {
+    handle.style.visibility = '';
+  }
 }
 
 const SECTION_TAB = {

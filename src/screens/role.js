@@ -56,6 +56,7 @@ export function render() {
         <div class="flip-face flip-back" id="role-card-back"
           style="display:flex; flex-direction:column; align-items:center; justify-content:center;
             gap:12px; border:1px solid transparent;">
+          <p id="role-back-q" style="font-family:'Space Grotesk'; font-size:64px; font-weight:700; letter-spacing:-.04em; color:var(--accent); opacity:.2; line-height:1;">?</p>
           <p class="eyebrow" id="role-card-label" style="letter-spacing:.22em; opacity:.7;"></p>
           <p id="role-card-name" style="font-family:'Space Grotesk'; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1;"></p>
           <div style="width:36px; height:1.5px; border-radius:99px;" id="role-card-divider"></div>
@@ -119,6 +120,10 @@ export function prepareRoleScreen() {
   label.textContent     = '';
   nameEl.textContent    = '';
   sub.textContent       = '';
+
+  // 회전 중 뒷면: 물음표만 보이고 이름/구분선은 숨김
+  document.getElementById('role-back-q').style.display = '';
+  document.getElementById('role-card-divider').style.opacity = '0';
 
   const fi = document.getElementById('role-flip-inner');
   fi.classList.remove('flipped', 'spinning');
@@ -191,6 +196,10 @@ function flipRoleCard() {
 
     document.getElementById('role-desc-headline').textContent = r.headline;
     document.getElementById('role-desc-detail').textContent   = r.detail;
+
+    // 물음표 감추고 구분선 노출
+    document.getElementById('role-back-q').style.display = 'none';
+    divider.style.opacity = '1';
 
     revealComplete = true;                                  // 공개 즉시 다음 탭 허용
 

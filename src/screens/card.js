@@ -44,6 +44,7 @@ export function render() {
 
         <div class="flip-face flip-back" id="card-back"
           style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; border:1px solid transparent;">
+          <p id="card-back-q" style="font-family:'Space Grotesk'; font-size:64px; font-weight:700; letter-spacing:-.04em; color:#1a1a1e; line-height:1;">?</p>
           <p class="eyebrow" id="card-team-label" style="letter-spacing:.22em;"></p>
           <p id="card-team-name" style="font-family:'Space Grotesk'; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1;"></p>
           <div style="width:36px; height:1.5px; border-radius:99px;" id="card-divider"></div>
@@ -87,6 +88,10 @@ export function prepareCard() {
   back.style.boxShadow  = 'none';
   label.textContent     = '';
   nameEl.textContent    = '';
+
+  // 회전 중 뒷면: 물음표만 보이고 이름/구분선은 숨김
+  document.getElementById('card-back-q').style.display = '';
+  document.getElementById('card-divider').style.opacity = '0';
 
   // 플립 상태 리셋
   const inner = document.getElementById('flip-inner');
@@ -155,6 +160,10 @@ function flipCard() {
       nameEl.textContent       = '고스트';
     }
     label.textContent = 'YOUR TEAM';
+
+    // 물음표 감추고 구분선 노출
+    document.getElementById('card-back-q').style.display = 'none';
+    divider.style.opacity = '1';
 
     revealComplete = true;                                  // 공개 즉시 다음 탭 허용
     setTimeout(() => { hint.style.opacity = '1'; }, 300);   // 힌트는 살짝 뒤에

@@ -201,7 +201,7 @@ export function render() {
   <div style="padding:calc(var(--safe-top) + 12px) 20px 6px; display:flex; align-items:center; gap:14px;">
     <button id="vc-back" class="btn btn-secondary" style="height:36px; padding:0 12px; font-size:16px; border-radius:10px;">←</button>
     <div style="flex:1;">
-      <p style="font-size:11px; color:#52525b; letter-spacing:.14em; text-transform:uppercase; font-weight:700;">투표 · 지목</p>
+      <p id="vc-header-label" style="font-size:11px; color:#52525b; letter-spacing:.14em; text-transform:uppercase; font-weight:700;">투표 · 지목</p>
       <div id="vc-steps" style="display:flex; gap:6px; margin-top:7px;">
         <span class="vc-dot" style="width:26px; height:3px; border-radius:2px; background:rgba(255,255,255,.12); transition:background .3s;"></span>
         <span class="vc-dot" style="width:26px; height:3px; border-radius:2px; background:rgba(255,255,255,.12); transition:background .3s;"></span>
@@ -324,7 +324,8 @@ export function init() {
   // 리스트 지목 버튼 → 전체화면 플로우 시작
   document.querySelectorAll('.vote-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (getVote().left <= 0) return;
+      const v = getVote();
+      if (v.left <= 0) return;
       pendingPlayerId   = btn.dataset.id;
       pendingPlayerName = btn.dataset.name;
       pendingRole       = '';
@@ -332,6 +333,9 @@ export function init() {
       document.getElementById('vc-avatar').textContent = pendingPlayerName[0];
       document.getElementById('vc-name-1').textContent = pendingPlayerName;
       document.getElementById('vc-name-2').textContent = pendingPlayerName;
+      // 더블(2표)이면 회차 표시 — 투표 과정을 두 번 반복
+      document.getElementById('vc-header-label').textContent =
+        v.total > 1 ? `투표 · ${v.total - v.left + 1}번째 지목 (총 ${v.total}회)` : '투표 · 지목';
       showStep(1);
       goToScreen('s-vote-cast');
     });
@@ -410,6 +414,9 @@ async function castVote(playerId, playerName, roleGuess) {
     });
     document.getElementById('vote-done-msg').style.display = 'block';
     document.getElementById('sim-result-btn').style.display = 'block';
+  } else if (v.total > 1) {
+    // 더블 — 표가 남았으면 한 번 더 지목하도록 안내
+    showTooltip(`한 표 남았어요 · 한 번 더 지목하세요 (${v.total - v.left}/${v.total})`);
   }
 }
 

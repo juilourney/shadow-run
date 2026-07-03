@@ -32,12 +32,12 @@ export function render() {
     <div class="bezel anim-up-1" style="padding:16px 18px;border-radius:20px;margin-bottom:16px;">
       <p style="font-size:11px;color:#52525b;margin-bottom:8px;letter-spacing:.04em;">최종 게이지</p>
       <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;">
-        <div id="end-bar-pacer" style="background:#38bdf8;"></div>
         <div id="end-bar-ghost" style="background:#a78bfa;"></div>
+        <div id="end-bar-pacer" style="background:#38bdf8;"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px;white-space:nowrap;">
-        <span style="color:#38bdf8;">페이서 <span id="end-km-pacer" class="num">—</span> km</span>
         <span style="color:#a78bfa;">고스트 <span id="end-km-ghost" class="num">—</span> km</span>
+        <span style="color:#38bdf8;">페이서 <span id="end-km-pacer" class="num">—</span> km</span>
       </div>
     </div>
 

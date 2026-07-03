@@ -81,7 +81,7 @@ export function render() {
       </div>
     </div>
 
-    <div style="width:100%; display:flex; flex-direction:column; gap:12px;">
+    <div style="position:absolute; left:26px; right:26px; top:calc(50% + 165px); display:flex; flex-direction:column; gap:12px;">
 
       <div id="role-desc-reveal"
         style="max-height:0; overflow:hidden; opacity:0; pointer-events:none;

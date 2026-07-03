@@ -53,6 +53,7 @@ body {
 .screen.active {
   opacity: 1; pointer-events: all;
   transform: translateX(0);
+  z-index: 40;   /* 게임 레이어(game-wrap) 위로 — DOM 순서와 무관하게 활성 화면이 덮도록 */
 }
 .screen.exit-left { opacity: 0; transform: translateX(-24px); }
 

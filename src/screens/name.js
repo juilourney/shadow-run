@@ -1,6 +1,6 @@
-import { state, SPECIAL_ROLES } from '../state.js';
+import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { prepareCard } from './card.js';
+import { prepareWaiting } from './waiting.js';
 
 export function render() {
   return `
@@ -105,13 +105,12 @@ function enterGame() {
   input.style.borderColor = '';
   state.name = name;
 
-  // 테스트용 — 매번 새로 랜덤 배정 (저장 없음)
-  state.team = Math.random() < .5 ? 'pacer' : 'ghost';
-  state.role = SPECIAL_ROLES[Math.floor(Math.random() * SPECIAL_ROLES.length)];
-
+  // 팀·역할은 게임 시작 시 일괄 배정 — 등록 후 대기실로 이동
+  state.team = null;
+  state.role = null;
   state.cardFlipped = false;
   state.roleFlipped = false;
   state.roleConfirmed = false;
-  prepareCard();
-  goToScreen('s-card');
+  prepareWaiting();
+  goToScreen('s-waiting');
 }

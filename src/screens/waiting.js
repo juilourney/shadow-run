@@ -1,6 +1,7 @@
-import { state, ROLES } from '../state.js';
+import { state, SPECIAL_ROLES } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { MEMBERS as WAIT_MEMBERS } from './members.js';
+import { prepareCard } from './card.js';
 
 // 관리자가 설정할 게임 시작 일시 — 추후 Firebase 연동
 let GAME_START_TIME = new Date();
@@ -127,21 +128,27 @@ export function render() {
           style="font-size:26px; font-weight:800; color:var(--accent); line-height:1; letter-spacing:-.02em;">00:00</p>
         <p style="font-size:10px; color:#52525b; margin-top:6px;">남음</p>
       </div>
-      <div class="bezel-accent" style="padding:16px; border-radius:20px; display:flex; flex-direction:column; justify-content:center; gap:6px;">
-        <span id="waiting-team-badge" class="chip"
-          style="background:var(--accent-tint); color:var(--accent); font-size:10px; align-self:flex-start;"></span>
-        <p id="waiting-role-name"
-          style="font-size:18px; font-weight:800; letter-spacing:-.02em; color:var(--accent); line-height:1;"></p>
-        <p id="waiting-role-short"
-          style="font-size:11px; color:#71717a; line-height:1.4;"></p>
+      <div class="bezel" style="padding:16px; border-radius:20px; text-align:center; display:flex; flex-direction:column; justify-content:center;">
+        <p style="font-size:10px; color:#52525b; font-weight:600; letter-spacing:.06em; margin-bottom:8px;">참가 등록</p>
+        <p class="num" id="waiting-reg-count"
+          style="font-size:26px; font-weight:800; color:#fafafa; line-height:1; letter-spacing:-.02em;">—</p>
+        <p style="font-size:10px; color:#52525b; margin-top:6px;">참가 중</p>
       </div>
     </div>
 
-    <div class="bezel" style="border-radius:20px; padding:16px 18px; margin-bottom:16px;">
-      <p style="font-size:12px; color:#52525b; line-height:1.7;">
-        관리자가 게임을 시작하면 자동으로 화면이 전환됩니다.<br/>그 동안 참가자와 가이드를 확인하세요.
-      </p>
+    <div style="background:rgba(56,189,248,.06); border:1px solid rgba(56,189,248,.16);
+      border-radius:20px; padding:16px 18px; margin-bottom:12px; display:flex; gap:12px; align-items:flex-start;">
+      <span style="font-size:20px; line-height:1.2;">🎭</span>
+      <div>
+        <p style="font-size:13px; font-weight:700; color:#7dd3fc; margin-bottom:3px;">팀 · 역할은 아직 비공개</p>
+        <p style="font-size:12px; color:#a1a1aa; line-height:1.6;">게임이 시작되면 전체 참가자를 두 팀으로 나누고 역할이 배정·공개됩니다. 그 동안 가이드를 확인하세요.</p>
+      </div>
     </div>
+
+    <button id="waiting-view-guide" class="btn btn-secondary"
+      style="width:100%; height:46px; font-size:13px; margin-bottom:10px;">
+      📖 게임 가이드 보기
+    </button>
 
     <button id="waiting-start-sim" class="btn btn-secondary"
       style="width:100%; height:46px; font-size:13px; color:#52525b;">
@@ -156,7 +163,7 @@ export function render() {
 
     <div style="margin-bottom:16px;">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">참가자</h2>
-      <p style="font-size:12px; color:#52525b; margin-top:2px;">${WAIT_MEMBERS.length}명 참가 중 · 팀 배정 완료</p>
+      <p style="font-size:12px; color:#52525b; margin-top:2px;">${WAIT_MEMBERS.length}명 등록 · 배정 대기 중</p>
     </div>
 
     <div class="bezel" style="border-radius:20px; padding:0 16px;">
@@ -189,7 +196,18 @@ export function render() {
 
 export function init() {
   document.getElementById('waiting-start-sim').addEventListener('click', () => {
-    goToScreen('s-game');
+    // 임시 배정 — 정식 팀·역할 일괄 배정 알고리즘은 로드맵 4번에서 교체
+    state.team = Math.random() < .5 ? 'pacer' : 'ghost';
+    state.role = SPECIAL_ROLES[Math.floor(Math.random() * SPECIAL_ROLES.length)];
+    state.cardFlipped = false;
+    state.roleFlipped = false;
+    prepareCard();
+    goToScreen('s-card');
+  });
+
+  // 가이드 보기 — 기존 가이드 탭 재사용
+  document.getElementById('waiting-view-guide').addEventListener('click', () => {
+    document.getElementById('wtab-guide').click();
   });
 
   const tb = document.getElementById('waiting-tabbar');
@@ -228,11 +246,9 @@ export function init() {
 }
 
 export function prepareWaiting() {
-  const r = ROLES[state.role];
-  const teamName = state.team === 'pacer' ? '페이서팀' : '고스트팀';
-  document.getElementById('waiting-team-badge').textContent = teamName;
-  document.getElementById('waiting-role-name').textContent = r.name;
-  document.getElementById('waiting-role-short').textContent = r.short;
+  // 배정 전 — 실시간 등록 인원 표시 (mock 로스터 기준)
+  document.getElementById('waiting-reg-count').innerHTML =
+    `${WAIT_MEMBERS.length}<span style="font-size:13px; font-weight:600; color:#52525b;"> 명</span>`;
 
   // 홈 탭 초기화
   ['wtab-home','wtab-members','wtab-guide'].forEach(id =>

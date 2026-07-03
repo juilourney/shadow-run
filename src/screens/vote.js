@@ -100,12 +100,12 @@ export function render() {
 
     <div class="bezel" style="border-radius:16px; padding:14px 16px; margin-bottom:14px;">
       <p style="font-size:13px; color:#a1a1aa; line-height:1.6;">
-        의심스러운 참여자 1명을 지목하세요. 최다 득표 시 팀 공개 · 마일리지 50% 감소.
+        의심스러운 참가자 1명을 지목하세요.
       </p>
     </div>
 
     <p style="font-size:11px; color:#52525b; margin-bottom:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;">
-      참여자 중 지목하기
+      참가자 중 지목하기
     </p>
 
     <div style="display:flex; flex-direction:column; gap:8px;" id="player-list">
@@ -220,7 +220,7 @@ export function render() {
         border:2px solid rgba(251,113,133,.4); box-shadow:0 0 44px -10px rgba(251,113,133,.5);"></div>
       <h2 style="font-size:26px; font-weight:800; letter-spacing:-.02em;"><span id="vc-name-1"></span>님</h2>
       <p style="font-size:14px; color:#71717a; line-height:1.75; max-width:280px;">
-        이 참여자를 지목합니다.<br/>가장 많이 지목되면 팀이 공개되고<br/>마일리지가 영구적으로 50% 감소합니다.</p>
+        이 참가자를 지목합니다.<br/>가장 많이 지목되면 팀이 공개되고<br/>마일리지가 영구적으로 50% 감소합니다.</p>
     </div>
 
     <!-- STEP 2 · 역할 지목 -->

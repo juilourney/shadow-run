@@ -149,7 +149,7 @@ export function getBolts() {
     joined: b.id === state.joinedBoltId,
     hostName: playerById(b.hostId)?.name ?? '?',
     isHost: b.hostId === state.me.id,
-    // 단일팀 판정: 참여자 전원이 같은 팀 & 최소 인원 충족
+    // 단일팀 판정: 참가자 전원이 같은 팀 & 최소 인원 충족
     isSingleTeam: isSingleTeamBolt(b),
   }));
 }

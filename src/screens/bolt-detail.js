@@ -103,7 +103,7 @@ export function render() {
       <span style="font-size:18px; flex-shrink:0;">🔥</span>
       <div>
         <p style="font-size:13px; font-weight:700; color:#fb923c;">단일팀 번개 조건 충족!</p>
-        <p style="font-size:12px; color:rgba(251,146,60,.7); margin-top:3px; line-height:1.5;">참여자 전원이 같은 팀입니다. 잠금을 걸면 단일팀 번개로 전환되어 팀 고유 스킬이 발동됩니다.</p>
+        <p style="font-size:12px; color:rgba(251,146,60,.7); margin-top:3px; line-height:1.5;">참가자 전원이 같은 팀입니다. 잠금을 걸면 단일팀 번개로 전환되어 팀 고유 스킬이 발동됩니다.</p>
       </div>
     </div>
 

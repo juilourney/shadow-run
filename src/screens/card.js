@@ -164,10 +164,8 @@ function flipCard() {
     }
     label.textContent = 'YOUR TEAM';
 
-    setTimeout(() => {
-      revealComplete = true;
-      hint.style.opacity = '1';
-    }, 300);
+    revealComplete = true;                                  // 공개 즉시 다음 탭 허용
+    setTimeout(() => { hint.style.opacity = '1'; }, 300);   // 힌트는 살짝 뒤에
   };
   inner.addEventListener('animationend', finishReveal, { once: true });
   setTimeout(finishReveal, 3700);   // animationend 미발생(모바일/백그라운드) 대비 안전망

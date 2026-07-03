@@ -1,4 +1,4 @@
-import { goToScreen, setScrollLock } from '../utils/nav.js';
+import { goToScreen } from '../utils/nav.js';
 import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, injectVotes, ROLES } from '../store.js';
 
 const TEAM_META = {
@@ -192,47 +192,70 @@ export function render() {
     </button>
   </div>
 
-  <!-- 확인 팝업 -->
-  <div id="vote-confirm-overlay"
-    style="position:absolute; inset:0; z-index:60; display:none; align-items:flex-end;">
-    <div style="position:absolute; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px);" id="vote-confirm-backdrop"></div>
-    <div id="vote-confirm-sheet"
-      style="position:relative; z-index:1; background:#111113; border-radius:28px 28px 0 0;
-        width:100%; transform:translateY(100%); transition:transform .4s var(--spring);
-        border-top:1px solid rgba(255,255,255,.08);
-        padding:24px 20px; padding-bottom:24px;">
-      <div style="display:flex; justify-content:center; margin-bottom:18px;">
-        <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
-      </div>
-      <!-- STEP 1 · 팀 지목 -->
-      <div id="vote-step-team">
-        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">1단계 · 인물 지목</p>
-        <p style="font-size:19px; font-weight:700; margin-bottom:4px;"><span id="confirm-target-name"></span>님을 지목합니다</p>
-        <p style="font-size:13px; color:#52525b; margin-bottom:20px;">가장 많이 지목되면 이 참여자의 팀이 공개됩니다 · 취소할 수 없습니다</p>
-        <div style="display:flex; gap:10px;">
-          <button id="vote-team-cancel" class="btn btn-secondary" style="flex:1; height:52px;">취소</button>
-          <button id="vote-team-next" class="btn" style="flex:2; height:52px;
-            background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
-            box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">다음</button>
-        </div>
-      </div>
+</div>
 
-      <!-- STEP 2 · 역할 지목 (선택) -->
-      <div id="vote-step-role" style="display:none;">
-        <p style="font-size:11px; color:#fb7185; letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">2단계 · 역할 지목 <span style="color:#3f3f46; font-weight:400; text-transform:none; letter-spacing:0;">· 선택</span></p>
-        <p style="font-size:15px; font-weight:600; margin-bottom:4px;"><span id="confirm-target-name-2"></span>님의 역할을 지목할까요?</p>
-        <p style="font-size:13px; color:#52525b; margin-bottom:16px;">확실할 때만 · 애매하면 기권</p>
-        <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;"></div>
-        <div style="display:flex; gap:10px;">
-          <button id="vote-role-back" class="btn btn-secondary" style="flex:1; height:52px;">뒤로</button>
-          <button id="vote-confirm-ok" class="btn" style="flex:2; height:52px;
-            background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
-            box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">지목하기</button>
-        </div>
+<!-- ═══ 투표 지목 · 전체화면 플로우 (중요 이벤트라 무게감 있게) ═══ -->
+<div class="screen" id="s-vote-cast" style="overflow:hidden;">
+
+  <!-- 헤더 -->
+  <div style="padding:calc(var(--safe-top) + 12px) 20px 6px; display:flex; align-items:center; gap:14px;">
+    <button id="vc-back" class="btn btn-secondary" style="height:36px; padding:0 12px; font-size:16px; border-radius:10px;">←</button>
+    <div style="flex:1;">
+      <p style="font-size:11px; color:#52525b; letter-spacing:.14em; text-transform:uppercase; font-weight:700;">투표 · 지목</p>
+      <div id="vc-steps" style="display:flex; gap:6px; margin-top:7px;">
+        <span class="vc-dot" style="width:26px; height:3px; border-radius:2px; background:rgba(255,255,255,.12); transition:background .3s;"></span>
+        <span class="vc-dot" style="width:26px; height:3px; border-radius:2px; background:rgba(255,255,255,.12); transition:background .3s;"></span>
+        <span class="vc-dot" style="width:26px; height:3px; border-radius:2px; background:rgba(255,255,255,.12); transition:background .3s;"></span>
       </div>
     </div>
   </div>
 
+  <div class="scroll-body" style="padding:8px 24px 0; display:flex; flex-direction:column;">
+
+    <!-- STEP 1 · 인물 지목 -->
+    <div id="vc-step-1" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:16px;">
+      <p style="font-size:11px; color:#fb7185; letter-spacing:.12em; text-transform:uppercase; font-weight:700;">1 · 인물 지목</p>
+      <div id="vc-avatar" style="width:92px; height:92px; border-radius:50%; background:#3f3f46;
+        display:flex; align-items:center; justify-content:center; font-size:36px;
+        border:2px solid rgba(251,113,133,.4); box-shadow:0 0 44px -10px rgba(251,113,133,.5);"></div>
+      <h2 style="font-size:26px; font-weight:800; letter-spacing:-.02em;"><span id="vc-name-1"></span>님</h2>
+      <p style="font-size:14px; color:#71717a; line-height:1.75; max-width:280px;">
+        이 참여자를 지목합니다.<br/>가장 많이 지목되면 팀이 공개되고<br/>마일리지가 영구적으로 50% 감소합니다.</p>
+    </div>
+
+    <!-- STEP 2 · 역할 지목 -->
+    <div id="vc-step-2" style="display:none; flex:1; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px;">
+      <p style="font-size:11px; color:#fb7185; letter-spacing:.12em; text-transform:uppercase; font-weight:700;">2 · 역할 지목 · 선택</p>
+      <h2 style="font-size:22px; font-weight:700;"><span id="vc-name-2"></span>님의 역할은?</h2>
+      <p style="font-size:13px; color:#52525b;">확신이 있을 때만 · 애매하면 기권</p>
+      <div id="role-guess-options" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:320px; margin-top:6px;"></div>
+    </div>
+
+    <!-- STEP 3 · 최종 확인 -->
+    <div id="vc-step-3" style="display:none; flex:1; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px;">
+      <p style="font-size:11px; color:#fb7185; letter-spacing:.12em; text-transform:uppercase; font-weight:700;">3 · 최종 확인</p>
+      <div style="width:100%; max-width:320px; background:rgba(251,113,133,.06);
+        border:1px solid rgba(251,113,133,.2); border-radius:20px; padding:20px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <span style="font-size:13px; color:#52525b;">지목 인물</span>
+          <span id="vc-sum-name" style="font-size:16px; font-weight:800;"></span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; color:#52525b;">역할 지목</span>
+          <span id="vc-sum-role" style="font-size:16px; font-weight:700; color:#fb7185;"></span>
+        </div>
+      </div>
+      <p style="font-size:13px; color:#fb7185; line-height:1.6;">⚠️ 이 결정은 되돌릴 수 없습니다.</p>
+    </div>
+
+  </div>
+
+  <!-- 푸터 -->
+  <div style="padding:12px 24px calc(var(--safe-bottom) + 16px);">
+    <button id="vc-primary" class="btn" style="width:100%; height:56px; font-size:16px;
+      background:linear-gradient(135deg,#fb7185,#e11d48); color:#fff;
+      box-shadow:0 8px 24px -6px rgba(251,113,133,.4);">다음</button>
+  </div>
 </div>`;
 }
 
@@ -278,42 +301,54 @@ export function init() {
     document.getElementById('vote-inactive-overlay').style.display = 'none';
   });
 
-  // 단계 전환 헬퍼
+  // ── 전체화면 지목 플로우 (인물 → 역할 → 최종 확인) ──────────
+  let currentStep = 1;
+  const primary = document.getElementById('vc-primary');
+
   const showStep = (n) => {
-    document.getElementById('vote-step-team').style.display = n === 1 ? 'block' : 'none';
-    document.getElementById('vote-step-role').style.display = n === 2 ? 'block' : 'none';
+    currentStep = n;
+    [1, 2, 3].forEach(i =>
+      document.getElementById(`vc-step-${i}`).style.display = i === n ? 'flex' : 'none');
+    document.querySelectorAll('#vc-steps .vc-dot').forEach((d, i) =>
+      d.style.background = i < n ? '#fb7185' : 'rgba(255,255,255,.12)');
+    primary.textContent = n < 3 ? '다음' : '지목 확정';
+    document.getElementById('vc-back').textContent = n === 1 ? '←' : '뒤로';
+    if (n === 3) {
+      document.getElementById('vc-sum-name').textContent = `${pendingPlayerName}님`;
+      document.getElementById('vc-sum-role').textContent =
+        pendingRole ? ROLES[pendingRole].name : '기권';
+      lockPrimaryBriefly();  // 되돌릴 수 없는 확정 — 오탭 방지
+    }
   };
 
-  // 지목하기 버튼들 → 1단계(팀 지목)부터
+  // 리스트 지목 버튼 → 전체화면 플로우 시작
   document.querySelectorAll('.vote-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (getVote().left <= 0) return;
       pendingPlayerId   = btn.dataset.id;
       pendingPlayerName = btn.dataset.name;
-      pendingRole       = '';   // 매 지목마다 기권으로 초기화
+      pendingRole       = '';
       paintRoleOpts();
-      document.getElementById('confirm-target-name').textContent   = pendingPlayerName;
-      document.getElementById('confirm-target-name-2').textContent = pendingPlayerName;
+      document.getElementById('vc-avatar').textContent = pendingPlayerName[0];
+      document.getElementById('vc-name-1').textContent = pendingPlayerName;
+      document.getElementById('vc-name-2').textContent = pendingPlayerName;
       showStep(1);
-      openConfirmSheet();
+      goToScreen('s-vote-cast');
     });
   });
 
-  // 1단계 → 2단계(역할 지목)
-  document.getElementById('vote-team-next').addEventListener('click', () => {
-    showStep(2);
-    lockOkBriefly();  // 되돌릴 수 없는 지목 — 오탭 방지
-  });
-  // 2단계 → 1단계
-  document.getElementById('vote-role-back').addEventListener('click', () => showStep(1));
-
-  // 확인 팝업
-  document.getElementById('vote-confirm-backdrop').addEventListener('click', closeConfirmSheet);
-  document.getElementById('vote-team-cancel').addEventListener('click', closeConfirmSheet);
-  document.getElementById('vote-confirm-ok').addEventListener('click', () => {
+  // 다음 / 지목 확정
+  primary.addEventListener('click', () => {
+    if (currentStep < 3) { showStep(currentStep + 1); return; }
     const role = pendingRole;
-    closeConfirmSheet();
-    setTimeout(() => castVote(pendingPlayerId, pendingPlayerName, role), 350);
+    goToScreen('gs-vote');
+    setTimeout(() => castVote(pendingPlayerId, pendingPlayerName, role), 320);
+  });
+
+  // 뒤로 / 취소
+  document.getElementById('vc-back').addEventListener('click', () => {
+    if (currentStep === 1) goToScreen('gs-vote');
+    else showStep(currentStep - 1);
   });
 
   // 결과 오버레이 닫기
@@ -410,33 +445,16 @@ function showVoteResult(r) {
 
 let _okUnlockTimer = null;
 
-// 되돌릴 수 없는 지목 — '지목하기'가 나타난 직후 잠깐 잠가 오탭 방지
-function lockOkBriefly() {
-  const okBtn = document.getElementById('vote-confirm-ok');
-  okBtn.style.pointerEvents = 'none';
-  okBtn.style.opacity       = '.45';
+// 되돌릴 수 없는 확정 — '지목 확정'이 나타난 직후 잠깐 잠가 오탭 방지
+function lockPrimaryBriefly() {
+  const btn = document.getElementById('vc-primary');
+  btn.style.pointerEvents = 'none';
+  btn.style.opacity       = '.45';
   clearTimeout(_okUnlockTimer);
   _okUnlockTimer = setTimeout(() => {
-    okBtn.style.pointerEvents = '';
-    okBtn.style.opacity       = '';
+    btn.style.pointerEvents = '';
+    btn.style.opacity       = '';
   }, 450);
-}
-
-function openConfirmSheet() {
-  const overlay = document.getElementById('vote-confirm-overlay');
-  const sheet   = document.getElementById('vote-confirm-sheet');
-  overlay.style.display = 'flex';
-  setScrollLock(true);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    sheet.style.transform = 'translateY(0)';
-  }));
-}
-
-function closeConfirmSheet() {
-  const sheet = document.getElementById('vote-confirm-sheet');
-  sheet.style.transform = 'translateY(100%)';
-  setScrollLock(false);
-  setTimeout(() => { document.getElementById('vote-confirm-overlay').style.display = 'none'; }, 380);
 }
 
 function showTooltip(msg) {

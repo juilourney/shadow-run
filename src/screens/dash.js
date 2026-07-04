@@ -97,28 +97,22 @@ export function render() {
 
   </div>
 
-  <!-- 타임라인 전체화면 (아래→위 슬라이드) -->
+  <!-- 타임라인 팝업 — 종이 한 장이 아래에서 올라오는 느낌(여백 남김, 전체화면 아님) -->
   <div id="timeline-overlay" style="position:absolute; inset:0; z-index:95; display:none;">
+    <div id="timeline-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.55);"></div>
     <div id="timeline-sheet"
-      style="position:absolute; inset:0; background:#0e0e10;
+      style="position:absolute; left:0; right:0; bottom:0; top:15%; background:#0e0e10;
+        border-radius:28px 28px 0 0;
         transform:translateY(100%); transition:transform .4s var(--spring);
-        display:flex; flex-direction:column;">
-      <div id="timeline-header" style="position:sticky; top:0; background:#0e0e10; z-index:5;
-        padding:calc(var(--safe-top) + 4px) 18px 14px;
+        display:flex; flex-direction:column; overflow:hidden;">
+      <div id="timeline-header" style="background:#0e0e10;
+        padding:14px 20px 14px;
         border-bottom:1px solid rgba(255,255,255,.06);
         touch-action:none; cursor:grab;">
-        <div style="display:flex; justify-content:center; margin-bottom:10px;">
+        <div style="display:flex; justify-content:center; margin-bottom:14px;">
           <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
         </div>
-        <div style="display:flex; align-items:center; gap:14px;">
-          <button id="timeline-close-btn"
-            style="background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08);
-              color:#a1a1aa; border-radius:10px; width:34px; height:34px;
-              font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-            ←
-          </button>
-          <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
-        </div>
+        <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
       </div>
       <div id="timeline-list" style="flex:1; overflow-y:auto; padding:16px 18px 30px;
         display:flex; flex-direction:column; gap:8px;"></div>
@@ -143,7 +137,7 @@ export function init() {
   });
 
   document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
-  document.getElementById('timeline-close-btn').addEventListener('click', closeTimelineOverlay);
+  document.getElementById('timeline-backdrop').addEventListener('click', closeTimelineOverlay);
   initTimelineDrag();
 }
 

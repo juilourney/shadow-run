@@ -397,28 +397,29 @@ export async function tallyVote() {
     //    과반 미달(팀을 못 맞힘)이면 팀 비공개·페널티 없음 → '적발 실패'.
     const correctN = targetBallots.filter(b => b.voterTeam && b.voterTeam !== target.team).length;
     const teamCaught = correctN > targetBallots.length / 2;
-
-    let roleRevealed = false, guessFailed = false, guessedRole = null;
     if (teamCaught) {
       target.publicTeam = target.team;
       target.penalized  = true;
+    }
 
-      // ③ 역할: 팀 적발 성공 시에만 판정 — 지목 인원 중 동일 역할 ≥60% AND 실제 일치 → 공개·박탈
-      const roleCount = {};
-      for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
-      let consensusRole = null, consensusN = 0;
-      for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
-      const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+    // ③ 역할 판정 — 팀 적중 여부와 무관하게 독립 진행.
+    //    팀을 못 맞혔어도 역할(구체적 행동 패턴 등)은 따로 맞힐 수 있음.
+    //    지목 인원 중 동일 역할 ≥60% AND 실제 일치 → 공개·박탈(마일리지 페널티와 별개 플래그)
+    let roleRevealed = false, guessFailed = false, guessedRole = null;
+    const roleCount = {};
+    for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
+    let consensusRole = null, consensusN = 0;
+    for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
+    const ratio = consensusRole ? consensusN / targetBallots.length : 0;
 
-      if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
-        if (consensusRole === target.role) {
-          roleRevealed = true;
-          target.publicRole      = target.role;   // 역할 공개(박제)
-          target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
-        } else {
-          guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
-          guessedRole = consensusRole;
-        }
+    if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
+      if (consensusRole === target.role) {
+        roleRevealed = true;
+        target.publicRole      = target.role;   // 역할 공개(박제)
+        target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
+      } else {
+        guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
+        guessedRole = consensusRole;
       }
     }
 

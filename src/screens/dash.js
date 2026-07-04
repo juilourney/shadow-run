@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getBolts } from '../store.js';
 import { openEndView } from './end.js';
 import { prepareWaiting } from './waiting.js';
 
@@ -79,28 +79,7 @@ export function render() {
     </div>
 
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">나의 번개 일정</p>
-    <div style="display:flex; flex-direction:column; gap:8px;" class="anim-up-4">
-      <div class="bezel" style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; justify-content:space-between;">
-        <div>
-          <p style="font-size:14px; font-weight:600;">한강 새벽 LSD</p>
-          <p style="font-size:12px; color:#52525b; margin-top:2px;">반포 · 8.0km · 2/4</p>
-        </div>
-        <div style="text-align:right;">
-          <p class="num" style="font-size:13px; font-weight:700; color:var(--accent);">02:14:30</p>
-          <p style="font-size:10px; color:#3f3f46; margin-top:2px;">오늘 05:30</p>
-        </div>
-      </div>
-      <div class="bezel" style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; justify-content:space-between;">
-        <div>
-          <p style="font-size:14px; font-weight:600;">석촌호수 회복런</p>
-          <p style="font-size:12px; color:#52525b; margin-top:2px;">송파 · 5.0km · 1/4</p>
-        </div>
-        <div style="text-align:right;">
-          <p class="num" style="font-size:13px; font-weight:600; color:#71717a;">내일</p>
-          <p style="font-size:10px; color:#3f3f46; margin-top:2px;">07.02 07:00</p>
-        </div>
-      </div>
-    </div>
+    <div id="dash-my-bolt" class="anim-up-4"></div>
 
     <button class="btn" id="dash-waiting-btn" style="width:100%; height:48px; margin-top:20px;
       background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a1a1aa; font-size:14px;">
@@ -150,4 +129,18 @@ function renderFromStore() {
 
   document.getElementById('stat-pure-km').textContent = fmt(me.pureKm);
   document.getElementById('stat-bolts').textContent   = me.boltsCompleted;
+
+  // 나의 번개 일정 — 룰상 참여 중인 번개는 항상 1개뿐 (없으면 0개)
+  const myBolt = getBolts().find(b => b.joined);
+  document.getElementById('dash-my-bolt').innerHTML = myBolt ? `
+    <div class="bezel" style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <p style="font-size:14px; font-weight:600;">${myBolt.title}</p>
+        <p style="font-size:12px; color:#52525b; margin-top:2px;">${myBolt.place} · ${myBolt.distance.toFixed(1)}km · ${myBolt.count}/${myBolt.max}명</p>
+      </div>
+      <p class="num" style="font-size:13px; font-weight:600; color:var(--accent);">${myBolt.time}</p>
+    </div>` : `
+    <div class="bezel" style="padding:18px 16px; border-radius:20px; text-align:center;">
+      <p style="font-size:13px; color:#52525b;">참여 중인 번개가 없어요</p>
+    </div>`;
 }

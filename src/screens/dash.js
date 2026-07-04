@@ -2,6 +2,7 @@ import { goToScreen } from '../utils/nav.js';
 import { subscribe, getGauge, getMe, getCalendar, getBolts } from '../store.js';
 import { openEndView } from './end.js';
 import { prepareWaiting } from './waiting.js';
+import { openHostView } from './bolt-detail.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -132,15 +133,26 @@ function renderFromStore() {
 
   // 나의 번개 일정 — 룰상 참여 중인 번개는 항상 1개뿐 (없으면 0개)
   const myBolt = getBolts().find(b => b.joined);
-  document.getElementById('dash-my-bolt').innerHTML = myBolt ? `
-    <div class="bezel" style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; justify-content:space-between;">
+  const wrap = document.getElementById('dash-my-bolt');
+  wrap.innerHTML = myBolt ? `
+    <div class="bezel" id="dash-my-bolt-card" style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
       <div>
         <p style="font-size:14px; font-weight:600;">${myBolt.title}</p>
         <p style="font-size:12px; color:#52525b; margin-top:2px;">${myBolt.place} · ${myBolt.distance.toFixed(1)}km · ${myBolt.count}/${myBolt.max}명</p>
       </div>
-      <p class="num" style="font-size:13px; font-weight:600; color:var(--accent);">${myBolt.time}</p>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <p class="num" style="font-size:13px; font-weight:600; color:var(--accent);">${myBolt.time}</p>
+        <span style="color:#3f3f46; font-size:16px;">›</span>
+      </div>
     </div>` : `
     <div class="bezel" style="padding:18px 16px; border-radius:20px; text-align:center;">
       <p style="font-size:13px; color:#52525b;">참여 중인 번개가 없어요</p>
     </div>`;
+
+  if (myBolt) {
+    document.getElementById('dash-my-bolt-card').addEventListener('click', () => {
+      if (myBolt.isHost) openHostView(myBolt.id);   // 방장 → 인증/완료 뷰
+      else goToScreen('s-bolt-join');               // 참가자 → 참여 뷰
+    });
+  }
 }

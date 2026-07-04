@@ -369,50 +369,59 @@ export function injectVotes(list) {
 }
 
 // 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정
+//   동점이면 최다 득표자를 모두 적발. 역할은 각 대상별로 독립 판정.
 export async function tallyVote() {
   const ballots = state.vote.ballots;
   if (ballots.length === 0) return null;
 
-  // ① 팀: 지목 표수 최다 (더블의 2건도 각각 1표)
+  // ① 팀: 지목 표수 최다 (더블의 2건도 각각 1표) — 동점자 전원
   const teamCount = {};
   for (const b of ballots) teamCount[b.targetId] = (teamCount[b.targetId] || 0) + 1;
-  const topId = Object.entries(teamCount).sort((a, b) => b[1] - a[1])[0][0];
-  const target = playerById(topId);
-  if (!target) return null;
+  const maxCount = Math.max(...Object.values(teamCount));
+  const topIds = Object.keys(teamCount).filter(id => teamCount[id] === maxCount);
 
-  // 팀 공개 + 마일리지 -50% (무조건)
-  target.publicTeam = target.team;
-  target.penalized  = true;
+  const caught = [];
+  for (const topId of topIds) {
+    const target = playerById(topId);
+    if (!target) continue;
 
-  // ② 역할: 대상 지목 인원 중 동일 역할 ≥60% → 실제 역할과 일치 시 공개·박탈
-  const targetBallots = ballots.filter(b => b.targetId === topId);
-  const roleCount = {};
-  for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
-  let consensusRole = null, consensusN = 0;
-  for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
-  const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+    // 팀 공개 + 마일리지 -50% (무조건)
+    target.publicTeam = target.team;
+    target.penalized  = true;
 
-  let roleRevealed = false, guessFailed = false, guessedRole = null;
-  if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
-    if (consensusRole === target.role) {
-      roleRevealed = true;
-      target.publicRole      = target.role;   // 역할 공개(박제)
-      target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
-    } else {
-      guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
-      guessedRole = consensusRole;
+    // ② 역할: 이 대상 지목 인원 중 동일 역할 ≥60% → 실제 역할과 일치 시 공개·박탈 (대상별 독립)
+    const targetBallots = ballots.filter(b => b.targetId === topId);
+    const roleCount = {};
+    for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
+    let consensusRole = null, consensusN = 0;
+    for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
+    const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+
+    let roleRevealed = false, guessFailed = false, guessedRole = null;
+    if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
+      if (consensusRole === target.role) {
+        roleRevealed = true;
+        target.publicRole      = target.role;   // 역할 공개(박제)
+        target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
+      } else {
+        guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
+        guessedRole = consensusRole;
+      }
     }
+
+    caught.push({
+      id: target.id,
+      name: target.name,
+      team: target.team,
+      roleRevealed,
+      revealedRole: roleRevealed ? target.role : null,
+      guessFailed,
+      guessedRole,
+    });
   }
 
-  const result = {
-    id: target.id,
-    name: target.name,
-    team: target.team,
-    roleRevealed,
-    revealedRole: roleRevealed ? target.role : null,
-    guessFailed,
-    guessedRole,
-  };
+  if (caught.length === 0) return null;
+  const result = { tie: caught.length > 1, caught };
 
   // 라운드 종료 — 다음 회차를 위해 표 초기화
   // (팀 공개·마일리지 페널티·역할 박탈 등 적발 결과는 players에 영구 반영되어 유지됨)

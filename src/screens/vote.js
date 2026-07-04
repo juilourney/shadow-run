@@ -159,34 +159,11 @@ export function render() {
       padding:32px; text-align:center;">
 
     <p style="font-size:11px; color:#52525b; letter-spacing:.14em; text-transform:uppercase; font-weight:700; margin-bottom:8px;">투표 결과</p>
-    <p style="font-size:13px; color:#a1a1aa; margin-bottom:20px;">이번 투표의 최다 득표자</p>
+    <p id="vote-result-subtitle" style="font-size:13px; color:#a1a1aa; margin-bottom:20px;">이번 투표의 최다 득표자</p>
 
-    <!-- 지목된 인물 -->
-    <div id="vote-result-avatar" style="width:72px;height:72px;border-radius:50%;background:#3f3f46;
-      display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;
-      border:2px solid rgba(251,113,133,.4); box-shadow:0 0 32px -8px rgba(251,113,133,.4);"></div>
-    <p id="vote-result-name" style="font-size:24px; font-weight:800; letter-spacing:-.02em; margin-bottom:6px;"></p>
-    <span id="vote-result-team" style="font-size:13px; font-weight:700;
-      border-radius:10px; padding:4px 14px; margin-bottom:24px; display:inline-block;"></span>
-
-    <!-- 페널티 카드 -->
-    <div style="width:100%; background:rgba(251,113,133,.08); border:1px solid rgba(251,113,133,.2);
-      border-radius:20px; padding:18px 20px; margin-top:8px; text-align:left;">
-      <p style="font-size:12px; color:#52525b; font-weight:600; letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px;">적용 페널티</p>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:14px;">⚡</span>
-          <p style="font-size:13px; color:#e4e4e7;">이후 모든 번개 마일리지 <b style="color:#fb7185;">50% 감소</b></p>
-        </div>
-        <div id="vote-result-role" style="display:none; align-items:center; gap:10px;">
-          <span style="font-size:14px;">🎭</span>
-          <p style="font-size:13px; color:#e4e4e7;"><b id="vote-result-role-name" style="color:#fb7185;"></b> 역할 공개 + 능력 <b style="color:#fb7185;">박탈</b></p>
-        </div>
-      </div>
-      <p id="vote-result-fail" style="display:none; font-size:12px; color:#71717a; line-height:1.6; margin-top:12px;
-        padding-top:12px; border-top:1px solid rgba(255,255,255,.06);">
-        🕵️ 다수가 <b id="vote-result-fail-role" style="color:#a1a1aa;"></b>로 지목했지만 <b style="color:#a1a1aa;">추리 실패</b> — 실제 역할이 달라 능력은 보존됩니다.</p>
-    </div>
+    <!-- 적발된 인물 목록 (동점 시 여러 명) -->
+    <div id="vote-result-list" style="width:100%; max-height:56vh; overflow-y:auto;
+      display:flex; flex-direction:column; gap:14px;"></div>
 
     <button id="vote-result-close"
       class="btn btn-secondary" style="width:100%; height:52px; margin-top:20px;">
@@ -424,32 +401,45 @@ async function castVote(playerId, playerName, roleGuess) {
 
 // 집계 결과로 결과 오버레이 채우기
 function showVoteResult(r) {
-  const t = TEAM_META[r.team];
-  document.getElementById('vote-result-avatar').textContent = r.name[0];
-  document.getElementById('vote-result-name').textContent   = r.name;
-  const teamEl = document.getElementById('vote-result-team');
-  teamEl.textContent      = t.label;
-  teamEl.style.color      = t.color;
-  teamEl.style.background  = t.bg;
-  teamEl.style.border      = `1px solid ${t.border}`;
+  const caught = r.caught ?? [r];   // 하위호환 (단일 객체도 허용)
+  document.getElementById('vote-result-subtitle').textContent =
+    caught.length > 1 ? `최다 득표 동점 · ${caught.length}명 적발` : '이번 투표의 최다 득표자';
+  document.getElementById('vote-result-list').innerHTML = caught.map(resultCard).join('');
+}
 
-  // 역할 공개 + 능력 박탈 (60% 적중 시)
-  const roleEl = document.getElementById('vote-result-role');
-  if (r.roleRevealed) {
-    document.getElementById('vote-result-role-name').textContent = ROLES[r.revealedRole]?.name ?? '역할';
-    roleEl.style.display = 'flex';
-  } else {
-    roleEl.style.display = 'none';
-  }
-
-  // 추리 실패 (60% 합의했지만 실제 역할과 불일치)
-  const failEl = document.getElementById('vote-result-fail');
-  if (r.guessFailed) {
-    document.getElementById('vote-result-fail-role').textContent = ROLES[r.guessedRole]?.name ?? '특정 역할';
-    failEl.style.display = 'block';
-  } else {
-    failEl.style.display = 'none';
-  }
+function resultCard(c) {
+  const t = TEAM_META[c.team];
+  const roleLine = c.roleRevealed
+    ? `<div style="display:flex; align-items:center; gap:10px;">
+         <span style="font-size:14px;">🎭</span>
+         <p style="font-size:13px; color:#e4e4e7;"><b style="color:#fb7185;">${ROLES[c.revealedRole]?.name ?? '역할'}</b> 역할 공개 + 능력 <b style="color:#fb7185;">박탈</b></p>
+       </div>` : '';
+  const failLine = c.guessFailed
+    ? `<p style="font-size:12px; color:#71717a; line-height:1.6; margin-top:12px;
+         padding-top:12px; border-top:1px solid rgba(255,255,255,.06);">
+         🕵️ 다수가 <b style="color:#a1a1aa;">${ROLES[c.guessedRole]?.name ?? '특정 역할'}</b>로 지목했지만 <b style="color:#a1a1aa;">추리 실패</b> — 실제 역할이 달라 능력은 보존됩니다.</p>` : '';
+  return `
+  <div style="background:rgba(251,113,133,.06); border:1px solid rgba(251,113,133,.18);
+    border-radius:20px; padding:18px 20px; text-align:left;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="width:48px;height:48px;border-radius:50%;background:#3f3f46;flex-shrink:0;
+        display:flex;align-items:center;justify-content:center;font-size:18px;
+        border:2px solid rgba(251,113,133,.4);">${c.name[0]}</div>
+      <div>
+        <p style="font-size:18px; font-weight:800; letter-spacing:-.02em;">${c.name}</p>
+        <span style="font-size:11px; font-weight:700; border-radius:8px; padding:2px 10px; display:inline-block; margin-top:4px;
+          color:${t.color}; background:${t.bg}; border:1px solid ${t.border};">${t.label}</span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:14px;">⚡</span>
+        <p style="font-size:13px; color:#e4e4e7;">이후 모든 번개 마일리지 <b style="color:#fb7185;">50% 감소</b></p>
+      </div>
+      ${roleLine}
+    </div>
+    ${failLine}
+  </div>`;
 }
 
 let _okUnlockTimer = null;

@@ -36,22 +36,18 @@ const state = {
     dayIndex: 0,                          // 게임 며칠차 (0-base) — 서버시간 대체 예정
   },
 
-  // 나 (현재 플레이어)
+  // 나 (현재 플레이어) — 신원·팀·역할·거리는 players[myId]가 단일 출처.
+  // 여기엔 '나만의 개인 상태'만 둔다.
   me: {
     id: 'm0',
-    name: '나',
-    team: 'pacer',                        // 'pacer' | 'ghost'
-    role: 'detective',                    // ROLES key
-    pureKm: 64,                           // 순수 기여 (보너스 제외)
     boltsCompleted: 7,
     abilityUsed: 0,                       // 탐정/밀정 사용 횟수
     revealed: {},                         // { [playerId]: {team} | {role} } — 능력 확인 결과
-    abilityStripped: false,               // 역할 60% 적중 적발 → 능력 박탈됐는지
   },
 
-  // 참가자 (나 제외 목록도 여기 포함)
+  // 참가자 (나 포함) — 신원·팀·역할·누적거리의 단일 출처
   players: [
-    { id: 'm0', name: '나',    team: 'pacer', role: 'detective', km: 38.2, publicTeam: null },
+    { id: 'm0', name: '나',    team: 'pacer', role: 'detective', km: 64,   publicTeam: null },
     { id: 'm1', name: '김민수', team: 'pacer', role: 'elite',     km: 42.3, publicTeam: 'pacer' },
     { id: 'm2', name: '박현우', team: 'ghost', role: 'runner',    km: 38.7, publicTeam: null },
     { id: 'm3', name: '이서연', team: 'ghost', role: 'double',    km: 51.2, publicTeam: null },
@@ -158,7 +154,15 @@ export function getPhase(now = new Date()) {
 }
 
 export function getMe() {
-  return getSnapshot().me;
+  const p = playerById(state.me.id);
+  return {
+    ...structuredClone(p),               // id·name·team·role·km·publicTeam·penalized·publicRole·abilityStripped
+    pureKm: p.km,                         // 대시보드 등 기존 코드 호환용 별칭
+    boltsCompleted: state.me.boltsCompleted,
+    abilityUsed: state.me.abilityUsed,
+    revealed: { ...state.me.revealed },
+    abilityStripped: !!p.abilityStripped,
+  };
 }
 
 export function getPlayers({ excludeSelf = false } = {}) {
@@ -183,9 +187,9 @@ export function getJoinedBoltId() {
 }
 
 export function getVote() {
-  const me = state.me;
+  const meP = playerById(state.me.id);
   // 역할(더블) 박탈되면 1표
-  const total = (me.role === 'double' && !me.abilityStripped) ? 2 : 1;
+  const total = (meP.role === 'double' && !meP.abilityStripped) ? 2 : 1;
   // 지목 표수 집계 (ballots에서 파생)
   const castCount = {};
   for (const b of state.vote.ballots) castCount[b.targetId] = (castCount[b.targetId] || 0) + 1;
@@ -199,18 +203,18 @@ export function getVote() {
 
 // 능력 남은 횟수 (탐정/밀정만)
 export function getAbility() {
-  const me = state.me;
+  const meP = playerById(state.me.id);
   // 역할 적중 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
-  const stripped = me.abilityStripped;
-  const isSpecial = (me.role === 'detective' || me.role === 'spy') && !stripped;
+  const stripped = !!meP.abilityStripped;
+  const isSpecial = (meP.role === 'detective' || meP.role === 'spy') && !stripped;
   return {
     isSpecial,
     stripped,
-    kind: me.role === 'detective' ? 'team' : me.role === 'spy' ? 'role' : null,
+    kind: meP.role === 'detective' ? 'team' : meP.role === 'spy' ? 'role' : null,
     limit: CONFIG.abilityLimit,
-    used: me.abilityUsed,
-    left: stripped ? 0 : CONFIG.abilityLimit - me.abilityUsed,
-    revealed: { ...me.revealed },
+    used: state.me.abilityUsed,
+    left: stripped ? 0 : CONFIG.abilityLimit - state.me.abilityUsed,
+    revealed: { ...state.me.revealed },
   };
 }
 
@@ -318,11 +322,10 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
       if (p.role === 'anchor' && !stripped) subtractOpponent(p.team, km);
     }
 
-    // 개인 순수 누적거리 (보너스 제외한 실제 거리)
+    // 개인 순수 누적거리 (보너스 제외한 실제 거리) — players가 단일 출처
     // 방장이 출석 체크한 참가자는 함께 달린 것으로 보고 방장이 달린 거리를 동일 적용
     p.km += distanceKm;
     if (pid === state.me.id) {
-      state.me.pureKm += distanceKm;
       state.me.boltsCompleted += 1;
     }
   });
@@ -394,16 +397,14 @@ export async function tallyVote() {
     if (consensusRole === target.role) {
       roleRevealed = true;
       target.publicRole      = target.role;   // 역할 공개(박제)
-      target.abilityStripped = true;          // 능력 박탈
-      if (topId === state.me.id) state.me.abilityStripped = true;
+      target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
     } else {
       guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
       guessedRole = consensusRole;
     }
   }
 
-  notify();
-  return {
+  const result = {
     id: target.id,
     name: target.name,
     team: target.team,
@@ -412,25 +413,33 @@ export async function tallyVote() {
     guessFailed,
     guessedRole,
   };
+
+  // 라운드 종료 — 다음 회차를 위해 표 초기화
+  // (팀 공개·마일리지 페널티·역할 박탈 등 적발 결과는 players에 영구 반영되어 유지됨)
+  state.vote.ballots = [];
+  state.vote.myVotesUsed = 0;
+
+  notify();
+  return result;
 }
 
 // 탐정/밀정 능력 사용
 export async function useAbility(targetId) {
-  const me = state.me;
-  if (me.role !== 'detective' && me.role !== 'spy') throw new Error('능력이 없습니다');
-  if (me.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
-  if (me.abilityUsed >= CONFIG.abilityLimit) throw new Error('사용 횟수를 모두 소진했습니다');
-  if (me.revealed[targetId]) return me.revealed[targetId]; // 이미 확인함
+  const meP = playerById(state.me.id);
+  if (meP.role !== 'detective' && meP.role !== 'spy') throw new Error('능력이 없습니다');
+  if (meP.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
+  if (state.me.abilityUsed >= CONFIG.abilityLimit) throw new Error('사용 횟수를 모두 소진했습니다');
+  if (state.me.revealed[targetId]) return state.me.revealed[targetId]; // 이미 확인함
 
   const target = playerById(targetId);
   if (!target) throw new Error('대상을 찾을 수 없습니다');
 
-  const result = me.role === 'detective'
+  const result = meP.role === 'detective'
     ? { team: target.team }
     : { role: target.role };
 
-  me.revealed[targetId] = result;
-  me.abilityUsed += 1;
+  state.me.revealed[targetId] = result;
+  state.me.abilityUsed += 1;
   notify();
   return result;
 }

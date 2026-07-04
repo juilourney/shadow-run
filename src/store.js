@@ -350,20 +350,25 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
   return { singleTeam, isTug, distanceKm, buffMultiplier, participantIds, participantCount: participantIds.length, boltTeam };
 }
 
-// 투표 지목 — 팀 지목(targetId) + 역할 지목(roleGuess: role|null=기권)
+// 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)
+// 지목자의 팀을 함께 기록 → 집계 때 '실제로 상대팀이었는지(적중)' 판정에 사용
 export async function castVote(targetId, roleGuess = null) {
   const v = getVote();
   if (v.left <= 0) throw new Error('투표권을 모두 사용했습니다');
-  state.vote.ballots.push({ voterId: state.me.id, targetId, roleGuess: roleGuess || null });
+  const myTeam = playerById(state.me.id).team;
+  state.vote.ballots.push({ voterId: state.me.id, voterTeam: myTeam, targetId, roleGuess: roleGuess || null });
   state.vote.myVotesUsed += 1;
   notify();
   return getVote();
 }
 
-// 시뮬레이션: 가상 상대 투표 주입 (역할 60% 합의 시연용)
+// 시뮬레이션: 가상 상대 투표 주입
+// voterTeam 미지정 시 대상의 상대팀으로 기록(=팀 적중 투표) — 기존 시연 흐름 유지
 export function injectVotes(list) {
-  list.forEach(({ targetId, roleGuess }) => {
-    state.vote.ballots.push({ voterId: `sim-${state.vote.ballots.length}`, targetId, roleGuess: roleGuess || null });
+  list.forEach(({ targetId, roleGuess, voterTeam }) => {
+    const target = playerById(targetId);
+    const vt = voterTeam ?? (target?.team === 'pacer' ? 'ghost' : 'pacer');
+    state.vote.ballots.push({ voterId: `sim-${state.vote.ballots.length}`, voterTeam: vt, targetId, roleGuess: roleGuess || null });
   });
   notify();
 }
@@ -385,34 +390,43 @@ export async function tallyVote() {
     const target = playerById(topId);
     if (!target) continue;
 
-    // 팀 공개 + 마일리지 -50% (무조건)
-    target.publicTeam = target.team;
-    target.penalized  = true;
-
-    // ② 역할: 이 대상 지목 인원 중 동일 역할 ≥60% → 실제 역할과 일치 시 공개·박탈 (대상별 독립)
     const targetBallots = ballots.filter(b => b.targetId === topId);
-    const roleCount = {};
-    for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
-    let consensusRole = null, consensusN = 0;
-    for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
-    const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+
+    // ② 팀 적중 판정 — 투표는 '이 사람이 상대팀'이라는 추측.
+    //    지목자 과반이 실제 상대팀을 지목했을 때만 팀 공개 + 마일리지 -50%.
+    //    과반 미달(팀을 못 맞힘)이면 팀 비공개·페널티 없음 → '적발 실패'.
+    const correctN = targetBallots.filter(b => b.voterTeam && b.voterTeam !== target.team).length;
+    const teamCaught = correctN > targetBallots.length / 2;
 
     let roleRevealed = false, guessFailed = false, guessedRole = null;
-    if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
-      if (consensusRole === target.role) {
-        roleRevealed = true;
-        target.publicRole      = target.role;   // 역할 공개(박제)
-        target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
-      } else {
-        guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
-        guessedRole = consensusRole;
+    if (teamCaught) {
+      target.publicTeam = target.team;
+      target.penalized  = true;
+
+      // ③ 역할: 팀 적발 성공 시에만 판정 — 지목 인원 중 동일 역할 ≥60% AND 실제 일치 → 공개·박탈
+      const roleCount = {};
+      for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
+      let consensusRole = null, consensusN = 0;
+      for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
+      const ratio = consensusRole ? consensusN / targetBallots.length : 0;
+
+      if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
+        if (consensusRole === target.role) {
+          roleRevealed = true;
+          target.publicRole      = target.role;   // 역할 공개(박제)
+          target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
+        } else {
+          guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
+          guessedRole = consensusRole;
+        }
       }
     }
 
     caught.push({
       id: target.id,
       name: target.name,
-      team: target.team,
+      teamCaught,
+      team: teamCaught ? target.team : null,   // 적발 실패 시 팀 정보 비노출
       roleRevealed,
       revealedRole: roleRevealed ? target.role : null,
       guessFailed,

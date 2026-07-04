@@ -309,17 +309,17 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     if (p.role === 'elite' && !stripped) km *= CONFIG.eliteMultiplier;
     if (penalized) km *= CONFIG.votePenalty;
 
-    // 2) 단계별 반영
-    if (isTug) {
+    // 2) 게이지 반영
+    if (p.role === 'anchor' && !stripped) {
+      // 앵커: 끌어온다 — 버프 반영된 km만큼 내 팀 +km AND 상대 −km (단계·배수 무관)
+      state.game.gauge[p.team] += km;
+      subtractOpponent(p.team, km);
+    } else if (isTug) {
       // 줄다리기: 상대팀 게이지에서 삭감
       subtractOpponent(p.team, km);
-      // 앵커: 달린 만큼 상대팀 추가 삭감 (능력 박탈 시 무효)
-      if (p.role === 'anchor' && !stripped) subtractOpponent(p.team, km);
     } else {
       // 탐색전: 내 팀 게이지 1:1 적립
       state.game.gauge[p.team] += km;
-      // 앵커: 탐색전에도 상대팀 삭감 (능력 박탈 시 무효)
-      if (p.role === 'anchor' && !stripped) subtractOpponent(p.team, km);
     }
 
     // 개인 순수 누적거리 (보너스 제외한 실제 거리) — players가 단일 출처

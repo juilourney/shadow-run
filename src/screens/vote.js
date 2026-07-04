@@ -444,8 +444,9 @@ function roleContent(c) {
       <p style="font-size:13px; color:#e4e4e7; line-height:1.5;"><b style="color:#34d399;">${ROLES[c.revealedRole]?.name ?? '역할'}</b> 적중 · 공개 + 능력 <b style="color:#34d399;">박탈</b></p>`;
   }
   if (c.guessFailed) {
+    // 지목한 역할명은 표시하지 않음 — '그 역할이 아니다'라는 단서가 되므로
     return `<span style="font-size:14px; margin-right:8px;">❌</span>
-      <p style="font-size:13px; color:#e4e4e7; line-height:1.5;"><b style="color:#fb7185;">${ROLES[c.guessedRole]?.name ?? '특정 역할'}</b> 오답 · 능력 <b style="color:#a1a1aa;">보존</b></p>`;
+      <p style="font-size:13px; color:#e4e4e7; line-height:1.5;">추리 실패 · 능력 <b style="color:#a1a1aa;">보존</b></p>`;
   }
   return `<span style="font-size:14px; margin-right:8px;">▫️</span>
     <p style="font-size:13px; color:#71717a; line-height:1.5;">60% 미합의 · 능력 보존</p>`;

@@ -1,4 +1,4 @@
-import { goToScreen } from '../utils/nav.js';
+import { goToScreen, setScrollLock } from '../utils/nav.js';
 import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline } from '../store.js';
 import { openEndView } from './end.js';
 import { prepareWaiting } from './waiting.js';
@@ -103,17 +103,22 @@ export function render() {
       style="position:absolute; inset:0; background:#0e0e10;
         transform:translateY(100%); transition:transform .4s var(--spring);
         display:flex; flex-direction:column;">
-      <div style="position:sticky; top:0; background:#0e0e10; z-index:5;
-        padding:calc(var(--safe-top) + 8px) 18px 14px;
+      <div id="timeline-header" style="position:sticky; top:0; background:#0e0e10; z-index:5;
+        padding:calc(var(--safe-top) + 4px) 18px 14px;
         border-bottom:1px solid rgba(255,255,255,.06);
-        display:flex; align-items:center; gap:14px;">
-        <button id="timeline-close-btn"
-          style="background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08);
-            color:#a1a1aa; border-radius:10px; width:34px; height:34px;
-            font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-          ←
-        </button>
-        <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
+        touch-action:none; cursor:grab;">
+        <div style="display:flex; justify-content:center; margin-bottom:10px;">
+          <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <button id="timeline-close-btn"
+            style="background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08);
+              color:#a1a1aa; border-radius:10px; width:34px; height:34px;
+              font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+            ←
+          </button>
+          <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
+        </div>
       </div>
       <div id="timeline-list" style="flex:1; overflow-y:auto; padding:16px 18px 30px;
         display:flex; flex-direction:column; gap:8px;"></div>
@@ -139,12 +144,14 @@ export function init() {
 
   document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
   document.getElementById('timeline-close-btn').addEventListener('click', closeTimelineOverlay);
+  initTimelineDrag();
 }
 
 function openTimelineOverlay() {
   const overlay = document.getElementById('timeline-overlay');
   const sheet   = document.getElementById('timeline-sheet');
   overlay.style.display = 'block';
+  setScrollLock(true);   // 뒤 배경(대시보드 섹션) 상하 스크롤·스냅 잠금
   requestAnimationFrame(() => requestAnimationFrame(() => {
     sheet.style.transform = 'translateY(0)';
   }));
@@ -152,8 +159,45 @@ function openTimelineOverlay() {
 
 function closeTimelineOverlay() {
   const sheet = document.getElementById('timeline-sheet');
+  sheet.style.transition = '';
   sheet.style.transform = 'translateY(100%)';
+  setScrollLock(false);
   setTimeout(() => { document.getElementById('timeline-overlay').style.display = 'none'; }, 400);
+}
+
+// 헤더(손잡이 영역)를 아래로 드래그하면 팝업이 따라 내려가고,
+// 일정 거리 이상 끌면 그대로 닫힘 — 덜 끌면 원위치로 스냅
+function initTimelineDrag() {
+  const header = document.getElementById('timeline-header');
+  const sheet  = document.getElementById('timeline-sheet');
+  let startY = 0, dragging = false;
+
+  header.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startY = e.clientY;
+    sheet.style.transition = 'none';
+    header.setPointerCapture(e.pointerId);
+  });
+
+  header.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const delta = Math.max(0, e.clientY - startY); // 위로는 안 끌림
+    sheet.style.transform = `translateY(${delta}px)`;
+  });
+
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    const delta = Math.max(0, e.clientY - startY);
+    sheet.style.transition = '';
+    if (delta > 120) {
+      closeTimelineOverlay();
+    } else {
+      sheet.style.transform = 'translateY(0)';
+    }
+  };
+  header.addEventListener('pointerup', endDrag);
+  header.addEventListener('pointercancel', endDrag);
 }
 
 function timelineRow(e) {

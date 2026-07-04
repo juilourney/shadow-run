@@ -15,15 +15,15 @@ function boltCard(bolt, animClass) {
   <div class="bezel ${animClass}" id="bolt-card-${bolt.id}"
     style="padding:16px 18px; border-radius:22px; cursor:pointer;${bolt.locked ? ' opacity:.55;' : ''}">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
-      <p style="font-size:15px; font-weight:600; line-height:1.3">${lockedPrefix}${bolt.title}</p>
-      <span class="num" style="font-size:13px; font-weight:600; color:#71717a; white-space:nowrap; flex-shrink:0; margin-top:1px">${bolt.time}</span>
+      <p style="font-size:16px; font-weight:700; line-height:1.3; color:#fafafa;">${lockedPrefix}${bolt.title}</p>
+      <span class="num" style="font-size:13px; font-weight:600; color:#a1a1aa; white-space:nowrap; flex-shrink:0; margin-top:1px">${bolt.time}</span>
     </div>
-    <p style="font-size:12px; color:#52525b; margin-top:5px">${bolt.place} · ${bolt.distance.toFixed(1)}km · ${bolt.pace}</p>
+    <p style="font-size:13px; color:#a1a1aa; margin-top:5px">${bolt.place} · ${bolt.distance.toFixed(1)}km · ${bolt.pace}</p>
     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px">
-      <p style="font-size:12px; color:#52525b">방장 · ${bolt.hostName}</p>
+      <p style="font-size:12px; color:#71717a">방장 · ${bolt.hostName}</p>
       <div style="display:flex; align-items:center; gap:8px">
         ${joinedChip}
-        <span class="num" style="font-size:12px; color:#52525b">${bolt.count}/${bolt.max}명</span>
+        <span class="num" style="font-size:12px; color:#71717a">${bolt.count}/${bolt.max}명</span>
       </div>
     </div>
   </div>`;

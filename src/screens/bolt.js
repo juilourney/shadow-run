@@ -87,7 +87,8 @@ export function render() {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div>
             <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; font-weight:600; letter-spacing:.04em;">거리(km) *</label>
-            <input class="input num" type="number" id="create-distance" placeholder="0.0" inputmode="decimal" />
+            <input class="input num" type="text" id="create-distance" placeholder="선택" readonly
+              style="cursor:pointer;" />
           </div>
           <div>
             <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; font-weight:600; letter-spacing:.04em;">페이스</label>
@@ -124,6 +125,23 @@ export function render() {
       </div>
       <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:16px;">페이스 선택</p>
       <div id="pace-options" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+
+  <!-- 거리 선택 바텀시트 -->
+  <div id="distance-picker-overlay"
+    style="position:absolute; inset:0; z-index:70; display:none; align-items:flex-end;">
+    <div style="position:absolute; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(4px);" id="distance-picker-backdrop"></div>
+    <div id="distance-picker-sheet"
+      style="position:relative; z-index:1; background:#111113; border-radius:28px 28px 0 0;
+        width:100%; transform:translateY(100%); transition:transform .4s var(--spring);
+        border-top:1px solid rgba(255,255,255,.08); padding:24px 20px; padding-bottom:28px;">
+      <div style="display:flex; justify-content:center; margin-bottom:18px;">
+        <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
+      </div>
+      <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:6px;">거리 선택</p>
+      <p style="font-size:12px; color:#52525b; margin-bottom:16px;">최소 4km부터 등록할 수 있어요</p>
+      <div id="distance-options" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
   </div>
 
@@ -194,8 +212,9 @@ export function init() {
     }
   });
 
-  // 페이스 선택 피커
+  // 페이스 · 거리 선택 피커
   initPacePicker();
+  initDistancePicker();
 
   // 참여 확인 시트
   document.getElementById('bolt-join-backdrop').addEventListener('click', () => { closeJoinOverlay(); showSidebar(); });
@@ -302,6 +321,51 @@ function closePacePicker() {
   const sheet = document.getElementById('pace-picker-sheet');
   sheet.style.transform = 'translateY(100%)';
   setTimeout(() => { document.getElementById('pace-picker-overlay').style.display = 'none'; }, 380);
+}
+
+// 최소 등록 거리 4km — 4km 간격으로 20km까지
+const DISTANCE_OPTIONS = [4, 8, 12, 16, 20];
+
+function initDistancePicker() {
+  const input = document.getElementById('create-distance');
+  const opts  = document.getElementById('distance-options');
+
+  opts.innerHTML = DISTANCE_OPTIONS.map(d => `
+    <button type="button" class="distance-opt" data-distance="${d}"
+      style="width:100%; height:52px; border-radius:16px; cursor:pointer;
+        background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+        color:#e4e4e7; font-size:16px; font-weight:600; font-family:'Space Grotesk',sans-serif;">
+      ${d} <span style="font-size:12px; color:#52525b; font-weight:400;">km</span>
+    </button>`).join('');
+
+  input.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    document.activeElement?.blur();
+    openDistancePicker();
+  });
+  document.getElementById('distance-picker-backdrop').addEventListener('click', closeDistancePicker);
+
+  opts.querySelectorAll('.distance-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      input.value = btn.dataset.distance;
+      closeDistancePicker();
+    });
+  });
+}
+
+function openDistancePicker() {
+  const overlay = document.getElementById('distance-picker-overlay');
+  const sheet   = document.getElementById('distance-picker-sheet');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sheet.style.transform = 'translateY(0)';
+  }));
+}
+
+function closeDistancePicker() {
+  const sheet = document.getElementById('distance-picker-sheet');
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => { document.getElementById('distance-picker-overlay').style.display = 'none'; }, 380);
 }
 
 function openCreateOverlay() {

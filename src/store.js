@@ -136,11 +136,13 @@ export function getCalendar(now = new Date()) {
   return { start, end, dayIndex, totalDays, week, weeks: CONFIG.weeks, started, ended, dday, monthLabel };
 }
 
-// 현재 단계: 탐색전(일~수) / 줄다리기(목~토) — 게임 캘린더와 묶어 한 곳에서 계산.
+// 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — 실제 요일이 아니라
+// CONFIG.startDate 기준 경과일(dayIndex % 7)로 판정. 이래야 startDate를
+// 어떤 요일로 바꾸든 항상 같은 주기로 맞물린다(실제 요일과 무관).
 export function getPhase(now = new Date()) {
   const cal = getCalendar(now);
-  const day = now.getDay(); // 0=일 … 6=토
-  const isTug = day >= 4 && day <= 6;
+  const gameDay = ((cal.dayIndex % 7) + 7) % 7; // 0~6, 게임 시작일 기준 그 주의 며칠째
+  const isTug = gameDay >= 4 && gameDay <= 6;
   return {
     phase: isTug ? 'tug' : 'scout',
     isTug,

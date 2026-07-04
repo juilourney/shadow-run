@@ -404,41 +404,55 @@ function showVoteResult(r) {
   const caught = r.caught ?? [r];   // 하위호환 (단일 객체도 허용)
   document.getElementById('vote-result-subtitle').textContent =
     caught.length > 1 ? `최다 득표 동점 · ${caught.length}명 적발` : '이번 투표의 최다 득표자';
-  document.getElementById('vote-result-list').innerHTML = caught.map(resultCard).join('');
+
+  document.getElementById('vote-result-list').innerHTML = `
+    ${resultSection('🎯 팀 공개', '지목 최다 — 팀 공개 · 마일리지 50% 감소', caught.map(teamRow).join(''))}
+    ${resultSection('🎭 역할 추리', '60% 합의 + 실제 일치 시에만 공개·박탈', caught.map(roleRow).join(''))}
+  `;
 }
 
-function resultCard(c) {
-  const t = TEAM_META[c.team];
-  const roleLine = c.roleRevealed
-    ? `<div style="display:flex; align-items:center; gap:10px;">
-         <span style="font-size:14px;">🎭</span>
-         <p style="font-size:13px; color:#e4e4e7;"><b style="color:#fb7185;">${ROLES[c.revealedRole]?.name ?? '역할'}</b> 역할 공개 + 능력 <b style="color:#fb7185;">박탈</b></p>
-       </div>` : '';
-  const failLine = c.guessFailed
-    ? `<p style="font-size:12px; color:#71717a; line-height:1.6; margin-top:12px;
-         padding-top:12px; border-top:1px solid rgba(255,255,255,.06);">
-         🕵️ 다수가 <b style="color:#a1a1aa;">${ROLES[c.guessedRole]?.name ?? '특정 역할'}</b>로 지목했지만 <b style="color:#a1a1aa;">추리 실패</b> — 실제 역할이 달라 능력은 보존됩니다.</p>` : '';
+function resultSection(title, desc, rows) {
   return `
-  <div style="background:rgba(251,113,133,.06); border:1px solid rgba(251,113,133,.18);
-    border-radius:20px; padding:18px 20px; text-align:left;">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-      <div style="width:48px;height:48px;border-radius:50%;background:#3f3f46;flex-shrink:0;
-        display:flex;align-items:center;justify-content:center;font-size:18px;
-        border:2px solid rgba(251,113,133,.4);">${c.name[0]}</div>
-      <div>
-        <p style="font-size:18px; font-weight:800; letter-spacing:-.02em;">${c.name}</p>
-        <span style="font-size:11px; font-weight:700; border-radius:8px; padding:2px 10px; display:inline-block; margin-top:4px;
-          color:${t.color}; background:${t.bg}; border:1px solid ${t.border};">${t.label}</span>
-      </div>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:14px;">⚡</span>
-        <p style="font-size:13px; color:#e4e4e7;">이후 모든 번개 마일리지 <b style="color:#fb7185;">50% 감소</b></p>
-      </div>
-      ${roleLine}
-    </div>
-    ${failLine}
+  <div style="width:100%;">
+    <p style="font-size:12px; font-weight:700; color:#e4e4e7; letter-spacing:.02em; margin-bottom:2px;">${title}</p>
+    <p style="font-size:11px; color:#52525b; margin-bottom:10px;">${desc}</p>
+    <div style="display:flex; flex-direction:column; gap:8px;">${rows}</div>
+  </div>`;
+}
+
+// 팀: 무조건 공개 + 페널티 (맞/틀 없음 — 확정)
+function teamRow(c) {
+  const t = TEAM_META[c.team];
+  return `
+  <div style="display:flex; align-items:center; gap:12px; padding:12px 14px;
+    background:rgba(251,113,133,.06); border:1px solid rgba(251,113,133,.16); border-radius:14px;">
+    <div style="width:40px;height:40px;border-radius:50%;background:#3f3f46;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:15px;
+      border:1px solid rgba(251,113,133,.35);">${c.name[0]}</div>
+    <p style="flex:1; min-width:0; font-size:16px; font-weight:800; letter-spacing:-.02em;">${c.name}</p>
+    <span style="font-size:12px; font-weight:700; border-radius:8px; padding:3px 12px; white-space:nowrap;
+      color:${t.color}; background:${t.bg}; border:1px solid ${t.border};">${t.label}</span>
+  </div>`;
+}
+
+// 역할: 맞음(공개·박탈) / 틀림(보존) / 미합의(보존)
+function roleRow(c) {
+  let icon, tint, border, text;
+  if (c.roleRevealed) {
+    icon = '✅'; tint = 'rgba(52,211,153,.08)'; border = 'rgba(52,211,153,.25)';
+    text = `<b>${c.name}</b> · <b style="color:#34d399;">${ROLES[c.revealedRole]?.name ?? '역할'}</b> 적중 — 역할 공개 + 능력 <b style="color:#34d399;">박탈</b>`;
+  } else if (c.guessFailed) {
+    icon = '❌'; tint = 'rgba(251,113,133,.06)'; border = 'rgba(251,113,133,.18)';
+    text = `<b>${c.name}</b> · <b style="color:#fb7185;">${ROLES[c.guessedRole]?.name ?? '특정 역할'}</b>로 지목했지만 실제 역할 불일치 — 능력 <b style="color:#a1a1aa;">보존</b>`;
+  } else {
+    icon = '▫️'; tint = 'rgba(255,255,255,.03)'; border = 'rgba(255,255,255,.07)';
+    text = `<b>${c.name}</b> · 역할 60% 합의 미달 — 능력 <b style="color:#a1a1aa;">보존</b>`;
+  }
+  return `
+  <div style="display:flex; align-items:flex-start; gap:10px; padding:12px 14px;
+    background:${tint}; border:1px solid ${border}; border-radius:14px;">
+    <span style="font-size:14px; line-height:1.5;">${icon}</span>
+    <p style="flex:1; font-size:13px; color:#e4e4e7; line-height:1.55;">${text}</p>
   </div>`;
 }
 

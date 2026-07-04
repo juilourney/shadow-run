@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getBolts } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline } from '../store.js';
 import { openEndView } from './end.js';
 import { prepareWaiting } from './waiting.js';
 import { openHostView } from './bolt-detail.js';
@@ -82,6 +82,9 @@ export function render() {
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">나의 번개 일정</p>
     <div id="dash-my-bolt" class="anim-up-4"></div>
 
+    <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">최근 소식</p>
+    <div id="dash-timeline-preview" class="anim-up-4" style="cursor:pointer;"></div>
+
     <button class="btn" id="dash-waiting-btn" style="width:100%; height:48px; margin-top:20px;
       background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a1a1aa; font-size:14px;">
       ⏳ 대기실 흐름 보기
@@ -92,6 +95,29 @@ export function render() {
       🏁 게임 종료 결과 보기
     </button>
 
+  </div>
+
+  <!-- 타임라인 전체화면 (아래→위 슬라이드) -->
+  <div id="timeline-overlay" style="position:absolute; inset:0; z-index:95; display:none;">
+    <div id="timeline-sheet"
+      style="position:absolute; inset:0; background:#0e0e10;
+        transform:translateY(100%); transition:transform .4s var(--spring);
+        display:flex; flex-direction:column;">
+      <div style="position:sticky; top:0; background:#0e0e10; z-index:5;
+        padding:calc(var(--safe-top) + 8px) 18px 14px;
+        border-bottom:1px solid rgba(255,255,255,.06);
+        display:flex; align-items:center; gap:14px;">
+        <button id="timeline-close-btn"
+          style="background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08);
+            color:#a1a1aa; border-radius:10px; width:34px; height:34px;
+            font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          ←
+        </button>
+        <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
+      </div>
+      <div id="timeline-list" style="flex:1; overflow-y:auto; padding:16px 18px 30px;
+        display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
   </div>
 
 </div>`;
@@ -110,7 +136,40 @@ export function init() {
     openEndView();
     goToScreen('s-end');
   });
+
+  document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
+  document.getElementById('timeline-close-btn').addEventListener('click', closeTimelineOverlay);
 }
+
+function openTimelineOverlay() {
+  const overlay = document.getElementById('timeline-overlay');
+  const sheet   = document.getElementById('timeline-sheet');
+  overlay.style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sheet.style.transform = 'translateY(0)';
+  }));
+}
+
+function closeTimelineOverlay() {
+  const sheet = document.getElementById('timeline-sheet');
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => { document.getElementById('timeline-overlay').style.display = 'none'; }, 400);
+}
+
+function timelineRow(e) {
+  const time = new Date(e.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  return `
+  <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px;">
+    <span style="font-size:18px; flex-shrink:0;">${e.icon}</span>
+    <p style="flex:1; min-width:0; font-size:13px; color:#e4e4e7; line-height:1.5;">${e.text}</p>
+    <span style="font-size:11px; color:#52525b; flex-shrink:0;">${time}</span>
+  </div>`;
+}
+
+const TIMELINE_EMPTY = `
+  <div class="bezel" style="padding:18px 16px; border-radius:20px; text-align:center;">
+    <p style="font-size:13px; color:#52525b;">아직 새로운 소식이 없어요</p>
+  </div>`;
 
 function renderFromStore() {
   const g  = getGauge();
@@ -155,4 +214,11 @@ function renderFromStore() {
       else goToScreen('s-bolt-join');               // 참가자 → 참여 뷰
     });
   }
+
+  // 최근 소식 — 홈엔 최신 1~2개 미리보기, 탭하면 전체 목록
+  const timeline = getTimeline();
+  document.getElementById('dash-timeline-preview').innerHTML =
+    timeline.length ? timeline.slice(0, 2).map(timelineRow).join('') : TIMELINE_EMPTY;
+  document.getElementById('timeline-list').innerHTML =
+    timeline.length ? timeline.map(timelineRow).join('') : TIMELINE_EMPTY;
 }

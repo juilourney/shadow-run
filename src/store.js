@@ -72,7 +72,16 @@ const state = {
     ballots: [],     // [{ voterId, targetId, roleGuess: role|null }]
     myVotesUsed: 0,
   },
+
+  // 타임라인 — 전체 공개 주요 이벤트만 (개별 번개 완료 등 잡다한 정보는 제외)
+  timeline: [],      // [{ icon, text, at }] — 최신이 배열 앞
 };
+
+const TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
+
+function pushTimelineEvent(icon, text) {
+  state.timeline.unshift({ icon, text, at: Date.now() });
+}
 
 // ── 화면간 데이터 전달 (bolt-detail → bolt-buff → bolt-result) ──
 let _pendingBolt = null;
@@ -218,6 +227,11 @@ export function getAbility() {
     left: stripped ? 0 : CONFIG.abilityLimit - state.me.abilityUsed,
     revealed: { ...state.me.revealed },
   };
+}
+
+// 타임라인 — 전체 공개 주요 이벤트, 최신순
+export function getTimeline() {
+  return state.timeline.map(e => ({ ...e }));
 }
 
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
@@ -439,6 +453,22 @@ export async function tallyVote() {
 
   if (caught.length === 0) return null;
   const result = { tie: caught.length > 1, caught };
+
+  // 타임라인 기록 — 전체 공개된 사실만 (적발 실패는 대상 비노출)
+  let anyReveal = false;
+  for (const c of caught) {
+    if (c.teamCaught) {
+      pushTimelineEvent('🎯', `${c.name} 님의 팀이 공개됐습니다 (${TEAM_LABEL[c.team]})`);
+      anyReveal = true;
+    }
+    if (c.roleRevealed) {
+      pushTimelineEvent('🎭', `${c.name} 님의 역할이 공개됐습니다 (${ROLES[c.revealedRole].name})`);
+      anyReveal = true;
+    }
+  }
+  if (!anyReveal) {
+    pushTimelineEvent('🗳️', '이번 투표는 적중하지 못했습니다');
+  }
 
   // 라운드 종료 — 다음 회차를 위해 표 초기화
   // (팀 공개·마일리지 페널티·역할 박탈 등 적발 결과는 players에 영구 반영되어 유지됨)

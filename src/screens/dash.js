@@ -214,6 +214,10 @@ function timelineRow(e) {
   } else if (e.kind === 'role') {
     icon = '🎭'; tint = 'rgba(52,211,153,.06)'; textColor = '#e4e4e7';
     body = `<b>${e.name}</b> 님의 역할이 공개됐습니다 (<span style="color:#34d399; font-weight:700;">${ROLES[e.role].name}</span>)`;
+  } else if (e.kind === 'ability') {
+    // 누가·누구를·무엇을 확인했는지는 비공개 — "능력이 쓰였다"는 사실만 익명 표시
+    icon = '🔍'; tint = 'rgba(255,255,255,.03)'; textColor = '#a1a1aa';
+    body = '누군가 은밀히 능력을 사용했습니다';
   } else {
     icon = '🗳️'; tint = 'rgba(255,255,255,.03)'; textColor = '#71717a';
     body = '이번 투표는 적중하지 못했습니다';

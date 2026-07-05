@@ -503,6 +503,10 @@ export async function useAbility(targetId) {
 
   state.me.revealed[targetId] = result;
   state.me.abilityUsed += 1;
+
+  // 타임라인 — 누가·누구를·무엇을 확인했는지는 비공개, "능력이 쓰였다"는 사실만 익명 기록
+  pushTimelineEvent({ kind: 'ability' });
+
   notify();
   return result;
 }

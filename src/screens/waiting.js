@@ -41,8 +41,6 @@ function sectionG(emoji, title, content) {
 const guideContent = `
   ${sectionG('🎯', '게임 개요 및 승리 조건', `
     <p style="font-size:12px; color:#a1a1aa; line-height:1.75; margin-bottom:8px;">페이서팀과 고스트팀이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.</p>
-    ${rowG('페이서', '게이지를 오른쪽(+)으로 당깁니다', '#38bdf8')}
-    ${rowG('고스트', '게이지를 왼쪽(-)으로 당깁니다', '#a78bfa')}
     ${rowG('승리', '3주 후 게이지가 더 기운 팀이 우승하며, 최고 기여자 표창이 수여됩니다', '#34d399')}
   `)}
   ${sectionG('🎭', '팀 및 특수 역할', `

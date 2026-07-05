@@ -141,20 +141,26 @@ export function init() {
   initTimelineDrag();
 }
 
+const TIMELINE_TRANSITION = 'transform .4s var(--spring)';
+
 function openTimelineOverlay() {
   const overlay = document.getElementById('timeline-overlay');
   const sheet   = document.getElementById('timeline-sheet');
-  overlay.style.display = 'block';
+  sheet.style.transition = 'none';
+  sheet.style.transform  = 'translateY(100%)';   // 닫힌 위치로 확실히 리셋
+  overlay.style.display  = 'block';
+  void sheet.offsetHeight;                        // 강제 리플로우 — 위 상태를 먼저 페인트시킴
+  sheet.style.transition = TIMELINE_TRANSITION;
   setScrollLock(true);   // 뒤 배경(대시보드 섹션) 상하 스크롤·스냅 잠금
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
     sheet.style.transform = 'translateY(0)';
-  }));
+  });
 }
 
 function closeTimelineOverlay() {
   const sheet = document.getElementById('timeline-sheet');
-  sheet.style.transition = '';
-  sheet.style.transform = 'translateY(100%)';
+  sheet.style.transition = TIMELINE_TRANSITION;
+  sheet.style.transform  = 'translateY(100%)';
   setScrollLock(false);
   setTimeout(() => { document.getElementById('timeline-overlay').style.display = 'none'; }, 400);
 }
@@ -183,7 +189,7 @@ function initTimelineDrag() {
     if (!dragging) return;
     dragging = false;
     const delta = Math.max(0, e.clientY - startY);
-    sheet.style.transition = '';
+    sheet.style.transition = TIMELINE_TRANSITION;
     if (delta > 120) {
       closeTimelineOverlay();
     } else {

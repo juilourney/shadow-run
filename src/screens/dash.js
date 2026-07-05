@@ -218,7 +218,7 @@ function timelineRow(e) {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';
     icon = isSpy ? '🕵️' : '🔍';
-    const roleColor = isSpy ? '#c084fc' : '#60a5fa';
+    const roleColor = isSpy ? '#2dd4bf' : '#fbbf24'; // 팀컬러(파랑/보라)·역할공개색(초록)과 겹치지 않게 청록/호박
     const roleName  = isSpy ? '밀정' : '탐정';
     const verb      = isSpy ? '몰래 엿봤습니다' : '추리했습니다';
     tint = 'rgba(255,255,255,.03)'; textColor = '#a1a1aa';

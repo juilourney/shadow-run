@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, ROLES } from '../store.js';
 import { openEndView } from './end.js';
 import { prepareWaiting } from './waiting.js';
 import { openHostView } from './bolt-detail.js';
@@ -200,12 +200,29 @@ function initTimelineDrag() {
   header.addEventListener('pointercancel', endDrag);
 }
 
+const TIMELINE_TEAM_COLOR = { pacer: '#38bdf8', ghost: '#a78bfa' };
+const TIMELINE_TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
+
 function timelineRow(e) {
   const time = new Date(e.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+  let icon, tint, textColor, body;
+  if (e.kind === 'team') {
+    const color = TIMELINE_TEAM_COLOR[e.team];
+    icon = '🎯'; tint = 'rgba(251,113,133,.06)'; textColor = '#e4e4e7';
+    body = `<b>${e.name}</b> 님의 팀이 공개됐습니다 (<span style="color:${color}; font-weight:700;">${TIMELINE_TEAM_LABEL[e.team]}</span>)`;
+  } else if (e.kind === 'role') {
+    icon = '🎭'; tint = 'rgba(52,211,153,.06)'; textColor = '#e4e4e7';
+    body = `<b>${e.name}</b> 님의 역할이 공개됐습니다 (<span style="color:#34d399; font-weight:700;">${ROLES[e.role].name}</span>)`;
+  } else {
+    icon = '🗳️'; tint = 'rgba(255,255,255,.03)'; textColor = '#71717a';
+    body = '이번 투표는 적중하지 못했습니다';
+  }
+
   return `
-  <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px;">
-    <span style="font-size:18px; flex-shrink:0;">${e.icon}</span>
-    <p style="flex:1; min-width:0; font-size:13px; color:#e4e4e7; line-height:1.5;">${e.text}</p>
+  <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};">
+    <span style="font-size:18px; flex-shrink:0;">${icon}</span>
+    <p style="flex:1; min-width:0; font-size:13px; color:${textColor}; line-height:1.5;">${body}</p>
     <span style="font-size:11px; color:#52525b; flex-shrink:0;">${time}</span>
   </div>`;
 }

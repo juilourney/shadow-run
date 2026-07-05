@@ -73,22 +73,21 @@ const state = {
     myVotesUsed: 0,
   },
 
-  // 타임라인 — 전체 공개 주요 이벤트만 (개별 번개 완료 등 잡다한 정보는 제외)
+  // 타임라인 — 전체 공개 주요 이벤트만 (개별 번개 완료 등 잡다한 정보는 제외).
+  // kind로 종류만 구분해 데이터로 두고, 화면(dash.js)이 팀/역할 색을 입혀 렌더.
   // 목업 시연용 초기 데이터 — 최신이 배열 앞
   timeline: [
-    { icon: '🎭', text: '이서연 님의 역할이 공개됐습니다 (더블)',   at: Date.now() - 10 * 60 * 1000 },
-    { icon: '🎯', text: '이서연 님의 팀이 공개됐습니다 (고스트)',   at: Date.now() - 11 * 60 * 1000 },
-    { icon: '🗳️', text: '이번 투표는 적중하지 못했습니다',         at: Date.now() - 27 * 60 * 60 * 1000 },
-    { icon: '🎯', text: '박현우 님의 팀이 공개됐습니다 (고스트)',   at: Date.now() - 53 * 60 * 60 * 1000 },
-    { icon: '🎭', text: '김민수 님의 역할이 공개됐습니다 (엘리트)', at: Date.now() - 73 * 60 * 60 * 1000 },
-    { icon: '🎯', text: '김민수 님의 팀이 공개됐습니다 (페이서)',   at: Date.now() - 74 * 60 * 60 * 1000 },
-  ],   // [{ icon, text, at }]
+    { kind: 'role', name: '이서연', role: 'double',   at: Date.now() - 10 * 60 * 1000 },
+    { kind: 'team', name: '이서연', team: 'ghost',    at: Date.now() - 11 * 60 * 1000 },
+    { kind: 'fail',                                   at: Date.now() - 27 * 60 * 60 * 1000 },
+    { kind: 'team', name: '박현우', team: 'ghost',    at: Date.now() - 53 * 60 * 60 * 1000 },
+    { kind: 'role', name: '김민수', role: 'elite',    at: Date.now() - 73 * 60 * 60 * 1000 },
+    { kind: 'team', name: '김민수', team: 'pacer',    at: Date.now() - 74 * 60 * 60 * 1000 },
+  ],   // [{ kind: 'team'|'role'|'fail', name?, team?, role?, at }]
 };
 
-const TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
-
-function pushTimelineEvent(icon, text) {
-  state.timeline.unshift({ icon, text, at: Date.now() });
+function pushTimelineEvent(entry) {
+  state.timeline.unshift({ ...entry, at: Date.now() });
 }
 
 // ── 화면간 데이터 전달 (bolt-detail → bolt-buff → bolt-result) ──
@@ -466,16 +465,16 @@ export async function tallyVote() {
   let anyReveal = false;
   for (const c of caught) {
     if (c.teamCaught) {
-      pushTimelineEvent('🎯', `${c.name} 님의 팀이 공개됐습니다 (${TEAM_LABEL[c.team]})`);
+      pushTimelineEvent({ kind: 'team', name: c.name, team: c.team });
       anyReveal = true;
     }
     if (c.roleRevealed) {
-      pushTimelineEvent('🎭', `${c.name} 님의 역할이 공개됐습니다 (${ROLES[c.revealedRole].name})`);
+      pushTimelineEvent({ kind: 'role', name: c.name, role: c.revealedRole });
       anyReveal = true;
     }
   }
   if (!anyReveal) {
-    pushTimelineEvent('🗳️', '이번 투표는 적중하지 못했습니다');
+    pushTimelineEvent({ kind: 'fail' });
   }
 
   // 라운드 종료 — 다음 회차를 위해 표 초기화

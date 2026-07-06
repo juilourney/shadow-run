@@ -12,7 +12,7 @@ export function render() {
     <div id="card-orb-b" style="position:absolute; bottom:-15%; right:-15%; width:65%; aspect-ratio:1; border-radius:50%; filter:blur(50px); transition:background 1s;"></div>
   </div>
 
-  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:36px; padding:calc(var(--safe-top) + 20px) 26px 0;">
+  <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:36px; padding:calc(var(--safe-top) + 20px) 26px 40px;">
 
     <div class="anim-up" style="position:absolute; top:calc(var(--safe-top) + 44px); left:0; right:0; text-align:center; padding:0 26px;">
       <p style="font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#3f3f46;">TEAM ASSIGNMENT</p>
@@ -22,7 +22,9 @@ export function render() {
       <p id="card-hint" style="font-size:13px; color:#52525b; margin-top:8px;">결과는 오직 나만 알 수 있어요</p>
     </div>
 
-    <div class="flip-container" style="width:100%; max-width:240px;" id="card-flip-area">
+    <!-- 헤더가 position:absolute라 카드 위치에 영향을 안 주므로, 카드는 고정 margin-top으로 배치.
+         role.js의 카드도 동일한 값을 써서 두 화면 간 카드 위치가 항상 일치하게 한다. -->
+    <div class="flip-container" style="width:100%; max-width:240px; margin-top:260px; flex-shrink:0;" id="card-flip-area">
       <div class="flip-inner" id="flip-inner" style="width:100%; height:300px;">
 
         <div class="flip-face" style="

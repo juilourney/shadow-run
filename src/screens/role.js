@@ -18,8 +18,8 @@ export function render() {
   </div>
 
   <div class="scroll-body" style="position:relative; z-index:2;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32px;
-    padding:calc(var(--safe-top) + 20px) 26px 0;">
+    display:flex; flex-direction:column; align-items:center; gap:32px;
+    padding:calc(var(--safe-top) + 20px) 26px 40px;">
 
     <div class="anim-up" style="position:absolute; top:calc(var(--safe-top) + 40px); left:0; right:0; text-align:center; padding:0 26px;">
       <span id="role-team-badge" class="chip" style="background:var(--accent-tint); color:var(--accent);"></span>
@@ -30,7 +30,9 @@ export function render() {
       <p style="font-size:13px; color:#52525b; margin-top:8px;">배정된 역할은 게임이 끝날 때까지 비밀</p>
     </div>
 
-    <div class="flip-container" style="width:100%; max-width:240px;" id="role-flip-area">
+    <!-- 헤더가 position:absolute라 카드 위치에 영향을 안 주므로, card.js와 동일한 margin-top으로
+         고정해 팀 배정 화면 → 역할 화면 전환 시 카드 위치가 항상 같게 유지한다. -->
+    <div class="flip-container" style="width:100%; max-width:240px; margin-top:260px; flex-shrink:0;" id="role-flip-area">
       <div class="flip-inner" id="role-flip-inner" style="width:100%; height:300px;">
 
         <div class="flip-face" style="
@@ -81,19 +83,17 @@ export function render() {
       </div>
     </div>
 
-    <div style="position:absolute; left:26px; right:26px; top:calc(50% + 165px); display:flex; flex-direction:column; gap:12px;">
-
+    <!-- 카드 바로 아래 자연스러운 위치(문서 흐름) — 화면 크기와 무관하게 절대 겹치지 않는다 -->
+    <div style="width:100%;">
       <div id="role-desc-reveal"
         style="max-height:0; overflow:hidden; opacity:0; pointer-events:none;
           transition: max-height .6s var(--spring), opacity .45s var(--spring);">
-        <div class="bezel-accent" style="padding:20px 22px; border-radius:22px; margin-bottom:12px;">
+        <div class="bezel-accent" style="padding:20px 22px; border-radius:22px;">
           <p id="role-desc-headline" style="font-size:16px; font-weight:700; line-height:1.4; color:#fafafa;"></p>
           <div style="height:1px; background:rgba(255,255,255,.07); margin:12px 0;"></div>
           <p id="role-desc-detail" style="font-size:15px; color:#a1a1aa; line-height:1.75;"></p>
         </div>
       </div>
-
-
     </div>
   </div>
 </div>`;

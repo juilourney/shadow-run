@@ -94,6 +94,40 @@ function onViewportResize() {
 window.addEventListener('resize', onViewportResize);
 window.visualViewport?.addEventListener('resize', onViewportResize);
 
+// iOS Safari는 빠르게 스와이프하면 scroll-snap-stop:always를 무시하고
+// 한 번에 여러 섹션을 건너뛰는 경우가 있음 — 스와이프 시작 시점의 섹션을
+// 기억해두고, 관성 스크롤 도중 그보다 2섹션 이상 벗어나면 즉시 1섹션 위치로 되돌린다.
+function nearestSectionIndex() {
+  let idx = -1, minDist = Infinity;
+  SECTION_IDS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const dist = Math.abs(el.getBoundingClientRect().top);
+    if (dist < minDist) { minDist = dist; idx = i; }
+  });
+  return idx;
+}
+
+let swipeStartIndex = null;
+document.getElementById('s-game').addEventListener('touchstart', () => {
+  swipeStartIndex = nearestSectionIndex();
+}, { passive: true });
+document.getElementById('s-game').addEventListener('touchend', () => {
+  swipeStartIndex = null;
+}, { passive: true });
+
+window.addEventListener('scroll', () => {
+  if (swipeStartIndex === null) return;
+  if (document.documentElement.classList.contains('lock-scroll')) return;
+  const idx = nearestSectionIndex();
+  if (idx === -1) return;
+  const diff = idx - swipeStartIndex;
+  if (Math.abs(diff) > 1) {
+    const clamped = swipeStartIndex + Math.sign(diff);
+    document.getElementById(SECTION_IDS[clamped])?.scrollIntoView({ behavior: 'instant', block: 'start' });
+  }
+}, { passive: true });
+
 // iOS WebKit에서 내부 scroll-body 가 상단/하단 경계에 닿았을 때
 // 외부 scroll-snap으로 touch가 전파되지 않는 문제를 JS로 보완
 document.querySelectorAll('.game-section .scroll-body').forEach(body => {

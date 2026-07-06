@@ -52,6 +52,10 @@ export function goToScreen(id) {
     tb.style.display = 'flex';
     if (handle) handle.style.display = 'flex';
     setActiveTab('home');
+    // 게임 화면 진입 시 항상 홈(대시보드)에서 시작 — 예전 스크롤 위치가 남아있으면
+    // 엉뚱한 섹션이 먼저 보이는 문제 방지. scrollToSection이 다른 섹션을 원하면
+    // 뒤이어 다시 스크롤하므로 여기서는 무조건 gs-dash로 리셋해도 안전하다.
+    document.getElementById('gs-dash')?.scrollIntoView({ block: 'start' });
   } else {
     tb.style.display = 'none';
     if (handle) handle.style.display = 'none';

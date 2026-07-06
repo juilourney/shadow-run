@@ -122,6 +122,11 @@ export function render() {
       </div>
     </div>
 
+    <button id="waiting-start-btn" class="btn btn-primary"
+      style="width:100%; height:50px; font-size:15px; display:none; margin-bottom:10px;">
+      🚀 게임 시작!
+    </button>
+
     <button id="waiting-view-guide" class="btn btn-secondary"
       style="width:100%; height:46px; font-size:13px;">
       📖 게임 가이드 보기
@@ -155,6 +160,8 @@ export function init() {
   document.getElementById('waiting-view-guide').addEventListener('click', () => {
     document.getElementById('wtab-guide').click();
   });
+
+  document.getElementById('waiting-start-btn').addEventListener('click', enterGame);
 
   const tb = document.getElementById('waiting-tabbar');
   const handle = document.getElementById('waiting-tabbar-handle');
@@ -214,10 +221,13 @@ export function init() {
 let countdownInterval = null;
 let unsubscribeStore = null;
 let assigning = false;   // 배정 요청 중복 호출 방지
-let entered = false;     // 배정 완료 후 카드 화면 진입 중복 방지
+let entered = false;     // 게임 화면 진입 중복 방지
+let pendingMe = null;    // 배정은 완료됐지만 아직 "게임 시작!" 버튼을 누르기 전인 내 정보
 
 export function prepareWaiting() {
   entered = false;
+  pendingMe = null;
+  document.getElementById('waiting-start-btn').style.display = 'none';
   refreshRegCount();
 
   // 홈 탭 초기화
@@ -243,17 +253,26 @@ function refreshRegCount() {
     `${getRoster().length}<span style="font-size:13px; font-weight:600; color:#52525b;"> 명</span>`;
 }
 
-// 배정 완료 감지 — 내 이름에 해당하는 team/role을 찾아 카드 화면으로 이동
+// 배정 완료 감지 — 내 이름에 해당하는 team/role을 찾아 "게임 시작!" 버튼을 노출
+// (바로 팀배정 화면으로 넘기지 않고, 사용자가 버튼을 눌러야 진입)
 function checkAssignment() {
-  if (entered) return;
+  if (entered || pendingMe) return;
   const { assigned, players } = getAssignment();
   if (!assigned) return;
   const me = players.find(p => p.name === state.name);
   if (!me) return;
 
-  entered = true;
+  pendingMe = me;
   if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+
+  document.getElementById('waiting-start-btn').style.display = 'block';
+}
+
+function enterGame() {
+  if (entered || !pendingMe) return;
+  entered = true;
+  const me = pendingMe;
 
   state.team = me.team;
   state.role = me.role;

@@ -198,9 +198,11 @@ export function init() {
 
     const place = document.getElementById('create-place').value.trim();
     const pace = document.getElementById('create-pace').value.trim();
-    const time = formatBoltTime(document.getElementById('create-datetime').value);
+    const rawDatetime = document.getElementById('create-datetime').value;
+    const time = formatBoltTime(rawDatetime);
+    const startAt = rawDatetime ? new Date(rawDatetime).getTime() : null;  // 인증 마감 판정용
     try {
-      await storeCreateBolt({ title, place, distance, pace, time });
+      await storeCreateBolt({ title, place, distance, pace, time, startAt });
       closeCreateOverlay();
     } catch (e) {
       showToast(e.message);
@@ -234,7 +236,7 @@ export function init() {
 
 // store 기준으로 번개 목록 렌더 + 카드 탭 핸들러 부착
 function renderBoltList() {
-  const bolts = getBolts().filter(b => b.status !== 'done');
+  const bolts = getBolts().filter(b => b.status === 'open');   // 완료·만료 제외
   const wrap  = document.getElementById('bolt-cards');
   if (!wrap) return;
   wrap.innerHTML = bolts.map((b, i) => boltCard(b, `anim-up-${Math.min(i + 1, 4)}`)).join('');

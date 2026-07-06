@@ -26,7 +26,17 @@ export const CONFIG = {
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
   boltMaxHeads: 4,              // 번개 최대 인원
   abilityLimit: 3,              // 탐정/밀정 능력 사용 횟수
+  certBufferMin: 120,           // 인증 마감 버퍼(분) — 예상 완주시간 뒤 여유
+  fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
 };
+
+// 목업 번개 시각 생성 — 오늘(0)/내일(1) 기준 HH:MM 타임스탬프
+function mockTime(dayOffset, hour, minute) {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, minute, 0, 0);
+  return d.getTime();
+}
 
 // ── 상태 (스냅샷) — 나중에 Firebase 문서로 대체 ────────────
 const state = {
@@ -56,12 +66,12 @@ const state = {
     { id: 'm6', name: '한지우', team: 'pacer', role: 'runner',    km: 33.5, publicTeam: null },
   ],
 
-  // 번개
+  // 번개 — startAt: 시작 시각 타임스탬프(인증 마감 판정 기준)
   bolts: [
-    { id: 'b1', title: '한강 새벽 LSD', place: '반포 잠수교', distance: 8,  pace: '5:30/km', time: '오늘 05:30', hostId: 'm1', participants: ['m1', 'm2'], max: 4, locked: false, status: 'open' },
-    { id: 'b2', title: '강남역 번개',   place: '강남역 11번 출구', distance: 5, pace: '6:00/km', time: '오늘 19:00', hostId: 'm3', participants: ['m3'], max: 4, locked: false, status: 'open' },
-    { id: 'b3', title: '비밀 작전조',   place: '탄천', distance: 10, pace: '미공개', time: '내일 07:00', hostId: 'm5', participants: ['m2', 'm5', 'm6'], max: 4, locked: true, status: 'open' },
-    { id: 'b4', title: '페이서 단합런', place: '올림픽공원', distance: 6, pace: '6:00/km', time: '오늘 20:00', hostId: 'm1', participants: ['m1', 'm4', 'm0'], max: 4, locked: false, status: 'open' },
+    { id: 'b1', title: '한강 새벽 LSD', place: '반포 잠수교', distance: 8,  pace: '5:30/km', time: '오늘 05:30', startAt: mockTime(0, 5, 30),  hostId: 'm1', participants: ['m1', 'm2'], max: 4, locked: false, status: 'open' },
+    { id: 'b2', title: '강남역 번개',   place: '강남역 11번 출구', distance: 5, pace: '6:00/km', time: '오늘 19:00', startAt: mockTime(0, 19, 0), hostId: 'm3', participants: ['m3'], max: 4, locked: false, status: 'open' },
+    { id: 'b3', title: '비밀 작전조',   place: '탄천', distance: 10, pace: '미공개', time: '내일 07:00', startAt: mockTime(1, 7, 0), hostId: 'm5', participants: ['m2', 'm5', 'm6'], max: 4, locked: true, status: 'open' },
+    { id: 'b4', title: '페이서 단합런', place: '올림픽공원', distance: 6, pace: '6:00/km', time: '오늘 20:00', startAt: mockTime(0, 20, 0), hostId: 'm1', participants: ['m1', 'm4', 'm0'], max: 4, locked: false, status: 'open' },
   ],
 
   // 내가 참여 중인 번개 (b4 단일팀 데모 — 참여 뷰 진입 시 팀 컬러 글로우 확인용)
@@ -188,7 +198,30 @@ export function getPlayers({ excludeSelf = false } = {}) {
   return excludeSelf ? list.filter(p => !p.isSelf) : list;
 }
 
+// 인증 마감 시각 = 시작 + 예상 완주시간(거리×페이스) + 버퍼.
+// 페이스 미공개면 최저 페이스(CONFIG.fallbackPaceSec)로 보수적으로 계산.
+export function boltDeadline(bolt) {
+  if (!bolt.startAt) return Infinity;   // 시각 정보 없는 옛 데이터는 만료 없음
+  const m = /^(\d+):(\d+)/.exec(bolt.pace || '');
+  const paceSec = m ? Number(m[1]) * 60 + Number(m[2]) : CONFIG.fallbackPaceSec;
+  const runMs = bolt.distance * paceSec * 1000;
+  return bolt.startAt + runMs + CONFIG.certBufferMin * 60 * 1000;
+}
+
+// 마감 지난 open 번개를 만료 처리 (게이지 반영 없음 · 참여 해제)
+// getBolts에서 lazy하게 수행 — 호출자가 곧바로 최신 상태를 렌더하므로 notify 불필요
+function sweepExpiredBolts() {
+  const now = Date.now();
+  for (const b of state.bolts) {
+    if (b.status === 'open' && now > boltDeadline(b)) {
+      b.status = 'expired';
+      if (state.joinedBoltId === b.id) state.joinedBoltId = null;
+    }
+  }
+}
+
 export function getBolts() {
+  sweepExpiredBolts();
   return state.bolts.map(b => ({
     ...b,
     count: b.participants.length,
@@ -197,6 +230,7 @@ export function getBolts() {
     isHost: b.hostId === state.me.id,
     // 단일팀 판정: 참가자 전원이 같은 팀 & 최소 인원 충족
     isSingleTeam: isSingleTeamBolt(b),
+    deadline: boltDeadline(b),
   }));
 }
 
@@ -257,8 +291,8 @@ function playerById(id) {
 //  나중에 함수 본문만 Firebase 호출로 교체하면 됨
 // ═══════════════════════════════════════════════════════════
 
-// 번개 만들기
-export async function createBolt({ title, place, distance, pace, time }) {
+// 번개 만들기 — startAt: 시작 시각 타임스탬프(인증 마감 판정용)
+export async function createBolt({ title, place, distance, pace, time, startAt }) {
   if (state.joinedBoltId) throw new Error('이미 참여 중인 번개가 있습니다');
   const id = 'b' + (state.bolts.length + 1) + '_' + Date.now();
   const bolt = {
@@ -266,6 +300,7 @@ export async function createBolt({ title, place, distance, pace, time }) {
     distance: Number(distance) || 0,
     pace: pace || '미공개',
     time: time || '',
+    startAt: startAt || null,
     hostId: state.me.id,
     participants: [state.me.id],
     max: CONFIG.boltMaxHeads,

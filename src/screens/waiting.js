@@ -174,18 +174,39 @@ export function init() {
     { tab: 'wtab-guide', panel: 'wpanel-guide' },
   ];
 
-  tabs.forEach(({ tab, panel }) => {
+  function showPanel(index) {
+    tabs.forEach((t, i) => {
+      document.getElementById(t.tab).classList.toggle('on', i === index);
+      document.getElementById(t.panel).style.display = i === index ? 'block' : 'none';
+    });
+    close();
+  }
+
+  tabs.forEach(({ tab }, index) => {
     document.getElementById(tab).addEventListener('click', e => {
       e.stopPropagation();
-      tabs.forEach(t => {
-        document.getElementById(t.tab).classList.remove('on');
-        document.getElementById(t.panel).style.display = 'none';
-      });
-      document.getElementById(tab).classList.add('on');
-      document.getElementById(panel).style.display = 'block';
-      close();
+      showPanel(index);
     });
   });
+
+  // 위/아래 스와이프로도 홈 ↔ 가이드 전환 (사이드 탭바는 그대로 유지)
+  const screen = document.getElementById('s-waiting');
+  let touchStartY = null;
+
+  screen.addEventListener('touchstart', e => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  screen.addEventListener('touchend', e => {
+    if (touchStartY === null) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    touchStartY = null;
+    if (Math.abs(dy) < 60) return;   // 짧은 터치/스크롤은 무시
+
+    const currentIndex = tabs.findIndex(t => document.getElementById(t.tab).classList.contains('on'));
+    if (dy < 0 && currentIndex < tabs.length - 1) showPanel(currentIndex + 1);   // 위로 스와이프 → 다음
+    else if (dy > 0 && currentIndex > 0) showPanel(currentIndex - 1);           // 아래로 스와이프 → 이전
+  }, { passive: true });
 }
 
 let countdownInterval = null;

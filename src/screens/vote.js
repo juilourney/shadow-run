@@ -128,9 +128,10 @@ export function render() {
 
   </div>
 
-  <!-- ① 비활성 오버레이 (투표 기간 외) -->
+  <!-- ① 비활성 오버레이 (투표 기간 외) — z-index는 .screen(인트로 오버레이, 40)보다 반드시 낮아야
+       인트로 화면이 위에 정상적으로 덮인다(같으면 DOM 순서로 게임 레이어가 이겨버림) -->
   <div id="vote-inactive-overlay"
-    style="position:absolute; inset:0; z-index:40;
+    style="position:absolute; inset:0; z-index:20;
       background:rgba(5,5,5,.82); backdrop-filter:blur(8px);
       display:${isVotingNow ? 'none' : 'flex'}; flex-direction:column; align-items:center; justify-content:center;
       padding:32px; text-align:center;">

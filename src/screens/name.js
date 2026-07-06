@@ -65,24 +65,24 @@ export function render() {
         정체를 숨기고 아군을 찾아라!<br/>
         3주간의 치열한 실시간 줄다리기 레이스
       </p>
-    </div>
 
-    <div class="anim-up-3" style="margin-top:auto;">
-      <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">이름</label>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <input class="input" type="text" id="name-input"
-          placeholder="홍길동"
-          autocomplete="off" autocorrect="off" spellcheck="false"
-          style="flex:1; font-size:17px; font-weight:500;" />
-        <button id="enter-btn" disabled
-          style="width:50px; height:50px; flex-shrink:0; border-radius:15px; border:none; cursor:pointer;
-            background:rgba(255,255,255,.06); color:rgba(255,255,255,.25);
-            display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700;
-            transition:background .3s var(--spring), color .3s var(--spring);">
-          →
-        </button>
+      <div class="anim-up-3" style="margin-top:36px;">
+        <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">이름</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input class="input" type="text" id="name-input"
+            placeholder="홍길동"
+            autocomplete="off" autocorrect="off" spellcheck="false"
+            style="flex:1; font-size:17px; font-weight:500;" />
+          <button id="enter-btn" disabled
+            style="width:50px; height:50px; flex-shrink:0; border-radius:15px; border:none; cursor:pointer;
+              background:rgba(255,255,255,.06); color:rgba(255,255,255,.25);
+              display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700;
+              transition:background .3s var(--spring), color .3s var(--spring);">
+            →
+          </button>
+        </div>
+        <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
       </div>
-      <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
     </div>
   </div>
 </div>`;
@@ -126,6 +126,8 @@ function enterGame() {
   state.cardFlipped = false;
   state.roleFlipped = false;
   state.roleConfirmed = false;
-  prepareWaiting();
+  // 대기실로 먼저 이동한 뒤 준비 — 이미 배정이 끝난 상태로 들어오면 prepareWaiting()이
+  // 즉시 카드 화면으로 다시 이동시키는데, 순서가 반대면 이 전환을 되돌려버린다.
   goToScreen('s-waiting');
+  prepareWaiting();
 }

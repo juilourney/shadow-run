@@ -66,6 +66,34 @@ SECTION_IDS.forEach(id => {
   if (el) gameObserver.observe(el);
 });
 
+// 사파리(브라우저 모드)에서 주소창/툴바가 접히고 펼쳐질 때 뷰포트 높이가
+// 변하는데(100dvh 섹션 높이도 함께 변함), iOS는 scroll-snap을 다시 정렬해
+// 주지 않아 섹션 경계가 어긋남 → 화면 하단에 다음 섹션 상단이 삐져나옴.
+// 뷰포트 리사이즈가 잦아들면 가장 가까운 섹션 시작점으로 즉시 재스냅.
+// (PWA standalone은 툴바가 없어 리사이즈 자체가 안 일어남 — 영향 없음)
+let _resnapTimer = null;
+function resnapNearestSection() {
+  if (!document.getElementById('s-game')?.classList.contains('active')) return;
+  if (document.documentElement.classList.contains('lock-scroll')) return;
+
+  let nearest = null, minDist = Infinity;
+  for (const id of SECTION_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const dist = Math.abs(el.getBoundingClientRect().top);
+    if (dist < minDist) { minDist = dist; nearest = el; }
+  }
+  if (nearest && minDist > 2) {
+    window.scrollTo({ top: window.scrollY + nearest.getBoundingClientRect().top, behavior: 'instant' });
+  }
+}
+function onViewportResize() {
+  clearTimeout(_resnapTimer);
+  _resnapTimer = setTimeout(resnapNearestSection, 250);
+}
+window.addEventListener('resize', onViewportResize);
+window.visualViewport?.addEventListener('resize', onViewportResize);
+
 // iOS WebKit에서 내부 scroll-body 가 상단/하단 경계에 닿았을 때
 // 외부 scroll-snap으로 touch가 전파되지 않는 문제를 JS로 보완
 document.querySelectorAll('.game-section .scroll-body').forEach(body => {

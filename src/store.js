@@ -395,6 +395,25 @@ export function getAssignment() {
   return { ...state.assignment, players: state.assignment.players.map(p => ({ ...p })) };
 }
 
+// 이 기기에서 카드·역할 확인(뒤집기)을 이미 마쳤는지 — localStorage에 저장.
+// 배정(assignedAt)이 바뀌면(재배정·새 게임) 자동으로 무효화되어 다시 확인 절차를 거친다.
+const CONFIRMED_KEY = 'sr_confirmed';
+
+export function hasConfirmedRole() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONFIRMED_KEY) || 'null');
+    return !!saved && saved.name === identity.name && saved.assignedAt === state.assignment.assignedAt;
+  } catch {
+    return false;
+  }
+}
+
+export function markRoleConfirmed() {
+  try {
+    localStorage.setItem(CONFIRMED_KEY, JSON.stringify({ name: identity.name, assignedAt: state.assignment.assignedAt }));
+  } catch {}
+}
+
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
 function isSingleTeamBolt(bolt) {
   if (bolt.participants.length < CONFIG.singleTeamMin) return false;

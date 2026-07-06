@@ -1,6 +1,7 @@
 import { state, ROLES } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { initPhase } from '../utils/phase.js';
+import { markRoleConfirmed } from '../store.js';
 
 export function render() {
   return `
@@ -111,6 +112,7 @@ function handleRoleTap() {
   } else if (revealComplete) {
     initPhase();
     state.roleConfirmed = true;
+    markRoleConfirmed();
     goToScreen('s-game');
   }
 }

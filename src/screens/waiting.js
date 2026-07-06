@@ -1,7 +1,9 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment } from '../store.js';
+import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole } from '../store.js';
 import { prepareCard } from './card.js';
+import { applyTeamTheme } from '../utils/theme.js';
+import { initPhase } from '../utils/phase.js';
 
 
 function rowG(label, value, color = '#a1a1aa') {
@@ -255,6 +257,19 @@ function checkAssignment() {
 
   state.team = me.team;
   state.role = me.role;
+
+  // 이 기기에서 같은 배정으로 카드·역할을 이미 확인했다면 — 재입장 시 다시 뒤집게 하지 않고
+  // 바로 게임 화면으로 (팀 테마·단계 표시는 card.js/role.js가 하던 걸 여기서 대신 적용)
+  if (hasConfirmedRole()) {
+    state.cardFlipped = true;
+    state.roleFlipped = true;
+    state.roleConfirmed = true;
+    applyTeamTheme(state.team);
+    initPhase();
+    goToScreen('s-game');
+    return;
+  }
+
   state.cardFlipped = false;
   state.roleFlipped = false;
   prepareCard();

@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { ROLES, SPECIAL_ROLES } from './state.js';
-import { doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 // ── 게임 설정 (룰) ────────────────────────────────────────
@@ -172,6 +172,8 @@ function getSnapshot() {
 // ── Firebase 파일럿 — 게이지만 Firestore로 실시간 동기화 ──────
 // 번개·투표·명단·설정은 아직 로컬 상태 그대로. game/gauge 문서 하나만
 // 관리자 화면·모든 참가자 기기 간에 실시간으로 공유한다.
+// 읽기는 클라이언트가 직접(Firestore 규칙 allow read: if true), 쓰기는
+// 콘솔 조작 방지를 위해 막아뒀고(allow write: if false) 서버(/api/set-gauge, 서비스 계정)만 쓸 수 있다.
 const gaugeDocRef = doc(db, 'game', 'gauge');
 
 onSnapshot(gaugeDocRef, snap => {
@@ -184,7 +186,11 @@ onSnapshot(gaugeDocRef, snap => {
 }, err => console.warn('게이지 실시간 동기화 실패:', err.message));
 
 function writeGauge() {
-  setDoc(gaugeDocRef, { ...state.game.gauge }).catch(err => console.warn('게이지 저장 실패:', err.message));
+  fetch('/api/set-gauge', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(state.game.gauge),
+  }).catch(err => console.warn('게이지 저장 실패:', err.message));
 }
 
 // ═══════════════════════════════════════════════════════════

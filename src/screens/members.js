@@ -15,9 +15,6 @@ const ROLE_META = {
   spy:       { label: '밀정',   icon: '🕵️', color: '#c084fc' },
 };
 
-// waiting.js 등 다른 화면 호환용 — store에서 파생 (단일 출처 유지)
-export const MEMBERS = getPlayers();
-
 let sortMode  = 'name';
 let pendingId = null;
 

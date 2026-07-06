@@ -130,5 +130,4 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   }, { passive: true });
 });
 
-// 개발: 인트로 스킵 — 게임 화면 바로 진입
-goToScreen('s-game');
+goToScreen('s-name');

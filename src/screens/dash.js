@@ -1,7 +1,6 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
 import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, ROLES } from '../store.js';
 import { openEndView } from './end.js';
-import { prepareWaiting } from './waiting.js';
 import { openHostView } from './bolt-detail.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -85,12 +84,7 @@ export function render() {
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">최근 소식</p>
     <div id="dash-timeline-preview" class="anim-up-4" style="cursor:pointer;"></div>
 
-    <button class="btn" id="dash-waiting-btn" style="width:100%; height:48px; margin-top:20px;
-      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a1a1aa; font-size:14px;">
-      ⏳ 대기실 흐름 보기
-    </button>
-
-    <button class="btn" id="dash-end-btn" style="width:100%; height:48px; margin-top:10px;
+    <button class="btn" id="dash-end-btn" style="display:none; width:100%; height:48px; margin-top:20px;
       background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a1a1aa; font-size:14px;">
       🏁 게임 종료 결과 보기
     </button>
@@ -125,11 +119,6 @@ export function render() {
 export function init() {
   renderFromStore();
   subscribe(renderFromStore);
-
-  document.getElementById('dash-waiting-btn').addEventListener('click', () => {
-    prepareWaiting();
-    goToScreen('s-waiting');
-  });
 
   document.getElementById('dash-end-btn').addEventListener('click', () => {
     openEndView();
@@ -259,6 +248,9 @@ function renderFromStore() {
 
   document.getElementById('stat-pure-km').textContent = fmt(me.pureKm);
   document.getElementById('stat-bolts').textContent   = me.boltsCompleted;
+
+  // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
+  document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';
 
   // 나의 번개 일정 — 룰상 참여 중인 번개는 항상 1개뿐 (없으면 0개)
   const myBolt = getBolts().find(b => b.joined);

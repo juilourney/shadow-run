@@ -1,19 +1,23 @@
 // ═══════════════════════════════════════════════════════════
 //  STORE — 게임 상태의 유일한 창구 (Single Source of Truth)
 //
-//  설계 원칙 (백엔드 교체를 쉽게 하기 위함):
-//   1. 모든 액션은 async  → 나중에 이 함수 내부만 Firebase 호출로 교체
-//   2. subscribe/notify   → 값이 바뀌면 구독한 화면이 자동 갱신 (실시간 대비)
+//  설계 원칙:
+//   1. 모든 액션은 async  → 내부에서 Firestore 호출
+//   2. subscribe/notify   → 값이 바뀌면 구독한 화면이 자동 갱신 (실시간)
 //   3. 게임 규칙은 store 안에만 → 화면은 결과값만 읽고, 규칙을 모른다
 //
-//  나중 Firebase 교체 시:
-//   - state 초기화 → Firestore 문서 읽기
-//   - 각 액션의 로컬 mutation → Firestore update/transaction
-//   - notify() → onSnapshot 리스너가 대체
+//  Firestore 구성:
+//   - game/gauge · game/settings · game/assignment · roster: 서버 전용 쓰기
+//     (allow write: if false + Cloudflare Function이 서비스 계정으로 대신 씀)
+//   - players · bolts · votes · voteHistory · timeline: 클라이언트 직접 쓰기
+//     (allow write: if true — 크루 내부용 게임이라 신뢰 기반으로 열어둠)
 // ═══════════════════════════════════════════════════════════
 
-import { ROLES, SPECIAL_ROLES } from './state.js';
-import { doc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
+import {
+  doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc,
+  arrayUnion, arrayRemove, increment,
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 // ── 게임 설정 (룰) ────────────────────────────────────────
@@ -34,93 +38,33 @@ export const CONFIG = {
   expiredPenalty: 0.5,          // 인증 마감 초과(자동 만료) 시 지급 마일리지 = 거리 × 이 값
 };
 
-// 목업 번개 시각 생성 — 오늘(0)/내일(1) 기준 HH:MM 타임스탬프
-function mockTime(dayOffset, hour, minute) {
-  const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(hour, minute, 0, 0);
-  return d.getTime();
-}
-
-// ── 상태 (스냅샷) — 나중에 Firebase 문서로 대체 ────────────
+// ── 상태 (스냅샷) — Firestore와 실시간 동기화되는 로컬 캐시 ────
 const state = {
-  // 게임 전역
   game: {
-    gauge: { pacer: 1248, ghost: 956 },  // 팀별 누적 게이지(km)
-    dayIndex: 0,                          // 게임 며칠차 (0-base) — 서버시간 대체 예정
-    name: CONFIG.name,                    // 관리자 화면(A-03)에서 수정 — getCalendar가 여기서 읽음
+    gauge: { pacer: 0, ghost: 0 },
+    name: CONFIG.name,
     startDate: CONFIG.startDate,
     weeks: CONFIG.weeks,
   },
 
-  // 지난 게임 히스토리 — 관리자 화면(A-02) 조회용. 새 게임 생성 시 현재 게임을 여기 보관.
-  gameHistory: [],
+  gameHistory: [],   // 지난 게임 히스토리 — 관리자 화면 조회용 (로컬, 새 게임 생성 시 누적)
+  voteHistory: [],   // 투표 히스토리 — voteHistory 컬렉션과 동기화
+  roster: [],        // 참가자 명단(사전 등록) — roster 컬렉션과 동기화
+  assignment: { assigned: false, players: [] },  // 팀·역할 배정 결과 — game/assignment와 동기화
 
-  // 투표 히스토리 — 회차 종료(tallyVote)마다 1건 기록. 관리자 화면(A-02) 조회용.
-  voteHistory: [],
-
-  // 참가자 명단(사전 등록) — 관리자 화면(A-03)에서 관리, 참가자 입장 화면(name.js)이 대조 검증.
-  // 게임 시작 시 이 명단 기준으로 팀·역할이 랜덤 배정된다(Firestore roster 컬렉션과 실시간 동기화).
-  // 지금의 players(팀·역할·km 배정 완료 상태)와는 별개.
-  roster: [],
-
-  // 팀·역할 배정 결과 — game/assignment 문서와 동기화. assigned=true가 되면
-  // waiting.js가 감지해서 내 이름에 해당하는 team/role을 찾아 카드 화면으로 이동한다.
-  assignment: { assigned: false, players: [] },
-
-  // 나 (현재 플레이어) — 신원·팀·역할·거리는 players[myId]가 단일 출처.
-  // 여기엔 '나만의 개인 상태'만 둔다.
+  // 나 — 신원은 players[내 이름과 일치하는 항목]이 단일 출처. 여기엔 사적 정보만.
+  // abilityLog/revealed는 의도적으로 로컬 전용(동기화 안 함) — 탐정/밀정 조사 결과가
+  // 다른 사람에게 노출되면 안 되는데, 로그인이 없어 서버 규칙으로 개인별 보호가 불가능하기 때문.
   me: {
-    id: 'm0',
-    boltsCompleted: 7,
-    abilityLog: [],                       // [{ week }] — 탐정/밀정 능력 사용 기록(주간 한도 판정용)
-    revealed: {},                         // { [playerId]: {team} | {role} } — 능력 확인 결과
+    abilityLog: [],   // [{ week }] — 주간 능력 사용 한도 판정용
+    revealed: {},      // { [playerId]: {team} | {role} }
   },
 
-  // 참가자 (나 포함) — 신원·팀·역할·누적거리의 단일 출처
-  players: [
-    { id: 'm0', name: '나',    team: 'pacer', role: 'detective', km: 64,   publicTeam: null },
-    { id: 'm1', name: '김민수', team: 'pacer', role: 'elite',     km: 42.3, publicTeam: 'pacer' },
-    { id: 'm2', name: '박현우', team: 'ghost', role: 'runner',    km: 38.7, publicTeam: null },
-    { id: 'm3', name: '이서연', team: 'ghost', role: 'double',    km: 51.2, publicTeam: null },
-    { id: 'm4', name: '정윤아', team: 'pacer', role: 'anchor',    km: 44.1, publicTeam: null },
-    { id: 'm5', name: '최준호', team: 'ghost', role: 'spy',       km: 29.8, publicTeam: null },
-    { id: 'm6', name: '한지우', team: 'pacer', role: 'runner',    km: 33.5, publicTeam: null },
-  ],
-
-  // 번개 — startAt: 시작 시각 타임스탬프(인증 마감 판정 기준)
-  bolts: [
-    { id: 'b1', title: '한강 새벽 LSD', place: '반포 잠수교', distance: 8,  pace: '5:30/km', time: '오늘 05:30', startAt: mockTime(0, 5, 30),  hostId: 'm1', participants: ['m1', 'm2'], max: 4, locked: false, status: 'open' },
-    { id: 'b2', title: '강남역 번개',   place: '강남역 11번 출구', distance: 5, pace: '6:00/km', time: '오늘 19:00', startAt: mockTime(0, 19, 0), hostId: 'm3', participants: ['m3'], max: 4, locked: false, status: 'open' },
-    { id: 'b3', title: '비밀 작전조',   place: '탄천', distance: 10, pace: '미공개', time: '내일 07:00', startAt: mockTime(1, 7, 0), hostId: 'm5', participants: ['m2', 'm5', 'm6'], max: 4, locked: true, status: 'open' },
-    { id: 'b4', title: '페이서 단합런', place: '올림픽공원', distance: 6, pace: '6:00/km', time: '오늘 20:00', startAt: mockTime(0, 20, 0), hostId: 'm1', participants: ['m1', 'm4', 'm0'], max: 4, locked: false, status: 'open' },
-  ],
-
-  // 내가 참여 중인 번개 (b4 단일팀 데모 — 참여 뷰 진입 시 팀 컬러 글로우 확인용)
-  joinedBoltId: 'b4',
-
-  // 투표 — 개별 지목 기록 (각 투표 1건 = 1명분, 더블은 2건 행사 가능)
-  vote: {
-    ballots: [],     // [{ voterId, targetId, roleGuess: role|null }]
-    myVotesUsed: 0,
-  },
-
-  // 타임라인 — 전체 공개 주요 이벤트만 (개별 번개 완료 등 잡다한 정보는 제외).
-  // kind로 종류만 구분해 데이터로 두고, 화면(dash.js)이 팀/역할 색을 입혀 렌더.
-  // 목업 시연용 초기 데이터 — 최신이 배열 앞
-  timeline: [
-    { kind: 'role', name: '이서연', role: 'double',   at: Date.now() - 10 * 60 * 1000 },
-    { kind: 'team', name: '이서연', team: 'ghost',    at: Date.now() - 11 * 60 * 1000 },
-    { kind: 'fail',                                   at: Date.now() - 27 * 60 * 60 * 1000 },
-    { kind: 'team', name: '박현우', team: 'ghost',    at: Date.now() - 53 * 60 * 60 * 1000 },
-    { kind: 'role', name: '김민수', role: 'elite',    at: Date.now() - 73 * 60 * 60 * 1000 },
-    { kind: 'team', name: '김민수', team: 'pacer',    at: Date.now() - 74 * 60 * 60 * 1000 },
-  ],   // [{ kind: 'team'|'role'|'fail', name?, team?, role?, at }]
+  players: [],   // 배정 완료된 참가자 — players 컬렉션과 동기화
+  bolts: [],     // 번개 — bolts 컬렉션과 동기화
+  vote: { ballots: [] },  // 투표 지목 — votes 컬렉션과 동기화 (myVotesUsed는 파생값)
+  timeline: [],  // 전체 공개 이벤트 — timeline 컬렉션과 동기화
 };
-
-function pushTimelineEvent(entry) {
-  state.timeline.unshift({ ...entry, at: Date.now() });
-}
 
 // ── 화면간 데이터 전달 (bolt-detail → bolt-buff → bolt-result) ──
 let _pendingBolt = null;
@@ -148,65 +92,56 @@ function getSnapshot() {
   return structuredClone(state);
 }
 
-// ── Firebase 파일럿 — 게이지만 Firestore로 실시간 동기화 ──────
-// 번개·투표·명단·설정은 아직 로컬 상태 그대로. game/gauge 문서 하나만
-// 관리자 화면·모든 참가자 기기 간에 실시간으로 공유한다.
-// 읽기는 클라이언트가 직접(Firestore 규칙 allow read: if true), 쓰기는
-// 콘솔 조작 방지를 위해 막아뒀고(allow write: if false) 서버(/api/set-gauge, 서비스 계정)만 쓸 수 있다.
-const gaugeDocRef = doc(db, 'game', 'gauge');
+// ═══════════════════════════════════════════════════════════
+//  Firestore 실시간 동기화
+// ═══════════════════════════════════════════════════════════
 
+// 게이지 — 쓰기는 서버(/api/set-gauge)만
+const gaugeDocRef = doc(db, 'game', 'gauge');
 onSnapshot(gaugeDocRef, snap => {
-  if (snap.exists()) {
-    state.game.gauge = snap.data();
-  } else {
-    writeGauge(); // 문서가 없으면 현재(로컬 기본값)로 최초 생성
-  }
+  if (snap.exists()) state.game.gauge = snap.data();
+  else writeGauge();
   notify();
 }, err => console.warn('게이지 실시간 동기화 실패:', err.message));
 
 function writeGauge() {
   fetch('/api/set-gauge', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(state.game.gauge),
   }).catch(err => console.warn('게이지 저장 실패:', err.message));
 }
 
-// 게임 설정(이름·시작일·기간) — game/settings 문서. 쓰기는 서버(/api/set-game-settings)만.
+// 게임 설정(이름·시작일·기간) — 쓰기는 서버(/api/set-game-settings)만
 const settingsDocRef = doc(db, 'game', 'settings');
-
 onSnapshot(settingsDocRef, snap => {
   if (snap.exists()) {
     const { name, startDate, weeks } = snap.data();
     Object.assign(state.game, { name, startDate, weeks });
   } else {
-    writeGameSettings(); // 문서가 없으면 현재(로컬 기본값)로 최초 생성
+    writeGameSettings();
   }
   notify();
 }, err => console.warn('게임 설정 실시간 동기화 실패:', err.message));
 
 function writeGameSettings() {
   fetch('/api/set-game-settings', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: state.game.name, startDate: state.game.startDate, weeks: state.game.weeks }),
   }).catch(err => console.warn('게임 설정 저장 실패:', err.message));
 }
 
-// 참가자 명단 — roster 컬렉션. 쓰기는 서버(/api/roster)만.
+// 참가자 명단 — 쓰기는 서버(/api/roster)만
 onSnapshot(collection(db, 'roster'), snap => {
   state.roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   notify();
 }, err => console.warn('명단 실시간 동기화 실패:', err.message));
 
-// 팀·역할 배정 결과 — game/assignment 문서. 쓰기는 서버(/api/assign-teams)만.
+// 팀·역할 배정 결과 — 쓰기는 서버(/api/assign-teams)만
 onSnapshot(doc(db, 'game', 'assignment'), snap => {
   state.assignment = snap.exists() ? snap.data() : { assigned: false, players: [] };
   notify();
 }, err => console.warn('배정 결과 실시간 동기화 실패:', err.message));
 
-// 모집 마감 트리거 — 이미 배정됐으면 서버가 그대로 반환(멱등)하므로 중복 호출해도 안전하다.
-// waiting.js가 카운트다운 종료 시(자동) 또는 관리자가 "지금 마감" 버튼(수동)으로 호출.
 export async function triggerAssignment() {
   const res = await fetch('/api/assign-teams', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   const data = await res.json();
@@ -214,12 +149,46 @@ export async function triggerAssignment() {
   return data;
 }
 
-// 배정 결과 초기화 — createNewGame에서 호출(다음 시즌 모집을 위해)
 function resetAssignment() {
   fetch('/api/assign-teams', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ reset: true }),
   }).catch(err => console.warn('배정 초기화 실패:', err.message));
+}
+
+// 참가자(배정 완료 후 팀·역할·마일리지) — 클라이언트 직접 쓰기
+onSnapshot(collection(db, 'players'), snap => {
+  state.players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('참가자 실시간 동기화 실패:', err.message));
+
+// 번개 — 클라이언트 직접 쓰기
+onSnapshot(collection(db, 'bolts'), snap => {
+  state.bolts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('번개 실시간 동기화 실패:', err.message));
+
+// 투표 지목(진행 중인 회차) — 클라이언트 직접 쓰기
+onSnapshot(collection(db, 'votes'), snap => {
+  state.vote.ballots = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('투표 실시간 동기화 실패:', err.message));
+
+// 투표 히스토리 — 클라이언트 직접 쓰기
+onSnapshot(collection(db, 'voteHistory'), snap => {
+  state.voteHistory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('투표 히스토리 실시간 동기화 실패:', err.message));
+
+// 타임라인 — 클라이언트 직접 쓰기
+onSnapshot(collection(db, 'timeline'), snap => {
+  state.timeline = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('타임라인 실시간 동기화 실패:', err.message));
+
+function pushTimelineEvent(entry) {
+  addDoc(collection(db, 'timeline'), { ...entry, at: Date.now() })
+    .catch(err => console.warn('타임라인 기록 실패:', err.message));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -233,38 +202,35 @@ export function getGauge() {
     pacer, ghost,
     diff: pacer - ghost,
     leader: pacer === ghost ? null : (pacer > ghost ? 'pacer' : 'ghost'),
-    pacerRatio: pacer / total,   // 게이지 바 렌더용 (0~1)
+    pacerRatio: pacer / total,
     ghostRatio: ghost / total,
   };
 }
 
 // 게임 캘린더 — state.game.startDate + weeks 를 단일 출처로 파생값 계산.
-// 관리자 화면(A-03)에서 updateGameSettings()로 startDate/weeks를 바꾸면 전체가 따라 움직인다.
 export function getCalendar(now = new Date()) {
   const { startDate, weeks } = state.game;
   const [y, m, d] = startDate.split('-').map(Number);
-  const start = new Date(y, m - 1, d);                 // 게임 1일차 00:00 (로컬)
+  const start = new Date(y, m - 1, d);
   const totalDays = weeks * 7;
   const end = new Date(start);
-  end.setDate(start.getDate() + totalDays);            // 종료 경계(마지막날 다음 00:00)
+  end.setDate(start.getDate() + totalDays);
 
   const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayIndex = Math.round((today0 - start) / 86400000); // 경과일 (0-base)
+  const dayIndex = Math.round((today0 - start) / 86400000);
   const started = dayIndex >= 0;
   const ended = dayIndex >= totalDays;
   const week = !started ? 0 : (ended ? weeks : Math.floor(dayIndex / 7) + 1);
-  const dday = Math.ceil((end - today0) / 86400000);   // 종료까지 남은 일수 → 헤더 D-N
+  const dday = Math.ceil((end - today0) / 86400000);
   const monthLabel = `${now.getFullYear()} ${now.toLocaleDateString('en-US', { month: 'long' })}`;
 
   return { start, end, dayIndex, totalDays, week, weeks, started, ended, dday, monthLabel };
 }
 
-// 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — 실제 요일이 아니라
-// startDate 기준 경과일(dayIndex % 7)로 판정. 이래야 startDate를
-// 어떤 요일로 바꾸든 항상 같은 주기로 맞물린다(실제 요일과 무관).
+// 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — startDate 기준 경과일로 판정.
 export function getPhase(now = new Date()) {
   const cal = getCalendar(now);
-  const gameDay = ((cal.dayIndex % 7) + 7) % 7; // 0~6, 게임 시작일 기준 그 주의 며칠째
+  const gameDay = ((cal.dayIndex % 7) + 7) % 7;
   const isTug = gameDay >= 4 && gameDay <= 6;
   return {
     phase: isTug ? 'tug' : 'scout',
@@ -278,12 +244,20 @@ export function getPhase(now = new Date()) {
   };
 }
 
+// 나 — players에서 내 이름과 일치하는 항목을 찾음. 배정 전(또는 매칭 실패)에는
+// 안전한 기본값을 반환해 초기 렌더링에서 크래시가 나지 않게 한다.
+function myPlayer() {
+  return state.players.find(p => p.name === identity.name) || {
+    id: null, name: identity.name || '', team: null, role: null, km: 0,
+    publicTeam: null, publicRole: null, penalized: false, abilityStripped: false, boltsCompleted: 0,
+  };
+}
+
 export function getMe() {
-  const p = playerById(state.me.id);
+  const p = myPlayer();
   return {
-    ...structuredClone(p),               // id·name·team·role·km·publicTeam·penalized·publicRole·abilityStripped
-    pureKm: p.km,                         // 대시보드 등 기존 코드 호환용 별칭
-    boltsCompleted: state.me.boltsCompleted,
+    ...p,
+    pureKm: p.km,
     abilityUsed: abilityUsedThisWeek(),
     revealed: { ...state.me.revealed },
     abilityStripped: !!p.abilityStripped,
@@ -291,87 +265,86 @@ export function getMe() {
 }
 
 export function getPlayers({ excludeSelf = false } = {}) {
-  const list = state.players.map(p => ({ ...p, isSelf: p.id === state.me.id }));
+  const list = state.players.map(p => ({ ...p, isSelf: p.name === identity.name }));
   return excludeSelf ? list.filter(p => !p.isSelf) : list;
 }
 
 // 인증 마감 시각 = 시작 + 예상 완주시간(거리×페이스) + 버퍼.
-// 페이스 미공개면 최저 페이스(CONFIG.fallbackPaceSec)로 보수적으로 계산.
 export function boltDeadline(bolt) {
-  if (!bolt.startAt) return Infinity;   // 시각 정보 없는 옛 데이터는 만료 없음
+  if (!bolt.startAt) return Infinity;
   const m = /^(\d+):(\d+)/.exec(bolt.pace || '');
   const paceSec = m ? Number(m[1]) * 60 + Number(m[2]) : CONFIG.fallbackPaceSec;
   const runMs = bolt.distance * paceSec * 1000;
   return bolt.startAt + runMs + CONFIG.certBufferMin * 60 * 1000;
 }
 
-// 마감 지난 open 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급 후 참여 해제.
-// getBolts에서 lazy하게 수행 — 호출자가 곧바로 최신 상태를 렌더하므로 notify 불필요
+// 마감 지난 open 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
+// 로컬 상태를 즉시 갱신해 같은 기기에서 중복 처리되지 않게 막고, Firestore 반영은
+// 백그라운드로 진행(다른 기기와 거의 동시에 감지되는 극히 드문 경우의 중복 반영은 감수).
 function sweepExpiredBolts() {
   const now = Date.now();
   const { isTug } = getPhase();
-  let expired = false;
   for (const b of state.bolts) {
     if (b.status === 'open' && now > boltDeadline(b)) {
       const km = b.distance * CONFIG.expiredPenalty;
+      b.status = 'expired';   // 로컬 즉시 반영(중복 스윕 방지)
       for (const pid of b.participants) {
         const p = playerById(pid);
         if (!p) continue;
         if (isTug) subtractOpponent(p.team, km);
         else state.game.gauge[p.team] += km;
         p.km += km;
+        updateDoc(doc(db, 'players', pid), { km: increment(km) })
+          .catch(err => console.warn('만료 페널티 반영 실패:', err.message));
       }
-      b.status = 'expired';
-      if (state.joinedBoltId === b.id) state.joinedBoltId = null;
-      expired = true;
+      updateDoc(doc(db, 'bolts', b.id), { status: 'expired' })
+        .catch(err => console.warn('번개 만료 처리 실패:', err.message));
+      writeGauge();
     }
   }
-  if (expired) writeGauge();
 }
 
 export function getBolts() {
   sweepExpiredBolts();
+  const myId = myPlayer().id;
   return state.bolts.map(b => ({
     ...b,
     count: b.participants.length,
-    joined: b.id === state.joinedBoltId,
+    joined: b.status === 'open' && b.participants.includes(myId),
     hostName: playerById(b.hostId)?.name ?? '?',
-    isHost: b.hostId === state.me.id,
-    // 단일팀 판정: 참가자 전원이 같은 팀 & 최소 인원 충족
+    isHost: b.hostId === myId,
     isSingleTeam: isSingleTeamBolt(b),
     deadline: boltDeadline(b),
   }));
 }
 
+// 현재 참여 중인 번개 id — bolts에서 파생(별도 저장하지 않음)
 export function getJoinedBoltId() {
-  return state.joinedBoltId;
+  const myId = myPlayer().id;
+  return state.bolts.find(b => b.status === 'open' && b.participants.includes(myId))?.id ?? null;
 }
 
 export function getVote() {
-  const meP = playerById(state.me.id);
-  // 역할(더블) 박탈되면 1표
+  const meP = myPlayer();
   const total = (meP.role === 'double' && !meP.abilityStripped) ? 2 : 1;
-  // 지목 표수 집계 (ballots에서 파생)
+  const myVotesUsed = state.vote.ballots.filter(b => b.voterId === meP.id).length;
   const castCount = {};
   for (const b of state.vote.ballots) castCount[b.targetId] = (castCount[b.targetId] || 0) + 1;
   return {
     total,
-    used: state.vote.myVotesUsed,
-    left: total - state.vote.myVotesUsed,
+    used: myVotesUsed,
+    left: total - myVotesUsed,
     castCount,
   };
 }
 
-// 이번 주(1~3주차) 능력 사용 횟수 — abilityLog에서 파생
 function abilityUsedThisWeek() {
   const { week } = getPhase();
   return state.me.abilityLog.filter(e => e.week === week).length;
 }
 
-// 능력 남은 횟수 (탐정/밀정만) — 주(週)당 CONFIG.abilityWeeklyLimit로 매주 초기화
 export function getAbility() {
-  const meP = playerById(state.me.id);
-  // 역할 적중 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
+  const meP = myPlayer();
   const stripped = !!meP.abilityStripped;
   const isSpecial = (meP.role === 'detective' || meP.role === 'spy') && !stripped;
   const used = abilityUsedThisWeek();
@@ -386,13 +359,11 @@ export function getAbility() {
   };
 }
 
-// 타임라인 — 전체 공개 주요 이벤트, 최신순
 export function getTimeline() {
-  return state.timeline.map(e => ({ ...e }));
+  return [...state.timeline].sort((a, b) => b.at - a.at);
 }
 
 // ── 관리자 화면(A-02·A-03) 전용 셀렉터 ────────────────────
-// 현재 게임 설정 + 상태(예정/진행중/종료)
 export function getGameSettings() {
   const cal = getCalendar();
   return {
@@ -404,27 +375,22 @@ export function getGameSettings() {
   };
 }
 
-// 투표 히스토리 — 회차별 결과 기록, 최신순
 export function getVoteHistory() {
-  return state.voteHistory.map(e => ({ ...e }));
+  return [...state.voteHistory].sort((a, b) => b.at - a.at);
 }
 
-// 지난 게임 히스토리 — 새 게임 생성 시 쌓임
 export function getGameHistory() {
   return state.gameHistory.map(e => ({ ...e }));
 }
 
-// 참가자 명단(사전 등록) — 이름순
 export function getRoster() {
   return state.roster.map(r => ({ ...r })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
 
-// 입장 시도한 이름이 명단(사전 등록)에 있는지 확인 — name.js가 입장 전 검증에 사용
 export function isNameRegistered(name) {
   return state.roster.some(r => r.name === name.trim());
 }
 
-// 팀·역할 배정 결과 — waiting.js가 배정 완료 감지 및 내 결과 조회에 사용
 export function getAssignment() {
   return { ...state.assignment, players: state.assignment.players.map(p => ({ ...p })) };
 }
@@ -442,7 +408,6 @@ function playerById(id) {
 
 // ═══════════════════════════════════════════════════════════
 //  ACTIONS — 상태를 바꾸는 유일한 방법 (모두 async)
-//  나중에 함수 본문만 Firebase 호출로 교체하면 됨
 // ═══════════════════════════════════════════════════════════
 
 // 관리자 — 진행 중인 게임의 이름/기간 수정 (A-03 "현재 게임 관리")
@@ -470,12 +435,6 @@ export async function createNewGame({ name, startDate, weeks }) {
   state.game.startDate = startDate;
   state.game.weeks = Number(weeks);
   state.game.gauge = { pacer: 0, ghost: 0 };
-  state.bolts = [];
-  state.joinedBoltId = null;
-  state.vote.ballots = [];
-  state.vote.myVotesUsed = 0;
-  state.voteHistory = [];
-  state.timeline = [];
 
   writeGauge();
   writeGameSettings();
@@ -484,7 +443,7 @@ export async function createNewGame({ name, startDate, weeks }) {
   return getGameSettings();
 }
 
-// 관리자 — 참가자 명단(사전 등록) 추가. 실제 반영은 roster 컬렉션 onSnapshot을 통해 이루어진다.
+// 관리자 — 참가자 명단(사전 등록) 추가
 export async function addRosterMember(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('이름을 입력하세요');
@@ -498,7 +457,6 @@ export async function addRosterMember(name) {
   return data;
 }
 
-// 관리자 — 참가자 명단 이름 수정
 export async function updateRosterMember(id, name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('이름을 입력하세요');
@@ -511,7 +469,6 @@ export async function updateRosterMember(id, name) {
   return data;
 }
 
-// 관리자 — 참가자 명단에서 삭제
 export async function removeRosterMember(id) {
   const res = await fetch('/api/roster', {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -523,177 +480,134 @@ export async function removeRosterMember(id) {
 
 // 번개 만들기 — startAt: 시작 시각 타임스탬프(인증 마감 판정용)
 export async function createBolt({ title, place, distance, pace, time, startAt }) {
-  if (state.joinedBoltId) throw new Error('이미 참여 중인 번개가 있습니다');
-  const id = 'b' + (state.bolts.length + 1) + '_' + Date.now();
-  const bolt = {
-    id, title, place,
+  if (getJoinedBoltId()) throw new Error('이미 참여 중인 번개가 있습니다');
+  const myId = myPlayer().id;
+  const docRef = await addDoc(collection(db, 'bolts'), {
+    title, place,
     distance: Number(distance) || 0,
     pace: pace || '미공개',
     time: time || '',
     startAt: startAt || null,
-    hostId: state.me.id,
-    participants: [state.me.id],
+    hostId: myId,
+    participants: [myId],
     max: CONFIG.boltMaxHeads,
     locked: false,
     status: 'open',
-  };
-  state.bolts.unshift(bolt);
-  state.joinedBoltId = id;   // 방장은 자동 참여
-  notify();
-  return bolt;
+  });
+  return { id: docRef.id };
 }
 
 // 번개 참여
 export async function joinBolt(boltId) {
-  if (state.joinedBoltId && state.joinedBoltId !== boltId) {
-    throw new Error('이미 다른 번개에 참여 중입니다');
-  }
+  const joined = getJoinedBoltId();
+  if (joined && joined !== boltId) throw new Error('이미 다른 번개에 참여 중입니다');
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
   if (bolt.locked) throw new Error('잠긴 번개입니다');
   if (bolt.participants.length >= bolt.max) throw new Error('정원이 찼습니다');
 
-  if (!bolt.participants.includes(state.me.id)) bolt.participants.push(state.me.id);
-  state.joinedBoltId = boltId;
-  notify();
+  await updateDoc(doc(db, 'bolts', boltId), { participants: arrayUnion(myPlayer().id) });
   return bolt;
 }
 
 // 번개 참여 취소
 export async function leaveBolt() {
-  const id = state.joinedBoltId;
+  const id = getJoinedBoltId();
   if (!id) return;
-  const bolt = state.bolts.find(b => b.id === id);
-  if (bolt) bolt.participants = bolt.participants.filter(pid => pid !== state.me.id);
-  state.joinedBoltId = null;
-  notify();
+  await updateDoc(doc(db, 'bolts', id), { participants: arrayRemove(myPlayer().id) });
 }
 
 // 번개 방 잠금 토글 (방장)
 export async function toggleBoltLock(boltId, locked) {
-  const bolt = state.bolts.find(b => b.id === boltId);
-  if (!bolt) return;
-  bolt.locked = locked;
-  notify();
+  await updateDoc(doc(db, 'bolts', boltId), { locked });
 }
 
 // 번개 완료 → 마일리지·게이지 반영 (게임의 핵심 규칙)
-//   distanceKm: 실제 완주 거리, participantIds: 완주 체크된 참가자
 export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
 
   const { isTug } = getPhase();
   const singleTeam = isSingleTeamBolt(bolt);
+  const writes = [];
 
   participantIds.forEach(pid => {
     const p = playerById(pid);
     if (!p) return;
 
-    // 1) 마일리지 페널티(팀 적발=무조건) / 역할 능력 박탈(역할 60% 적중=조건부) 분리
-    const penalized = isPenalized(p);       // 팀 적발 → 마일리지 -50%
-    const stripped  = isAbilityStripped(p); // 역할 적중 적발 → 역할 능력 무효
-    let km = distanceKm * (singleTeam ? 1 : buffMultiplier); // 혼합팀만 버프 배수 적용
+    const penalized = isPenalized(p);
+    const stripped  = isAbilityStripped(p);
+    let km = distanceKm * (singleTeam ? 1 : buffMultiplier);
     if (p.role === 'elite' && !stripped) km *= CONFIG.eliteMultiplier;
     if (penalized) km *= CONFIG.votePenalty;
 
-    // 2) 게이지 반영
     if (p.role === 'anchor' && !stripped) {
-      // 앵커: 끌어온다 — 버프 반영된 km만큼 내 팀 +km AND 상대 −km (단계·배수 무관)
       state.game.gauge[p.team] += km;
       subtractOpponent(p.team, km);
     } else if (isTug) {
-      // 줄다리기: 상대팀 게이지에서 삭감
       subtractOpponent(p.team, km);
     } else {
-      // 탐색전: 내 팀 게이지 1:1 적립
       state.game.gauge[p.team] += km;
     }
 
-    // 개인 순수 누적거리 (보너스 제외한 실제 거리) — players가 단일 출처
-    // 방장이 출석 체크한 참가자는 함께 달린 것으로 보고 방장이 달린 거리를 동일 적용
-    p.km += distanceKm;
-    if (pid === state.me.id) {
-      state.me.boltsCompleted += 1;
-    }
+    writes.push(updateDoc(doc(db, 'players', pid), { km: increment(distanceKm), boltsCompleted: increment(1) }));
   });
 
-  // 3) 단일팀 고유 스킬
   if (singleTeam) {
     const team = playerById(bolt.participants[0]).team;
     const heads = participantIds.length;
     if (team === 'pacer') {
-      state.game.gauge.pacer += heads * CONFIG.pacerSynergyPerHead; // 페이서 시너지
+      state.game.gauge.pacer += heads * CONFIG.pacerSynergyPerHead;
     } else {
-      subtractOpponent('ghost', distanceKm);                        // 게이지 삭감 +
-      state.game.gauge.ghost += CONFIG.ghostGaugeShift;             // 100km 즉시 이동
+      subtractOpponent('ghost', distanceKm);
+      state.game.gauge.ghost += CONFIG.ghostGaugeShift;
     }
   }
 
-  bolt.status = 'done';
-  if (state.joinedBoltId === boltId) state.joinedBoltId = null;
+  writes.push(updateDoc(doc(db, 'bolts', boltId), { status: 'done' }));
+  await Promise.all(writes);
   writeGauge();
-  notify();
 
   const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;
   return { singleTeam, isTug, distanceKm, buffMultiplier, participantIds, participantCount: participantIds.length, boltTeam };
 }
 
 // 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)
-// 지목자의 팀을 함께 기록 → 집계 때 '실제로 상대팀이었는지(적중)' 판정에 사용
 export async function castVote(targetId, roleGuess = null) {
   const v = getVote();
   if (v.left <= 0) throw new Error('투표권을 모두 사용했습니다');
-  const myTeam = playerById(state.me.id).team;
-  state.vote.ballots.push({ voterId: state.me.id, voterTeam: myTeam, targetId, roleGuess: roleGuess || null });
-  state.vote.myVotesUsed += 1;
-  notify();
+  const myTeam = myPlayer().team;
+  await addDoc(collection(db, 'votes'), { voterId: myPlayer().id, voterTeam: myTeam, targetId, roleGuess: roleGuess || null });
   return getVote();
 }
 
-// 시뮬레이션: 가상 상대 투표 주입
-// voterTeam 미지정 시 대상의 상대팀으로 기록(=팀 적중 투표) — 기존 시연 흐름 유지
-export function injectVotes(list) {
-  list.forEach(({ targetId, roleGuess, voterTeam }) => {
-    const target = playerById(targetId);
-    const vt = voterTeam ?? (target?.team === 'pacer' ? 'ghost' : 'pacer');
-    state.vote.ballots.push({ voterId: `sim-${state.vote.ballots.length}`, voterTeam: vt, targetId, roleGuess: roleGuess || null });
-  });
-  notify();
-}
-
 // 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정
-//   동점이면 최다 득표자를 모두 적발. 역할은 각 대상별로 독립 판정.
 export async function tallyVote() {
   const ballots = state.vote.ballots;
   if (ballots.length === 0) return null;
 
-  // ① 팀: 지목 표수 최다 (더블의 2건도 각각 1표) — 동점자 전원
   const teamCount = {};
   for (const b of ballots) teamCount[b.targetId] = (teamCount[b.targetId] || 0) + 1;
   const maxCount = Math.max(...Object.values(teamCount));
   const topIds = Object.keys(teamCount).filter(id => teamCount[id] === maxCount);
 
   const caught = [];
+  const playerWrites = [];
+
   for (const topId of topIds) {
     const target = playerById(topId);
     if (!target) continue;
 
     const targetBallots = ballots.filter(b => b.targetId === topId);
+    const update = {};
 
-    // ② 팀 적중 판정 — 투표는 '이 사람이 상대팀'이라는 추측.
-    //    지목자 과반이 실제 상대팀을 지목했을 때만 팀 공개 + 마일리지 -50%.
-    //    과반 미달(팀을 못 맞힘)이면 팀 비공개·페널티 없음 → '적발 실패'.
     const correctN = targetBallots.filter(b => b.voterTeam && b.voterTeam !== target.team).length;
     const teamCaught = correctN > targetBallots.length / 2;
     if (teamCaught) {
-      target.publicTeam = target.team;
-      target.penalized  = true;
+      update.publicTeam = target.team;
+      update.penalized  = true;
     }
 
-    // ③ 역할 판정 — 팀 적중 여부와 무관하게 독립 진행.
-    //    팀을 못 맞혔어도 역할(구체적 행동 패턴 등)은 따로 맞힐 수 있음.
-    //    지목 인원 중 동일 역할 ≥60% AND 실제 일치 → 공개·박탈(마일리지 페널티와 별개 플래그)
     let roleRevealed = false, guessFailed = false, guessedRole = null;
     const roleCount = {};
     for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
@@ -704,19 +618,23 @@ export async function tallyVote() {
     if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
       if (consensusRole === target.role) {
         roleRevealed = true;
-        target.publicRole      = target.role;   // 역할 공개(박제)
-        target.abilityStripped = true;          // 능력 박탈 (내가 대상이면 players[me]에 반영됨)
+        update.publicRole      = target.role;
+        update.abilityStripped = true;
       } else {
-        guessFailed = true;                      // 60% 모였지만 오답 → 추리 실패
+        guessFailed = true;
         guessedRole = consensusRole;
       }
+    }
+
+    if (Object.keys(update).length > 0) {
+      playerWrites.push(updateDoc(doc(db, 'players', topId), update));
     }
 
     caught.push({
       id: target.id,
       name: target.name,
       teamCaught,
-      team: teamCaught ? target.team : null,   // 적발 실패 시 팀 정보 비노출
+      team: teamCaught ? target.team : null,
       roleRevealed,
       revealedRole: roleRevealed ? target.role : null,
       guessFailed,
@@ -727,57 +645,44 @@ export async function tallyVote() {
   if (caught.length === 0) return null;
   const result = { tie: caught.length > 1, caught };
 
-  // 타임라인 기록 — 전체 공개된 사실만 (적발 실패는 대상 비노출)
   let anyReveal = false;
   for (const c of caught) {
-    if (c.teamCaught) {
-      pushTimelineEvent({ kind: 'team', name: c.name, team: c.team });
-      anyReveal = true;
-    }
-    if (c.roleRevealed) {
-      pushTimelineEvent({ kind: 'role', name: c.name, role: c.revealedRole });
-      anyReveal = true;
-    }
+    if (c.teamCaught) { pushTimelineEvent({ kind: 'team', name: c.name, team: c.team }); anyReveal = true; }
+    if (c.roleRevealed) { pushTimelineEvent({ kind: 'role', name: c.name, role: c.revealedRole }); anyReveal = true; }
   }
-  if (!anyReveal) {
-    pushTimelineEvent({ kind: 'fail' });
-  }
+  if (!anyReveal) pushTimelineEvent({ kind: 'fail' });
 
-  // 관리자 화면(A-02) 투표 히스토리 기록 — 표 초기화 전에 남김
-  state.voteHistory.unshift({
+  await Promise.all(playerWrites);
+
+  addDoc(collection(db, 'voteHistory'), {
     at: Date.now(),
     ballotCount: ballots.length,
     caught: caught.map(c => ({ name: c.name, teamCaught: c.teamCaught, team: c.team, roleRevealed: c.roleRevealed, revealedRole: c.revealedRole })),
-  });
+  }).catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
 
-  // 라운드 종료 — 다음 회차를 위해 표 초기화
-  // (팀 공개·마일리지 페널티·역할 박탈 등 적발 결과는 players에 영구 반영되어 유지됨)
-  state.vote.ballots = [];
-  state.vote.myVotesUsed = 0;
+  // 라운드 종료 — 다음 회차를 위해 표 초기화(적발 결과는 players에 영구 반영되어 유지됨)
+  Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
+    .catch(err => console.warn('투표 초기화 실패:', err.message));
 
-  notify();
   return result;
 }
 
 // 탐정/밀정 능력 사용
 export async function useAbility(targetId) {
-  const meP = playerById(state.me.id);
+  const meP = myPlayer();
   if (meP.role !== 'detective' && meP.role !== 'spy') throw new Error('능력이 없습니다');
   if (meP.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
   if (abilityUsedThisWeek() >= CONFIG.abilityWeeklyLimit) throw new Error('이번 주 사용 횟수를 모두 소진했습니다');
-  if (state.me.revealed[targetId]) return state.me.revealed[targetId]; // 이미 확인함
+  if (state.me.revealed[targetId]) return state.me.revealed[targetId];
 
   const target = playerById(targetId);
   if (!target) throw new Error('대상을 찾을 수 없습니다');
 
-  const result = meP.role === 'detective'
-    ? { team: target.team }
-    : { role: target.role };
+  const result = meP.role === 'detective' ? { team: target.team } : { role: target.role };
 
   state.me.revealed[targetId] = result;
   state.me.abilityLog.push({ week: getPhase().week });
 
-  // 타임라인 — 누가·누구를·무엇을 확인했는지는 비공개, 어떤 역할이 움직였는지만 익명 기록
   pushTimelineEvent({ kind: 'ability', abilityRole: meP.role });
 
   notify();
@@ -791,11 +696,11 @@ function subtractOpponent(myTeam, km) {
 }
 
 function isPenalized(player) {
-  return !!player.penalized;        // 팀 적발 → 마일리지 -50%
+  return !!player.penalized;
 }
 
 function isAbilityStripped(player) {
-  return !!player.abilityStripped;  // 역할 적중 적발 → 역할 능력 무효
+  return !!player.abilityStripped;
 }
 
 // 상수 재노출 (화면이 store 하나만 import하면 되도록)

@@ -1,4 +1,4 @@
-let currentScreen = 's-name';
+let currentScreen = null;   // 아직 어떤 .screen도 활성화되지 않은 상태 — 첫 goToScreen 호출이 실제 전환으로 인식되게 함
 let _programmaticScroll = false;
 
 export function isProgrammaticScroll() { return _programmaticScroll; }

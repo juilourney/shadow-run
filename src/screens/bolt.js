@@ -146,7 +146,6 @@ export function render() {
         <div style="text-align:center"><span style="width:36px;height:36px;border-radius:50%;background:#3f3f46;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto">나</span><p style="font-size:10px;color:#71717a;margin-top:4px">나</p></div>
       </div>
     </div>
-    <button class="btn btn-secondary" style="width:100%; height:48px; font-size:14px; margin-top:4px;" id="progress-result-btn">결과 확인 (시뮬레이션)</button>
   </div>
 
   <!-- 참여 확인 오버레이 (바텀시트) -->
@@ -224,10 +223,6 @@ export function init() {
       closeJoinOverlay(); showSidebar();
       showToast(e.message);
     }
-  });
-
-  document.getElementById('progress-result-btn').addEventListener('click', () => {
-    goToScreen('s-bolt-result');
   });
 
   renderBoltList();

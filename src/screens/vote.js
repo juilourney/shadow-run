@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, injectVotes, getCalendar, ROLES } from '../store.js';
+import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, getCalendar, ROLES } from '../store.js';
 
 const TEAM_META = {
   pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.1)',  border: 'rgba(56,189,248,.25)' },
@@ -46,11 +46,15 @@ function getVoteStatus() {
   const dn = DAY_NAMES[nextDate.getDay()];
   const nextLabel = `${m}월 ${d}일 (${dn})  18:00 ~ 22:00`;
 
-  return { isVotingNow, nextLabel };
+  // 현재 진행 중이면 종료 시각(오늘 22:00)도 함께 계산
+  const closeDate = new Date(now);
+  closeDate.setHours(22, 0, 0, 0);
+
+  return { isVotingNow, nextLabel, closeDate };
 }
 
 export function render() {
-  const { nextLabel } = getVoteStatus();
+  const { nextLabel, isVotingNow } = getVoteStatus();
   const v = getVote();
   const me = getMe();
   const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => `
@@ -90,7 +94,7 @@ export function render() {
         <p style="font-size:11px; color:#52525b; margin-bottom:6px; font-weight:600; letter-spacing:.06em">보유 투표권</p>
         <p class="num" id="votes-remaining"
           style="font-size:32px; font-weight:800; color:#fb7185; line-height:1;">${v.left}</p>
-        <p style="font-size:11px; color:#52525b; margin-top:4px">${ROLES[me.role].name}</p>
+        <p style="font-size:11px; color:#52525b; margin-top:4px">${ROLES[me.role]?.name ?? ''}</p>
       </div>
       <!-- 타이머 -->
       <div class="bezel anim-up-1" style="padding:14px 16px; border-radius:20px; text-align:center;">
@@ -122,19 +126,13 @@ export function render() {
       <p style="font-size:12px; color:#52525b; margin-top:6px;">결과는 투표 종료 후 공개됩니다</p>
     </div>
 
-    <!-- 투표 종료 시뮬레이션 버튼 -->
-    <button id="sim-result-btn" style="display:none; width:100%; margin-top:16px; height:44px;
-      border-radius:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
-      color:#52525b; font-size:13px; cursor:pointer;">
-      투표 종료 시뮬레이션
-    </button>
   </div>
 
   <!-- ① 비활성 오버레이 (투표 기간 외) -->
   <div id="vote-inactive-overlay"
     style="position:absolute; inset:0; z-index:40;
       background:rgba(5,5,5,.82); backdrop-filter:blur(8px);
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      display:${isVotingNow ? 'none' : 'flex'}; flex-direction:column; align-items:center; justify-content:center;
       padding:32px; text-align:center;">
     <div style="font-size:40px; margin-bottom:16px;">🗳️</div>
     <p style="font-size:22px; font-weight:800; letter-spacing:-.02em; margin-bottom:8px;">투표 기간이 아닙니다</p>
@@ -142,13 +140,6 @@ export function render() {
       다음 투표<br/>
       <span style="color:#a1a1aa; font-weight:600;">${nextLabel}</span>
     </p>
-    <!-- 시뮬레이션 전환 -->
-    <button id="sim-activate-vote"
-      style="background:rgba(251,113,133,.1); border:1px solid rgba(251,113,133,.25);
-        color:#fb7185; border-radius:14px; padding:0 20px; height:42px;
-        font-size:13px; font-weight:700; cursor:pointer;">
-      투표 활성화 (시뮬레이션)
-    </button>
   </div>
 
   <!-- ② 결과 오버레이 (투표 종료 후) -->
@@ -239,17 +230,38 @@ export function render() {
 }
 
 export function init() {
-  // 타이머
-  let timerSecs = 80 * 60 + 45;
+  // 실제 투표 기간(월·목 18~22시) 기준 타이머 — 활성/비활성 전환과 종료 시 자동 집계도 여기서 처리
   const timerEl = document.getElementById('vote-timer');
-  const timerInterval = setInterval(() => {
-    if (timerSecs <= 0) { clearInterval(timerInterval); return; }
-    timerSecs--;
-    const h = String(Math.floor(timerSecs / 3600)).padStart(2, '0');
-    const m = String(Math.floor((timerSecs % 3600) / 60)).padStart(2, '0');
-    const s = String(timerSecs % 60).padStart(2, '0');
-    timerEl.textContent = `${h}:${m}:${s}`;
-  }, 1000);
+  const inactiveOverlay = document.getElementById('vote-inactive-overlay');
+  let wasVotingNow = getVoteStatus().isVotingNow;
+  let tallying = false;
+
+  function tick() {
+    const status = getVoteStatus();
+    inactiveOverlay.style.display = status.isVotingNow ? 'none' : 'flex';
+
+    if (status.isVotingNow) {
+      const diff = Math.max(0, status.closeDate - new Date());
+      const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+      const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+      const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+      timerEl.textContent = `${h}:${m}:${s}`;
+    }
+
+    // 투표 기간이 방금 종료됨 — 자동 집계 (getBolts의 만료 스윕과 같은 lazy 패턴)
+    if (wasVotingNow && !status.isVotingNow && !tallying) {
+      tallying = true;
+      tallyVote().then(result => {
+        if (result) {
+          showVoteResult(result);
+          document.getElementById('vote-result-overlay').style.display = 'flex';
+        }
+      }).catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
+    }
+    wasVotingNow = status.isVotingNow;
+  }
+  tick();
+  setInterval(tick, 1000);
 
   // 투표 상태는 store가 보유
   let pendingPlayerId = null;
@@ -273,11 +285,6 @@ export function init() {
   };
   roleWrap.querySelectorAll('.role-opt').forEach(b => {
     b.addEventListener('click', () => { pendingRole = b.dataset.role; paintRoleOpts(); });
-  });
-
-  // 시뮬레이션: 비활성 → 활성
-  document.getElementById('sim-activate-vote').addEventListener('click', () => {
-    document.getElementById('vote-inactive-overlay').style.display = 'none';
   });
 
   // ── 전체화면 지목 플로우 (인물 → 역할 → 최종 확인) ──────────
@@ -339,29 +346,6 @@ export function init() {
     document.getElementById('vote-result-overlay').style.display = 'none';
   });
 
-  // 결과 시뮬레이션 → 가상 상대 투표 주입 후 집계
-  document.getElementById('sim-result-btn').addEventListener('click', async () => {
-    injectSimVotes();
-    const result = await tallyVote();
-    if (result) showVoteResult(result);
-    document.getElementById('vote-result-overlay').style.display = 'flex';
-  });
-}
-
-// 시뮬레이션: 내가 지목한 대상에 가상 상대 표를 몰아 60% 역할 합의를 재현
-function injectSimVotes() {
-  const v = getVote();
-  const entries = Object.entries(v.castCount);
-  if (entries.length === 0) return;
-  const topId = entries.sort((a, b) => b[1] - a[1])[0][0];
-  const target = getPlayers().find(p => p.id === topId);
-  // 대상 실제 역할을 다수(3명)가 지목 → 60% 이상 합의 재현 (일치 시 공개·박탈)
-  const guess = target?.role && target.role !== 'runner' ? target.role : 'elite';
-  injectVotes([
-    { targetId: topId, roleGuess: guess },
-    { targetId: topId, roleGuess: guess },
-    { targetId: topId, roleGuess: guess },
-  ]);
 }
 
 async function castVote(playerId, playerName, roleGuess) {
@@ -392,7 +376,6 @@ async function castVote(playerId, playerName, roleGuess) {
       b.textContent = c > 1 ? `지목됨 ×${c}` : c === 1 ? '지목됨' : '마감';
     });
     document.getElementById('vote-done-msg').style.display = 'block';
-    document.getElementById('sim-result-btn').style.display = 'block';
   } else if (v.total > 1) {
     // 더블 — 표가 남았으면 한 번 더 지목하도록 안내
     showTooltip(`한 표 남았어요 · 한 번 더 지목하세요 (${v.total - v.left}/${v.total})`);

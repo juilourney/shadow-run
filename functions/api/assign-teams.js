@@ -2,7 +2,7 @@
 // game/assignment 문서에 기록. 여러 참가자 기기가 거의 동시에 마감 시각을 감지해도
 // 전부 이 엔드포인트를 호출할 수 있으므로, 이미 배정됐으면 그대로 재사용(멱등)한다.
 // 서버가 유일한 계산 주체 — 클라이언트마다 각자 랜덤을 돌리면 기기별로 결과가 달라지는 문제를 막는다.
-import { getAccessToken, firestoreUrl, toFirestoreValue, fromFirestoreFields } from '../_lib/firebase-admin.js';
+import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
 
 const SPECIAL_ROLES = ['elite', 'anchor', 'double', 'detective', 'spy'];
 
@@ -48,8 +48,14 @@ export async function onRequestPost(context) {
     const accessToken = await getAccessToken(context.env);
     const authHeaders = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
 
-    // 신규 게임 생성 시 호출 — 배정 결과 초기화(다음 시즌 모집을 위해)
+    // 신규 게임 생성 시 호출 — 배정 결과 초기화 + players 컬렉션 삭제(다음 시즌 모집을 위해)
     if (reset) {
+      const playersRes = await fetch(firestoreUrl(context.env, 'players'), { headers: authHeaders });
+      const playersData = await playersRes.json();
+      await Promise.all((playersData.documents || []).map(d =>
+        fetch(firestoreUrl(context.env, `players/${d.name.split('/').pop()}`), { method: 'DELETE', headers: authHeaders })
+      ));
+
       const resetRes = await fetch(firestoreUrl(context.env, 'game/assignment'), {
         method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ fields: { assigned: toFirestoreValue(false), players: toFirestoreValue([]), assignedAt: toFirestoreValue(0) } }),
@@ -84,6 +90,15 @@ export async function onRequestPost(context) {
 
     const players = assignTeamsAndRoles(roster);
     const result = { assigned: true, players, assignedAt: Date.now() };
+
+    // players 컬렉션 시드 — 게임 진행 중 마일리지·역할공개 상태가 쌓일 단일 출처
+    await Promise.all(players.map(p => fetch(firestoreUrl(context.env, `players/${p.id}`), {
+      method: 'PATCH', headers: authHeaders,
+      body: JSON.stringify({ fields: toFirestoreFields({
+        name: p.name, team: p.team, role: p.role, km: 0, boltsCompleted: 0,
+        publicTeam: null, publicRole: null, penalized: false, abilityStripped: false,
+      }) }),
+    })));
 
     const writeRes = await fetch(firestoreUrl(context.env, 'game/assignment'), {
       method: 'PATCH', headers: authHeaders,

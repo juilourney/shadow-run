@@ -28,6 +28,7 @@ export const CONFIG = {
   abilityLimit: 3,              // 탐정/밀정 능력 사용 횟수
   certBufferMin: 120,           // 인증 마감 버퍼(분) — 예상 완주시간 뒤 여유
   fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
+  expiredPenalty: 0.5,          // 인증 마감 초과(자동 만료) 시 지급 마일리지 = 거리 × 이 값
 };
 
 // 목업 번개 시각 생성 — 오늘(0)/내일(1) 기준 HH:MM 타임스탬프
@@ -208,12 +209,21 @@ export function boltDeadline(bolt) {
   return bolt.startAt + runMs + CONFIG.certBufferMin * 60 * 1000;
 }
 
-// 마감 지난 open 번개를 만료 처리 (게이지 반영 없음 · 참여 해제)
+// 마감 지난 open 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급 후 참여 해제.
 // getBolts에서 lazy하게 수행 — 호출자가 곧바로 최신 상태를 렌더하므로 notify 불필요
 function sweepExpiredBolts() {
   const now = Date.now();
+  const { isTug } = getPhase();
   for (const b of state.bolts) {
     if (b.status === 'open' && now > boltDeadline(b)) {
+      const km = b.distance * CONFIG.expiredPenalty;
+      for (const pid of b.participants) {
+        const p = playerById(pid);
+        if (!p) continue;
+        if (isTug) subtractOpponent(p.team, km);
+        else state.game.gauge[p.team] += km;
+        p.km += km;
+      }
       b.status = 'expired';
       if (state.joinedBoltId === b.id) state.joinedBoltId = null;
     }

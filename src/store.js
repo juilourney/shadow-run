@@ -16,8 +16,9 @@ import { ROLES, SPECIAL_ROLES } from './state.js';
 
 // ── 게임 설정 (룰) ────────────────────────────────────────
 export const CONFIG = {
-  startDate: '2026-06-28',      // 게임 1일차 (일요일)
-  weeks: 3,
+  name: '섀도우 런',             // 게임명 기본값 — 관리자 화면에서 변경 가능
+  startDate: '2026-06-28',      // 게임 1일차 (일요일) — 관리자 화면에서 변경 가능
+  weeks: 3,                     // 관리자 화면에서 변경 가능
   eliteMultiplier: 2,           // 엘리트 마일리지 배수
   votePenalty: 0.5,             // 투표 적발 시 마일리지 감소율
   roleRevealThreshold: 0.6,     // 역할 공개·능력 박탈: 지목 인원 중 동일 역할 비율 기준
@@ -39,13 +40,52 @@ function mockTime(dayOffset, hour, minute) {
   return d.getTime();
 }
 
+// 참가자 명단 localStorage 동기화 — admin.html(관리자)과 index.html(참가자)이
+// 같은 브라우저 내에서 명단을 공유하기 위한 임시 다리. Firebase 연결 시 대체.
+const ROSTER_KEY = 'sr_roster';
+function loadRoster() {
+  try {
+    const raw = localStorage.getItem(ROSTER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveRoster() {
+  try { localStorage.setItem(ROSTER_KEY, JSON.stringify(state.roster)); } catch {}
+}
+
 // ── 상태 (스냅샷) — 나중에 Firebase 문서로 대체 ────────────
 const state = {
   // 게임 전역
   game: {
     gauge: { pacer: 1248, ghost: 956 },  // 팀별 누적 게이지(km)
     dayIndex: 0,                          // 게임 며칠차 (0-base) — 서버시간 대체 예정
+    name: CONFIG.name,                    // 관리자 화면(A-03)에서 수정 — getCalendar가 여기서 읽음
+    startDate: CONFIG.startDate,
+    weeks: CONFIG.weeks,
   },
+
+  // 지난 게임 히스토리 — 관리자 화면(A-02) 조회용. 새 게임 생성 시 현재 게임을 여기 보관.
+  gameHistory: [],
+
+  // 투표 히스토리 — 회차 종료(tallyVote)마다 1건 기록. 관리자 화면(A-02) 조회용.
+  voteHistory: [],
+
+  // 참가자 명단(사전 등록) — 관리자 화면(A-03)에서 관리, 참가자 입장 화면(name.js)이 대조 검증.
+  // 게임 시작 시 이 명단 기준으로 팀·역할이 랜덤 배정될 예정(미착수).
+  // 지금의 players(팀·역할·km 배정 완료 상태)와는 별개.
+  // localStorage에 저장 — admin.html과 index.html이 별도 페이지(별도 모듈 인스턴스)라
+  // Firebase 연결 전까지는 이 방식으로 같은 브라우저 내에서 명단을 공유한다.
+  roster: loadRoster() ?? [
+    { id: 'r1', name: '나' },
+    { id: 'r2', name: '김민수' },
+    { id: 'r3', name: '박현우' },
+    { id: 'r4', name: '이서연' },
+    { id: 'r5', name: '정윤아' },
+    { id: 'r6', name: '최준호' },
+    { id: 'r7', name: '한지우' },
+  ],
 
   // 나 (현재 플레이어) — 신원·팀·역할·거리는 players[myId]가 단일 출처.
   // 여기엔 '나만의 개인 상태'만 둔다.
@@ -143,12 +183,13 @@ export function getGauge() {
   };
 }
 
-// 게임 캘린더 — CONFIG.startDate + weeks 를 단일 출처로 파생값 계산.
-// 나중에 관리자 페이지에서 startDate/weeks만 바꾸면 전체가 따라 움직인다.
+// 게임 캘린더 — state.game.startDate + weeks 를 단일 출처로 파생값 계산.
+// 관리자 화면(A-03)에서 updateGameSettings()로 startDate/weeks를 바꾸면 전체가 따라 움직인다.
 export function getCalendar(now = new Date()) {
-  const [y, m, d] = CONFIG.startDate.split('-').map(Number);
+  const { startDate, weeks } = state.game;
+  const [y, m, d] = startDate.split('-').map(Number);
   const start = new Date(y, m - 1, d);                 // 게임 1일차 00:00 (로컬)
-  const totalDays = CONFIG.weeks * 7;
+  const totalDays = weeks * 7;
   const end = new Date(start);
   end.setDate(start.getDate() + totalDays);            // 종료 경계(마지막날 다음 00:00)
 
@@ -156,15 +197,15 @@ export function getCalendar(now = new Date()) {
   const dayIndex = Math.round((today0 - start) / 86400000); // 경과일 (0-base)
   const started = dayIndex >= 0;
   const ended = dayIndex >= totalDays;
-  const week = !started ? 0 : (ended ? CONFIG.weeks : Math.floor(dayIndex / 7) + 1);
+  const week = !started ? 0 : (ended ? weeks : Math.floor(dayIndex / 7) + 1);
   const dday = Math.ceil((end - today0) / 86400000);   // 종료까지 남은 일수 → 헤더 D-N
   const monthLabel = `${now.getFullYear()} ${now.toLocaleDateString('en-US', { month: 'long' })}`;
 
-  return { start, end, dayIndex, totalDays, week, weeks: CONFIG.weeks, started, ended, dday, monthLabel };
+  return { start, end, dayIndex, totalDays, week, weeks, started, ended, dday, monthLabel };
 }
 
 // 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — 실제 요일이 아니라
-// CONFIG.startDate 기준 경과일(dayIndex % 7)로 판정. 이래야 startDate를
+// startDate 기준 경과일(dayIndex % 7)로 판정. 이래야 startDate를
 // 어떤 요일로 바꾸든 항상 같은 주기로 맞물린다(실제 요일과 무관).
 export function getPhase(now = new Date()) {
   const cal = getCalendar(now);
@@ -292,6 +333,39 @@ export function getTimeline() {
   return state.timeline.map(e => ({ ...e }));
 }
 
+// ── 관리자 화면(A-02·A-03) 전용 셀렉터 ────────────────────
+// 현재 게임 설정 + 상태(예정/진행중/종료)
+export function getGameSettings() {
+  const cal = getCalendar();
+  return {
+    name: state.game.name,
+    startDate: state.game.startDate,
+    weeks: state.game.weeks,
+    status: !cal.started ? 'scheduled' : (cal.ended ? 'ended' : 'ongoing'),
+    ...cal,
+  };
+}
+
+// 투표 히스토리 — 회차별 결과 기록, 최신순
+export function getVoteHistory() {
+  return state.voteHistory.map(e => ({ ...e }));
+}
+
+// 지난 게임 히스토리 — 새 게임 생성 시 쌓임
+export function getGameHistory() {
+  return state.gameHistory.map(e => ({ ...e }));
+}
+
+// 참가자 명단(사전 등록) — 이름순
+export function getRoster() {
+  return state.roster.map(r => ({ ...r })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
+// 입장 시도한 이름이 명단(사전 등록)에 있는지 확인 — name.js가 입장 전 검증에 사용
+export function isNameRegistered(name) {
+  return state.roster.some(r => r.name === name.trim());
+}
+
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
 function isSingleTeamBolt(bolt) {
   if (bolt.participants.length < CONFIG.singleTeamMin) return false;
@@ -307,6 +381,72 @@ function playerById(id) {
 //  ACTIONS — 상태를 바꾸는 유일한 방법 (모두 async)
 //  나중에 함수 본문만 Firebase 호출로 교체하면 됨
 // ═══════════════════════════════════════════════════════════
+
+// 관리자 — 진행 중인 게임의 이름/기간 수정 (A-03 "현재 게임 관리")
+export async function updateGameSettings({ name, startDate, weeks }) {
+  if (name) state.game.name = name;
+  if (startDate) state.game.startDate = startDate;
+  if (weeks) state.game.weeks = Number(weeks);
+  notify();
+  return getGameSettings();
+}
+
+// 관리자 — 신규 게임 생성. 현재 게임은 히스토리로 보관, 게이지·번개·투표 기록 초기화.
+export async function createNewGame({ name, startDate, weeks }) {
+  state.gameHistory.unshift({
+    name: state.game.name,
+    startDate: state.game.startDate,
+    weeks: state.game.weeks,
+    winner: getGauge().leader,
+    finalGauge: { ...state.game.gauge },
+    participantCount: state.players.length,
+  });
+
+  state.game.name = name;
+  state.game.startDate = startDate;
+  state.game.weeks = Number(weeks);
+  state.game.gauge = { pacer: 0, ghost: 0 };
+  state.bolts = [];
+  state.joinedBoltId = null;
+  state.vote.ballots = [];
+  state.vote.myVotesUsed = 0;
+  state.voteHistory = [];
+  state.timeline = [];
+
+  notify();
+  return getGameSettings();
+}
+
+// 관리자 — 참가자 명단(사전 등록) 추가
+export async function addRosterMember(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('이름을 입력하세요');
+  if (state.roster.some(r => r.name === trimmed)) throw new Error('이미 명단에 있는 이름입니다');
+  const member = { id: 'r' + Date.now(), name: trimmed };
+  state.roster.push(member);
+  saveRoster();
+  notify();
+  return member;
+}
+
+// 관리자 — 참가자 명단 이름 수정
+export async function updateRosterMember(id, name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('이름을 입력하세요');
+  const member = state.roster.find(r => r.id === id);
+  if (!member) throw new Error('명단에서 찾을 수 없습니다');
+  member.name = trimmed;
+  saveRoster();
+  notify();
+  return member;
+}
+
+// 관리자 — 참가자 명단에서 삭제
+export async function removeRosterMember(id) {
+  state.roster = state.roster.filter(r => r.id !== id);
+  saveRoster();
+  notify();
+}
 
 // 번개 만들기 — startAt: 시작 시각 타임스탬프(인증 마감 판정용)
 export async function createBolt({ title, place, distance, pace, time, startAt }) {
@@ -528,6 +668,13 @@ export async function tallyVote() {
   if (!anyReveal) {
     pushTimelineEvent({ kind: 'fail' });
   }
+
+  // 관리자 화면(A-02) 투표 히스토리 기록 — 표 초기화 전에 남김
+  state.voteHistory.unshift({
+    at: Date.now(),
+    ballotCount: ballots.length,
+    caught: caught.map(c => ({ name: c.name, teamCaught: c.teamCaught, team: c.team, roleRevealed: c.roleRevealed, revealedRole: c.revealedRole })),
+  });
 
   // 라운드 종료 — 다음 회차를 위해 표 초기화
   // (팀 공개·마일리지 페널티·역할 박탈 등 적발 결과는 players에 영구 반영되어 유지됨)

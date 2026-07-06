@@ -1,6 +1,10 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting } from './waiting.js';
+import { isNameRegistered } from '../store.js';
+
+const DEFAULT_HINT = '실명으로 입장하세요';
+const REJECT_HINT  = '등록되지 않은 멤버입니다. 운영진에게 문의하세요';
 
 export function render() {
   return `
@@ -78,7 +82,7 @@ export function render() {
           →
         </button>
       </div>
-      <p style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
+      <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
     </div>
   </div>
 </div>`;
@@ -87,12 +91,16 @@ export function render() {
 export function init() {
   const input = document.getElementById('name-input');
   const btn   = document.getElementById('enter-btn');
+  const hint  = document.getElementById('name-hint');
   input.addEventListener('input', () => {
     const has = input.value.trim().length > 0;
     btn.disabled = !has;
     btn.style.background = has ? 'linear-gradient(135deg, #0ea5e9, #7c3aed)' : 'rgba(255,255,255,.06)';
     btn.style.color      = has ? '#fff' : 'rgba(255,255,255,.25)';
     btn.style.boxShadow  = has ? '0 6px 20px -6px rgba(100,100,240,.5)' : 'none';
+    input.style.borderColor = '';
+    hint.textContent = DEFAULT_HINT;
+    hint.style.color = '#71717a';
   });
   btn.addEventListener('click', enterGame);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enterGame(); } });
@@ -100,8 +108,15 @@ export function init() {
 
 function enterGame() {
   const input = document.getElementById('name-input');
+  const hint  = document.getElementById('name-hint');
   const name  = input.value.trim();
   if (!name) { input.focus(); input.style.borderColor = 'rgba(251,113,133,.6)'; return; }
+  if (!isNameRegistered(name)) {
+    input.style.borderColor = 'rgba(251,113,133,.6)';
+    hint.textContent = REJECT_HINT;
+    hint.style.color = '#fb7185';
+    return;
+  }
   input.style.borderColor = '';
   state.name = name;
 

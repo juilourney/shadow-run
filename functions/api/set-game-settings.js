@@ -1,13 +1,12 @@
-// Cloudflare Pages Function — 게이지(game/gauge 문서)를 서버 권한으로만 Firestore에 기록.
-// 클라이언트 직접 쓰기는 Firestore 규칙에서 막혀있음(allow write: if false) — 이 엔드포인트가
-// 서비스 계정으로 대신 써준다. 환경변수 필요: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
-import { getAccessToken, firestoreUrl } from '../_lib/firebase-admin.js';
+// Cloudflare Pages Function — 게임 설정(game/settings 문서)을 서버 권한으로만 Firestore에 기록.
+// 관리자 화면(A-03)의 updateGameSettings/createNewGame이 호출.
+import { getAccessToken, firestoreUrl, toFirestoreValue } from '../_lib/firebase-admin.js';
 
 export async function onRequestPost(context) {
   try {
-    const { pacer, ghost } = await context.request.json();
-    if (typeof pacer !== 'number' || typeof ghost !== 'number') {
-      return new Response(JSON.stringify({ error: 'pacer/ghost는 숫자여야 합니다' }), {
+    const { name, startDate, weeks } = await context.request.json();
+    if (typeof name !== 'string' || typeof startDate !== 'string' || typeof weeks !== 'number') {
+      return new Response(JSON.stringify({ error: 'name(문자열)·startDate(문자열)·weeks(숫자)가 필요합니다' }), {
         status: 400, headers: { 'content-type': 'application/json' }
       });
     }
@@ -20,12 +19,13 @@ export async function onRequestPost(context) {
     }
 
     const accessToken = await getAccessToken(context.env);
-    const url = `${firestoreUrl(context.env, 'game/gauge')}?updateMask.fieldPaths=pacer&updateMask.fieldPaths=ghost`;
+    const url = `${firestoreUrl(context.env, 'game/settings')}` +
+      `?updateMask.fieldPaths=name&updateMask.fieldPaths=startDate&updateMask.fieldPaths=weeks`;
 
     const res = await fetch(url, {
       method: 'PATCH',
       headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ fields: { pacer: { doubleValue: pacer }, ghost: { doubleValue: ghost } } }),
+      body: JSON.stringify({ fields: { name: toFirestoreValue(name), startDate: toFirestoreValue(startDate), weeks: toFirestoreValue(weeks) } }),
     });
     const data = await res.json();
     return new Response(JSON.stringify(data), {

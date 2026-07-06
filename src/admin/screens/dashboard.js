@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -44,6 +44,14 @@ export function render() {
         <span style="color:#a78bfa;">고스트 <span id="admin-km-ghost" class="num">—</span> km</span>
         <span style="color:#38bdf8;">페이서 <span id="admin-km-pacer" class="num">—</span> km</span>
       </div>
+    </div>
+
+    <div class="bezel" style="padding:16px 18px; border-radius:20px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div>
+        <p style="font-size:11px; color:#52525b; margin-bottom:4px; letter-spacing:.04em;">팀·역할 배정</p>
+        <p id="admin-assignment-status" style="font-size:14px; font-weight:600;">—</p>
+      </div>
+      <button class="btn btn-primary" id="admin-assign-btn" style="height:40px; padding:0 16px; font-size:13px;">지금 마감하고 배정</button>
     </div>
 
     <div class="admin-tabs" id="admin-tabs">
@@ -132,12 +140,28 @@ function refresh() {
   document.getElementById('admin-km-pacer').textContent = fmt(g.pacer);
   document.getElementById('admin-km-ghost').textContent = fmt(g.ghost);
 
+  const assignment = getAssignment();
+  const assignBtn = document.getElementById('admin-assign-btn');
+  document.getElementById('admin-assignment-status').textContent = assignment.assigned
+    ? `배정 완료 · ${assignment.players.length}명`
+    : `배정 전 · 명단 ${getRoster().length}명 등록`;
+  assignBtn.disabled = assignment.assigned;
+  assignBtn.textContent = assignment.assigned ? '배정 완료됨' : '지금 마감하고 배정';
+
   renderTabBody();
 }
 
 export function init(goTo) {
   document.getElementById('admin-settings-btn').addEventListener('click', () => goTo('settings'));
   document.getElementById('admin-roster-btn').addEventListener('click', () => goTo('roster'));
+  document.getElementById('admin-assign-btn').addEventListener('click', async () => {
+    if (!confirm('지금 모집을 마감하고 팀·역할을 배정할까요? 되돌릴 수 없습니다.')) return;
+    try {
+      await triggerAssignment();
+    } catch (e) {
+      alert(e.message);
+    }
+  });
   document.getElementById('admin-tabs').addEventListener('click', e => {
     const tab = e.target.closest('.admin-tab');
     if (!tab) return;

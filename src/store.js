@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { ROLES, SPECIAL_ROLES } from './state.js';
-import { doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { doc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 // ── 게임 설정 (룰) ────────────────────────────────────────
@@ -42,21 +42,6 @@ function mockTime(dayOffset, hour, minute) {
   return d.getTime();
 }
 
-// 참가자 명단 localStorage 동기화 — admin.html(관리자)과 index.html(참가자)이
-// 같은 브라우저 내에서 명단을 공유하기 위한 임시 다리. Firebase 연결 시 대체.
-const ROSTER_KEY = 'sr_roster';
-function loadRoster() {
-  try {
-    const raw = localStorage.getItem(ROSTER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-function saveRoster() {
-  try { localStorage.setItem(ROSTER_KEY, JSON.stringify(state.roster)); } catch {}
-}
-
 // ── 상태 (스냅샷) — 나중에 Firebase 문서로 대체 ────────────
 const state = {
   // 게임 전역
@@ -75,19 +60,13 @@ const state = {
   voteHistory: [],
 
   // 참가자 명단(사전 등록) — 관리자 화면(A-03)에서 관리, 참가자 입장 화면(name.js)이 대조 검증.
-  // 게임 시작 시 이 명단 기준으로 팀·역할이 랜덤 배정될 예정(미착수).
+  // 게임 시작 시 이 명단 기준으로 팀·역할이 랜덤 배정된다(Firestore roster 컬렉션과 실시간 동기화).
   // 지금의 players(팀·역할·km 배정 완료 상태)와는 별개.
-  // localStorage에 저장 — admin.html과 index.html이 별도 페이지(별도 모듈 인스턴스)라
-  // Firebase 연결 전까지는 이 방식으로 같은 브라우저 내에서 명단을 공유한다.
-  roster: loadRoster() ?? [
-    { id: 'r1', name: '나' },
-    { id: 'r2', name: '김민수' },
-    { id: 'r3', name: '박현우' },
-    { id: 'r4', name: '이서연' },
-    { id: 'r5', name: '정윤아' },
-    { id: 'r6', name: '최준호' },
-    { id: 'r7', name: '한지우' },
-  ],
+  roster: [],
+
+  // 팀·역할 배정 결과 — game/assignment 문서와 동기화. assigned=true가 되면
+  // waiting.js가 감지해서 내 이름에 해당하는 team/role을 찾아 카드 화면으로 이동한다.
+  assignment: { assigned: false, players: [] },
 
   // 나 (현재 플레이어) — 신원·팀·역할·거리는 players[myId]가 단일 출처.
   // 여기엔 '나만의 개인 상태'만 둔다.
@@ -191,6 +170,56 @@ function writeGauge() {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(state.game.gauge),
   }).catch(err => console.warn('게이지 저장 실패:', err.message));
+}
+
+// 게임 설정(이름·시작일·기간) — game/settings 문서. 쓰기는 서버(/api/set-game-settings)만.
+const settingsDocRef = doc(db, 'game', 'settings');
+
+onSnapshot(settingsDocRef, snap => {
+  if (snap.exists()) {
+    const { name, startDate, weeks } = snap.data();
+    Object.assign(state.game, { name, startDate, weeks });
+  } else {
+    writeGameSettings(); // 문서가 없으면 현재(로컬 기본값)로 최초 생성
+  }
+  notify();
+}, err => console.warn('게임 설정 실시간 동기화 실패:', err.message));
+
+function writeGameSettings() {
+  fetch('/api/set-game-settings', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: state.game.name, startDate: state.game.startDate, weeks: state.game.weeks }),
+  }).catch(err => console.warn('게임 설정 저장 실패:', err.message));
+}
+
+// 참가자 명단 — roster 컬렉션. 쓰기는 서버(/api/roster)만.
+onSnapshot(collection(db, 'roster'), snap => {
+  state.roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notify();
+}, err => console.warn('명단 실시간 동기화 실패:', err.message));
+
+// 팀·역할 배정 결과 — game/assignment 문서. 쓰기는 서버(/api/assign-teams)만.
+onSnapshot(doc(db, 'game', 'assignment'), snap => {
+  state.assignment = snap.exists() ? snap.data() : { assigned: false, players: [] };
+  notify();
+}, err => console.warn('배정 결과 실시간 동기화 실패:', err.message));
+
+// 모집 마감 트리거 — 이미 배정됐으면 서버가 그대로 반환(멱등)하므로 중복 호출해도 안전하다.
+// waiting.js가 카운트다운 종료 시(자동) 또는 관리자가 "지금 마감" 버튼(수동)으로 호출.
+export async function triggerAssignment() {
+  const res = await fetch('/api/assign-teams', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '배정에 실패했습니다');
+  return data;
+}
+
+// 배정 결과 초기화 — createNewGame에서 호출(다음 시즌 모집을 위해)
+function resetAssignment() {
+  fetch('/api/assign-teams', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reset: true }),
+  }).catch(err => console.warn('배정 초기화 실패:', err.message));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -395,6 +424,11 @@ export function isNameRegistered(name) {
   return state.roster.some(r => r.name === name.trim());
 }
 
+// 팀·역할 배정 결과 — waiting.js가 배정 완료 감지 및 내 결과 조회에 사용
+export function getAssignment() {
+  return { ...state.assignment, players: state.assignment.players.map(p => ({ ...p })) };
+}
+
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
 function isSingleTeamBolt(bolt) {
   if (bolt.participants.length < CONFIG.singleTeamMin) return false;
@@ -416,6 +450,7 @@ export async function updateGameSettings({ name, startDate, weeks }) {
   if (name) state.game.name = name;
   if (startDate) state.game.startDate = startDate;
   if (weeks) state.game.weeks = Number(weeks);
+  writeGameSettings();
   notify();
   return getGameSettings();
 }
@@ -443,39 +478,47 @@ export async function createNewGame({ name, startDate, weeks }) {
   state.timeline = [];
 
   writeGauge();
+  writeGameSettings();
+  resetAssignment();
   notify();
   return getGameSettings();
 }
 
-// 관리자 — 참가자 명단(사전 등록) 추가
+// 관리자 — 참가자 명단(사전 등록) 추가. 실제 반영은 roster 컬렉션 onSnapshot을 통해 이루어진다.
 export async function addRosterMember(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('이름을 입력하세요');
   if (state.roster.some(r => r.name === trimmed)) throw new Error('이미 명단에 있는 이름입니다');
-  const member = { id: 'r' + Date.now(), name: trimmed };
-  state.roster.push(member);
-  saveRoster();
-  notify();
-  return member;
+  const res = await fetch('/api/roster', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'add', name: trimmed }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '명단 추가에 실패했습니다');
+  return data;
 }
 
 // 관리자 — 참가자 명단 이름 수정
 export async function updateRosterMember(id, name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('이름을 입력하세요');
-  const member = state.roster.find(r => r.id === id);
-  if (!member) throw new Error('명단에서 찾을 수 없습니다');
-  member.name = trimmed;
-  saveRoster();
-  notify();
-  return member;
+  const res = await fetch('/api/roster', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'update', id, name: trimmed }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '명단 수정에 실패했습니다');
+  return data;
 }
 
 // 관리자 — 참가자 명단에서 삭제
 export async function removeRosterMember(id) {
-  state.roster = state.roster.filter(r => r.id !== id);
-  saveRoster();
-  notify();
+  const res = await fetch('/api/roster', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'remove', id }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '명단 삭제에 실패했습니다');
 }
 
 // 번개 만들기 — startAt: 시작 시각 타임스탬프(인증 마감 판정용)

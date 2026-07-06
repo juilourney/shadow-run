@@ -1,13 +1,7 @@
-import { state, SPECIAL_ROLES } from '../state.js';
+import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { MEMBERS as WAIT_MEMBERS } from './members.js';
+import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment } from '../store.js';
 import { prepareCard } from './card.js';
-
-// 관리자가 설정할 게임 시작 일시 — 추후 Firebase 연동
-let GAME_START_TIME = new Date();
-GAME_START_TIME.setHours(GAME_START_TIME.getHours() + 1, 0, 0, 0);
-
-export function setGameStartTime(date) { GAME_START_TIME = date; }
 
 
 function rowG(label, value, color = '#a1a1aa') {
@@ -127,13 +121,8 @@ export function render() {
     </div>
 
     <button id="waiting-view-guide" class="btn btn-secondary"
-      style="width:100%; height:46px; font-size:13px; margin-bottom:10px;">
+      style="width:100%; height:46px; font-size:13px;">
       📖 게임 가이드 보기
-    </button>
-
-    <button id="waiting-start-sim" class="btn btn-secondary"
-      style="width:100%; height:46px; font-size:13px; color:#52525b;">
-      게임 시작 (시뮬레이션)
     </button>
   </div>
 
@@ -160,16 +149,6 @@ export function render() {
 }
 
 export function init() {
-  document.getElementById('waiting-start-sim').addEventListener('click', () => {
-    // 임시 배정 — 정식 팀·역할 일괄 배정 알고리즘은 로드맵 4번에서 교체
-    state.team = Math.random() < .5 ? 'pacer' : 'ghost';
-    state.role = SPECIAL_ROLES[Math.floor(Math.random() * SPECIAL_ROLES.length)];
-    state.cardFlipped = false;
-    state.roleFlipped = false;
-    prepareCard();
-    goToScreen('s-card');
-  });
-
   // 가이드 보기 — 기존 가이드 탭 재사용
   document.getElementById('waiting-view-guide').addEventListener('click', () => {
     document.getElementById('wtab-guide').click();
@@ -209,10 +188,14 @@ export function init() {
   });
 }
 
+let countdownInterval = null;
+let unsubscribeStore = null;
+let assigning = false;   // 배정 요청 중복 호출 방지
+let entered = false;     // 배정 완료 후 카드 화면 진입 중복 방지
+
 export function prepareWaiting() {
-  // 배정 전 — 실시간 등록 인원 표시 (mock 로스터 기준)
-  document.getElementById('waiting-reg-count').innerHTML =
-    `${WAIT_MEMBERS.length}<span style="font-size:13px; font-weight:600; color:#52525b;"> 명</span>`;
+  entered = false;
+  refreshRegCount();
 
   // 홈 탭 초기화
   ['wtab-home','wtab-guide'].forEach(id =>
@@ -223,17 +206,54 @@ export function prepareWaiting() {
   document.getElementById('wpanel-home').style.display = 'block';
 
   startCountdown();
+
+  if (unsubscribeStore) unsubscribeStore();
+  unsubscribeStore = subscribe(() => {
+    refreshRegCount();
+    checkAssignment();
+  });
+  checkAssignment(); // 이미 배정된 상태로 대기실에 들어온 경우 대비
 }
 
-let countdownInterval = null;
+function refreshRegCount() {
+  document.getElementById('waiting-reg-count').innerHTML =
+    `${getRoster().length}<span style="font-size:13px; font-weight:600; color:#52525b;"> 명</span>`;
+}
+
+// 배정 완료 감지 — 내 이름에 해당하는 team/role을 찾아 카드 화면으로 이동
+function checkAssignment() {
+  if (entered) return;
+  const { assigned, players } = getAssignment();
+  if (!assigned) return;
+  const me = players.find(p => p.name === state.name);
+  if (!me) return;
+
+  entered = true;
+  if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+
+  state.team = me.team;
+  state.role = me.role;
+  state.cardFlipped = false;
+  state.roleFlipped = false;
+  prepareCard();
+  goToScreen('s-card');
+}
 
 function startCountdown() {
   if (countdownInterval) clearInterval(countdownInterval);
   const el = document.getElementById('waiting-timer');
 
   function tick() {
-    const diff = GAME_START_TIME - new Date();
-    if (diff <= 0) { el.textContent = '00:00'; clearInterval(countdownInterval); return; }
+    const diff = getGameSettings().start - new Date();
+    if (diff <= 0) {
+      el.textContent = '00:00';
+      if (!assigning && !getAssignment().assigned) {
+        assigning = true;
+        triggerAssignment().catch(err => console.warn('배정 실패:', err.message)).finally(() => { assigning = false; });
+      }
+      return;
+    }
     const h = Math.floor(diff / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
     const s = Math.floor((diff % 60000) / 1000);

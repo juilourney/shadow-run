@@ -102,7 +102,7 @@ export function render() {
     <div style="background:rgba(56,189,248,.06); border:1px solid rgba(56,189,248,.15);
       border-radius:20px; padding:18px 20px; margin-bottom:12px;">
       <p style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase;">전략 팁</p>
-      <p style="font-size:13px; color:#a1a1aa; line-height:1.75;">탐색 기간에는 아군을 찾아 세력을 확보하고, 줄다리기 기간에는 고유 스킬과 앵커의 능력을 총동원해 게이지를 뺏어오세요. 투표를 통해 상대팀의 엘리트를 찾아내는 것이 역전의 발판입니다.</p>
+      <p style="font-size:13px; color:#a1a1aa; line-height:1.75;">탐색 기간에는 정체를 드러내지 말고 아군을 찾아 세력을 넓히는 데 집중하세요.<br/>줄다리기 기간이 시작되면 그동안 모은 정보와 팀 고유 스킬을 총동원해 게이지를 끌어오세요.<br/>투표는 상대 팀의 판도를 흔들 수 있는 결정적 변수이니, 지목과 침묵 모두 전략이 될 수 있습니다.</p>
     </div>
 
   </div>

@@ -13,6 +13,8 @@
 // ═══════════════════════════════════════════════════════════
 
 import { ROLES, SPECIAL_ROLES } from './state.js';
+import { doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { db } from './firebase-config.js';
 
 // ── 게임 설정 (룰) ────────────────────────────────────────
 export const CONFIG = {
@@ -167,6 +169,24 @@ function getSnapshot() {
   return structuredClone(state);
 }
 
+// ── Firebase 파일럿 — 게이지만 Firestore로 실시간 동기화 ──────
+// 번개·투표·명단·설정은 아직 로컬 상태 그대로. game/gauge 문서 하나만
+// 관리자 화면·모든 참가자 기기 간에 실시간으로 공유한다.
+const gaugeDocRef = doc(db, 'game', 'gauge');
+
+onSnapshot(gaugeDocRef, snap => {
+  if (snap.exists()) {
+    state.game.gauge = snap.data();
+  } else {
+    writeGauge(); // 문서가 없으면 현재(로컬 기본값)로 최초 생성
+  }
+  notify();
+}, err => console.warn('게이지 실시간 동기화 실패:', err.message));
+
+function writeGauge() {
+  setDoc(gaugeDocRef, { ...state.game.gauge }).catch(err => console.warn('게이지 저장 실패:', err.message));
+}
+
 // ═══════════════════════════════════════════════════════════
 //  SELECTORS — 계산된 값 (화면은 규칙을 몰라도 됨)
 // ═══════════════════════════════════════════════════════════
@@ -255,6 +275,7 @@ export function boltDeadline(bolt) {
 function sweepExpiredBolts() {
   const now = Date.now();
   const { isTug } = getPhase();
+  let expired = false;
   for (const b of state.bolts) {
     if (b.status === 'open' && now > boltDeadline(b)) {
       const km = b.distance * CONFIG.expiredPenalty;
@@ -267,8 +288,10 @@ function sweepExpiredBolts() {
       }
       b.status = 'expired';
       if (state.joinedBoltId === b.id) state.joinedBoltId = null;
+      expired = true;
     }
   }
+  if (expired) writeGauge();
 }
 
 export function getBolts() {
@@ -413,6 +436,7 @@ export async function createNewGame({ name, startDate, weeks }) {
   state.voteHistory = [];
   state.timeline = [];
 
+  writeGauge();
   notify();
   return getGameSettings();
 }
@@ -559,6 +583,7 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
 
   bolt.status = 'done';
   if (state.joinedBoltId === boltId) state.joinedBoltId = null;
+  writeGauge();
   notify();
 
   const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;

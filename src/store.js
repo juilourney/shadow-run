@@ -25,7 +25,7 @@ export const CONFIG = {
   ghostGaugeShift: 100,         // 고스트 게이지 스킬: 100km 즉시 이동
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
   boltMaxHeads: 4,              // 번개 최대 인원
-  abilityLimit: 3,              // 탐정/밀정 능력 사용 횟수
+  abilityWeeklyLimit: 2,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
   certBufferMin: 120,           // 인증 마감 버퍼(분) — 예상 완주시간 뒤 여유
   fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
   expiredPenalty: 0.5,          // 인증 마감 초과(자동 만료) 시 지급 마일리지 = 거리 × 이 값
@@ -52,7 +52,7 @@ const state = {
   me: {
     id: 'm0',
     boltsCompleted: 7,
-    abilityUsed: 0,                       // 탐정/밀정 사용 횟수
+    abilityLog: [],                       // [{ week }] — 탐정/밀정 능력 사용 기록(주간 한도 판정용)
     revealed: {},                         // { [playerId]: {team} | {role} } — 능력 확인 결과
   },
 
@@ -188,7 +188,7 @@ export function getMe() {
     ...structuredClone(p),               // id·name·team·role·km·publicTeam·penalized·publicRole·abilityStripped
     pureKm: p.km,                         // 대시보드 등 기존 코드 호환용 별칭
     boltsCompleted: state.me.boltsCompleted,
-    abilityUsed: state.me.abilityUsed,
+    abilityUsed: abilityUsedThisWeek(),
     revealed: { ...state.me.revealed },
     abilityStripped: !!p.abilityStripped,
   };
@@ -263,19 +263,26 @@ export function getVote() {
   };
 }
 
-// 능력 남은 횟수 (탐정/밀정만)
+// 이번 주(1~3주차) 능력 사용 횟수 — abilityLog에서 파생
+function abilityUsedThisWeek() {
+  const { week } = getPhase();
+  return state.me.abilityLog.filter(e => e.week === week).length;
+}
+
+// 능력 남은 횟수 (탐정/밀정만) — 주(週)당 CONFIG.abilityWeeklyLimit로 매주 초기화
 export function getAbility() {
   const meP = playerById(state.me.id);
   // 역할 적중 적발되면 능력 박탈 → 사용 불가 (이미 확인한 정보는 유지)
   const stripped = !!meP.abilityStripped;
   const isSpecial = (meP.role === 'detective' || meP.role === 'spy') && !stripped;
+  const used = abilityUsedThisWeek();
   return {
     isSpecial,
     stripped,
     kind: meP.role === 'detective' ? 'team' : meP.role === 'spy' ? 'role' : null,
-    limit: CONFIG.abilityLimit,
-    used: state.me.abilityUsed,
-    left: stripped ? 0 : CONFIG.abilityLimit - state.me.abilityUsed,
+    limit: CONFIG.abilityWeeklyLimit,
+    used,
+    left: stripped ? 0 : CONFIG.abilityWeeklyLimit - used,
     revealed: { ...state.me.revealed },
   };
 }
@@ -536,7 +543,7 @@ export async function useAbility(targetId) {
   const meP = playerById(state.me.id);
   if (meP.role !== 'detective' && meP.role !== 'spy') throw new Error('능력이 없습니다');
   if (meP.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
-  if (state.me.abilityUsed >= CONFIG.abilityLimit) throw new Error('사용 횟수를 모두 소진했습니다');
+  if (abilityUsedThisWeek() >= CONFIG.abilityWeeklyLimit) throw new Error('이번 주 사용 횟수를 모두 소진했습니다');
   if (state.me.revealed[targetId]) return state.me.revealed[targetId]; // 이미 확인함
 
   const target = playerById(targetId);
@@ -547,7 +554,7 @@ export async function useAbility(targetId) {
     : { role: target.role };
 
   state.me.revealed[targetId] = result;
-  state.me.abilityUsed += 1;
+  state.me.abilityLog.push({ week: getPhase().week });
 
   // 타임라인 — 누가·누구를·무엇을 확인했는지는 비공개, 어떤 역할이 움직였는지만 익명 기록
   pushTimelineEvent({ kind: 'ability', abilityRole: meP.role });

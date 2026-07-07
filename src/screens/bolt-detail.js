@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt } from '../store.js';
+import { subscribe, getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt } from '../store.js';
 import { openBuffView } from './bolt-buff.js';
 import { openBoltProgress } from './bolt-progress.js';
 
@@ -230,6 +230,15 @@ export function init() {
     const locked = !this.classList.contains('unlocked');
     applyLockToggle(this, locked);
     toggleBoltLock(activeBoltId, locked); // 잠금은 옵션 — 기본 해제
+  });
+
+  // 대기 화면(시작 전)에 머무는 동안 참가자가 새로 들어오면 새로고침 없이 목록 반영.
+  // 체크리스트(started=true) 단계에선 재렌더링하면 방장이 체크 해제한 상태가
+  // 되돌아가버리므로 대기 화면일 때만 갱신한다.
+  subscribe(() => {
+    if (started || !activeBoltId) return;
+    const bolt = getBolts().find(b => b.id === activeBoltId);
+    if (bolt) populateFromBolt(bolt);
   });
 }
 

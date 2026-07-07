@@ -583,6 +583,15 @@ export async function leaveBolt() {
   await updateDoc(doc(db, 'bolts', id), { participants: arrayRemove(myPlayer().id) });
 }
 
+// 방장 — 시작 전 번개 자체를 취소(삭제). 참여자들에게도 실시간으로 목록에서 사라진다.
+export async function cancelBolt(boltId) {
+  const bolt = state.bolts.find(b => b.id === boltId);
+  if (!bolt) throw new Error('번개를 찾을 수 없습니다');
+  if (bolt.hostId !== myPlayer().id) throw new Error('방장만 번개를 취소할 수 있습니다');
+  if (bolt.status !== 'open') throw new Error('이미 시작된 번개는 취소할 수 없습니다');
+  await deleteDoc(doc(db, 'bolts', boltId));
+}
+
 // 번개 방 잠금 토글 (방장)
 export async function toggleBoltLock(boltId, locked) {
   await updateDoc(doc(db, 'bolts', boltId), { locked });

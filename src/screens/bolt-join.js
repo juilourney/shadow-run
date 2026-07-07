@@ -94,7 +94,14 @@ function refresh() {
   if (!currentBoltId) return;
 
   const bolt = getBolts().find(b => b.id === currentBoltId);
-  if (!bolt) { currentBoltId = null; return; }
+  if (!bolt) {
+    currentBoltId = null;
+    if (document.getElementById('s-bolt-join').classList.contains('active')) {
+      goToScreen('gs-bolt');
+      showToast('방장이 번개를 취소했습니다');
+    }
+    return;
+  }
 
   if (bolt.status === 'done' || bolt.status === 'expired') {
     currentBoltId = null;

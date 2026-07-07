@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { getBolts, getPlayers, setPendingBolt, toggleBoltLock } from '../store.js';
+import { getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt } from '../store.js';
 import { openBuffView } from './bolt-buff.js';
 
 let activeBoltId = 'b1'; // 현재 방장 뷰로 연 번개
@@ -159,7 +159,15 @@ export function render() {
 
 export function init() {
   document.getElementById('bolt-detail-back').addEventListener('click', () => goToScreen('gs-bolt'));
-  document.getElementById('bolt-detail-cancel').addEventListener('click', () => goToScreen('gs-bolt'));
+  document.getElementById('bolt-detail-cancel').addEventListener('click', async () => {
+    if (!confirm('이 번개를 취소할까요? 참여자 전원에게서 사라지며 되돌릴 수 없습니다.')) return;
+    try {
+      await cancelBolt(activeBoltId);
+      goToScreen('gs-bolt');
+    } catch (e) {
+      alert(e.message);
+    }
+  });
 
   document.getElementById('bolt-detail-action').addEventListener('click', async () => {
     if (!started) {

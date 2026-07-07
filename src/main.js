@@ -188,13 +188,20 @@ if (!confirmedName) {
   state.name = confirmedName;
   let resolved = false;
   let unsub = null;
-  let fallbackTimer = null;
   const finish = () => {
     if (resolved) return;
     resolved = true;
     clearTimeout(fallbackTimer);
     if (unsub) unsub();
   };
+  // fallbackTimer를 tryAutoEnter보다 먼저 만들어야, tryAutoEnter가 동기적으로(캐시로 인해
+  // 즉시) 성공하는 경우에도 finish()가 실제로 존재하는 타이머를 취소할 수 있다.
+  // (콜백 내부에서도 resolved를 다시 확인해 이중 안전장치를 둔다 — 순서가 바뀌어도 안전)
+  const fallbackTimer = setTimeout(() => {
+    if (resolved) return;
+    finish();
+    goToScreen('s-name');
+  }, 4000);
   const tryAutoEnter = () => {
     if (resolved || !hasConfirmedRole()) return;
     const me = getAssignment().players.find(p => p.name === confirmedName);
@@ -204,5 +211,4 @@ if (!confirmedName) {
   };
   unsub = subscribe(tryAutoEnter);
   tryAutoEnter();
-  fallbackTimer = setTimeout(() => { finish(); goToScreen('s-name'); }, 4000);
 }

@@ -150,15 +150,6 @@ export function prepareRoleScreen() {
   const hint = document.getElementById('role-continue-hint');
   hint.style.opacity = '0';
   hint.style.color   = '';
-
-  // 설정 화면 반영 — settings 화면이 아직 마운트 안 된 경우가 있어 null 가드
-  // (없으면 여기서 throw 되어 역할 화면 전환이 막힘)
-  const n = state.name;
-  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-  setText('settings-name',      n || '참가자');
-  setText('settings-initial',   n ? n[0] : '?');
-  setText('settings-team-chip', teamName);
-  setText('settings-role-chip', '· ' + ROLES[state.role].name);
 }
 
 function flipRoleCard() {

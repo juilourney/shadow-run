@@ -408,6 +408,17 @@ export function hasConfirmedRole() {
   }
 }
 
+// 이름 입력 화면을 건너뛸 대상 후보(=예전에 확인 완료 기록이 남은 이름)만 미리 조회.
+// 실제로 건너뛰어도 되는지는(배정이 그대로인지) hasConfirmedRole()로 다시 확인해야 한다.
+export function peekConfirmedName() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONFIRMED_KEY) || 'null');
+    return saved?.name || null;
+  } catch {
+    return null;
+  }
+}
+
 export function markRoleConfirmed() {
   try {
     localStorage.setItem(CONFIRMED_KEY, JSON.stringify({ name: identity.name, assignedAt: state.assignment.assignedAt }));

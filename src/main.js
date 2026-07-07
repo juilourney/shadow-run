@@ -1,6 +1,8 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll } from './utils/nav.js';
+import { state } from './state.js';
+import { peekConfirmedName, hasConfirmedRole, getAssignment, subscribe } from './store.js';
 
 import * as name       from './screens/name.js';
 import * as card       from './screens/card.js';
@@ -15,6 +17,7 @@ import * as vote       from './screens/vote.js';
 import * as members    from './screens/members.js';
 import * as guide      from './screens/guide.js';
 import * as waiting    from './screens/waiting.js';
+import { enterAssignedPlayer } from './screens/waiting.js';
 import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
@@ -164,4 +167,31 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   }, { passive: true });
 });
 
-goToScreen('s-name');
+// 이 기기에서 이미 카드·역할 확인을 마친 이름 기록이 있으면, 그 배정이 아직 유효한지
+// 확인될 때까지 잠시 기다렸다가 이름 입력 화면 없이 바로 게임 화면으로 진입시킨다.
+// (배정이 바뀌었거나 확인이 안 되면 일반적인 이름 입력 화면으로 진행)
+const confirmedName = peekConfirmedName();
+if (!confirmedName) {
+  goToScreen('s-name');
+} else {
+  state.name = confirmedName;
+  let resolved = false;
+  let unsub = null;
+  let fallbackTimer = null;
+  const finish = () => {
+    if (resolved) return;
+    resolved = true;
+    clearTimeout(fallbackTimer);
+    if (unsub) unsub();
+  };
+  const tryAutoEnter = () => {
+    if (resolved || !hasConfirmedRole()) return;
+    const me = getAssignment().players.find(p => p.name === confirmedName);
+    finish();
+    if (me) enterAssignedPlayer(me);
+    else goToScreen('s-name');
+  };
+  unsub = subscribe(tryAutoEnter);
+  tryAutoEnter();
+  fallbackTimer = setTimeout(() => { finish(); goToScreen('s-name'); }, 4000);
+}

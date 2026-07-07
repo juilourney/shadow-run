@@ -157,25 +157,23 @@ export function render() {
         <p style="font-size:12px; color:rgba(251,146,60,.7); margin-top:4px;">완료 후 팀 고유 스킬이 발동됩니다</p>
       </div>
 
-      <p style="font-size:16px; font-weight:700; margin-bottom:6px;">참여 체크인</p>
+      <!-- 방장 거리 인증 (기록 사진 업로드 → AI 인식) -->
+      <p style="font-size:16px; font-weight:700; margin-bottom:6px;">거리 기록 사진 올리기</p>
+      <p style="font-size:12px; color:#52525b; margin-bottom:12px;">
+        설정 거리 <b id="verify-target" style="color:var(--accent);">8.0km</b> 이상 달린 기록 사진을 올려주세요.
+        인식된 거리가 방장·참가자 전원에게 적용됩니다.
+      </p>
+      <div id="verify-zone"></div>
+
+      <p style="font-size:16px; font-weight:700; margin:22px 0 6px;">참여 체크인</p>
       <p style="font-size:12px; color:#52525b; margin-bottom:20px;">실제로 완주한 참가자를 체크하세요</p>
 
       <div id="detail-checklist-people" style="display:flex; flex-direction:column; gap:10px;"></div>
-
-      <!-- 방장 거리 인증 (기록 사진 업로드 → AI 인식) -->
-      <div style="margin-top:22px;">
-        <p style="font-size:14px; font-weight:700; margin-bottom:6px;">방장 거리 인증</p>
-        <p style="font-size:12px; color:#52525b; margin-bottom:12px;">
-          설정 거리 <b id="verify-target" style="color:var(--accent);">8.0km</b> 이상 달린 기록 사진을 올려주세요.
-          인식된 거리가 방장·참가자 전원에게 적용됩니다.
-        </p>
-        <div id="verify-zone"></div>
-      </div>
     </div>
   </div>
 
   <!-- 하단 버튼 -->
-  <div id="bolt-detail-btn-area" style="position:absolute; left:18px; right:18px; bottom:16px; display:flex; gap:10px; z-index:30">
+  <div id="bolt-detail-btn-area" style="position:absolute; left:18px; right:18px; bottom:calc(var(--safe-bottom) + 16px); display:flex; gap:10px; z-index:30">
     <button class="btn btn-secondary" style="width:80px; height:56px; font-size:14px" id="bolt-detail-cancel">취소</button>
     <button class="btn btn-primary" style="flex:1; height:56px" id="bolt-detail-action">번개 시작하기</button>
   </div>

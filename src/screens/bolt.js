@@ -394,7 +394,25 @@ function showToast(msg) {
     z-index:9999; animation:toastIn .3s var(--spring) both;
   `;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+
+  // 직전에 input.focus()로 키보드가 올라오는 경우, iOS Safari는 레이아웃 뷰포트를
+  // 줄이지 않고 visualViewport만 줄여서 position:fixed; bottom:36px가 키보드 아래로
+  // 가려버린다 — 키보드가 차지한 만큼 bottom을 추가로 띄워 항상 보이게 한다.
+  const vv = window.visualViewport;
+  const reposition = () => {
+    if (!vv) return;
+    const overlap = window.innerHeight - (vv.height + vv.offsetTop);
+    toast.style.bottom = `${36 + Math.max(0, overlap)}px`;
+  };
+  reposition();
+  vv?.addEventListener('resize', reposition);
+  vv?.addEventListener('scroll', reposition);
+
+  setTimeout(() => {
+    vv?.removeEventListener('resize', reposition);
+    vv?.removeEventListener('scroll', reposition);
+    toast.remove();
+  }, 2500);
 }
 
 export function showProgressView(boltId = getJoinedBoltId()) {

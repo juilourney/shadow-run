@@ -280,23 +280,36 @@ export function getPlayers({ excludeSelf = false } = {}) {
   return excludeSelf ? list.filter(p => !p.isSelf) : list;
 }
 
-// 인증 마감 시각 = 시작 + 예상 완주시간(거리×페이스) + 버퍼.
-export function boltDeadline(bolt) {
-  if (!bolt.startAt) return Infinity;
+// bolts 상태 중 "아직 진행 중"(완료·만료 전) — 시작 전(open)이든 실행 중(running)이든 포함
+const ACTIVE_BOLT_STATUSES = ['open', 'running'];
+
+function boltRuntimeMs(bolt) {
   const m = /^(\d+):(\d+)/.exec(bolt.pace || '');
   const paceSec = m ? Number(m[1]) * 60 + Number(m[2]) : CONFIG.fallbackPaceSec;
-  const runMs = bolt.distance * paceSec * 1000;
-  return bolt.startAt + runMs + CONFIG.certBufferMin * 60 * 1000;
+  return bolt.distance * paceSec * 1000;
 }
 
-// 마감 지난 open 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
+// 예상 완주 시각 = 시작 + 예상 완주시간(거리×페이스). 진행중 화면이 이 시각을
+// 지나면 자동으로 인증(사진 업로드) 화면으로 넘어간다.
+export function boltEstimatedFinish(bolt) {
+  if (!bolt.startAt) return Infinity;
+  return bolt.startAt + boltRuntimeMs(bolt);
+}
+
+// 인증 마감 시각 = 예상 완주 시각 + 버퍼(시간 초과 시 자동 만료).
+export function boltDeadline(bolt) {
+  if (!bolt.startAt) return Infinity;
+  return boltEstimatedFinish(bolt) + CONFIG.certBufferMin * 60 * 1000;
+}
+
+// 마감 지난 진행 중(open/running) 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
 // 로컬 상태를 즉시 갱신해 같은 기기에서 중복 처리되지 않게 막고, Firestore 반영은
 // 백그라운드로 진행(다른 기기와 거의 동시에 감지되는 극히 드문 경우의 중복 반영은 감수).
 function sweepExpiredBolts() {
   const now = Date.now();
   const { isTug } = getPhase();
   for (const b of state.bolts) {
-    if (b.status === 'open' && now > boltDeadline(b)) {
+    if (ACTIVE_BOLT_STATUSES.includes(b.status) && now > boltDeadline(b)) {
       const km = b.distance * CONFIG.expiredPenalty;
       b.status = 'expired';   // 로컬 즉시 반영(중복 스윕 방지)
       for (const pid of b.participants) {
@@ -321,7 +334,7 @@ export function getBolts() {
   return state.bolts.map(b => ({
     ...b,
     count: b.participants.length,
-    joined: b.status === 'open' && b.participants.includes(myId),
+    joined: ACTIVE_BOLT_STATUSES.includes(b.status) && b.participants.includes(myId),
     hostName: playerById(b.hostId)?.name ?? '?',
     isHost: b.hostId === myId,
     isSingleTeam: isSingleTeamBolt(b),
@@ -332,7 +345,16 @@ export function getBolts() {
 // 현재 참여 중인 번개 id — bolts에서 파생(별도 저장하지 않음)
 export function getJoinedBoltId() {
   const myId = myPlayer().id;
-  return state.bolts.find(b => b.status === 'open' && b.participants.includes(myId))?.id ?? null;
+  return state.bolts.find(b => ACTIVE_BOLT_STATUSES.includes(b.status) && b.participants.includes(myId))?.id ?? null;
+}
+
+// 방장 — 번개 시작. 예정 시각과 무관하게 지금을 실제 시작 시각으로 기록한다.
+export async function startBolt(boltId) {
+  const bolt = state.bolts.find(b => b.id === boltId);
+  if (!bolt) throw new Error('번개를 찾을 수 없습니다');
+  if (bolt.hostId !== myPlayer().id) throw new Error('방장만 번개를 시작할 수 있습니다');
+  if (bolt.status !== 'open') throw new Error('이미 시작됐거나 종료된 번개입니다');
+  await updateDoc(doc(db, 'bolts', boltId), { status: 'running', startAt: Date.now() });
 }
 
 export function getVote() {

@@ -1,37 +1,27 @@
 import { goToScreen } from '../utils/nav.js';
-import { getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt } from '../store.js';
+import { getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt } from '../store.js';
 import { openBuffView } from './bolt-buff.js';
+import { openBoltProgress } from './bolt-progress.js';
 
 let activeBoltId = 'b1'; // 현재 방장 뷰로 연 번개
 let targetKm   = 8;      // 번개 설정 거리 (이 이상 달려야 인증)
 let verifiedKm = null;   // 인식/입력된 인증 거리
 let started    = false;  // 체크리스트(진행) 단계 여부
 
-// 외부(bolt 목록)에서 방장 뷰 진입 시 호출 — 해당 번개 데이터로 채움
-export function openHostView(boltId) {
-  const bolt = getBolts().find(b => b.id === boltId);
-  if (!bolt) return;
-  activeBoltId = boltId;
-  targetKm     = bolt.distance;
-  verifiedKm   = null;
-  started      = false;
-
-  // 헤더
+// 헤더·참가자 목록 등 두 뷰(대기/체크리스트) 공통 표시 로직
+function populateFromBolt(bolt) {
   document.getElementById('detail-title').textContent    = bolt.title;
   document.getElementById('detail-distance').textContent = bolt.distance.toFixed(1);
   document.getElementById('detail-pace').textContent     = (bolt.pace || '—').replace('/km', '');
   document.getElementById('detail-count').textContent    = `${bolt.count}/${bolt.max}`;
   document.getElementById('detail-place').innerHTML      = `📍 ${bolt.place || '장소 미정'}`;
 
-  // 단일팀 알림 노출 여부
   const on = bolt.isSingleTeam ? '' : 'none';
   document.getElementById('detail-singleteam-notice').style.display   = on;
   document.getElementById('checklist-singleteam-notice').style.display = on;
 
-  // 잠금 토글 — 해당 번개의 실제 상태 반영 (신규 번개는 기본 해제)
   applyLockToggle(document.getElementById('host-lock-toggle'), bolt.locked);
 
-  // 참가자 목록 + 체크인 체크박스
   const players = getPlayers();
   const parts = bolt.participants.map(pid => players.find(p => p.id === pid)).filter(Boolean);
 
@@ -56,6 +46,18 @@ export function openHostView(boltId) {
       <span style="font-size:15px; font-weight:500">${p.name}${host ? ' (방장)' : ''}</span>
     </label>`;
   }).join('');
+}
+
+// 외부(bolt 목록)에서 방장 뷰 진입 시 호출 — 아직 시작 전(open) 번개의 대기 화면
+export function openHostView(boltId) {
+  const bolt = getBolts().find(b => b.id === boltId);
+  if (!bolt) return;
+  activeBoltId = boltId;
+  targetKm     = bolt.distance;
+  verifiedKm   = null;
+  started      = false;
+
+  populateFromBolt(bolt);
 
   // 뷰 초기화 (대기 화면)
   document.getElementById('bolt-detail-waiting').style.display   = 'block';
@@ -65,6 +67,29 @@ export function openHostView(boltId) {
   action.style.opacity = ''; action.style.pointerEvents = '';
   document.getElementById('bolt-detail-cancel').style.display = '';
   document.getElementById('verify-target').textContent = `${bolt.distance.toFixed(1)}km`;
+
+  goToScreen('s-bolt-detail');
+}
+
+// 진행중(bolt-progress) 화면에서 예상완주시간 경과(또는 방장의 수동 조작)로 호출 —
+// 체크인·거리 인증 화면으로 바로 진입
+export function enterChecklist(boltId) {
+  const bolt = getBolts().find(b => b.id === boltId);
+  if (!bolt) return;
+  activeBoltId = boltId;
+  targetKm     = bolt.distance;
+  verifiedKm   = null;
+  started      = true;
+
+  populateFromBolt(bolt);
+
+  document.getElementById('bolt-detail-waiting').style.display   = 'none';
+  document.getElementById('bolt-detail-checklist').style.display = 'block';
+  document.getElementById('bolt-detail-action').textContent = '번개 완료 · 제출';
+  document.getElementById('bolt-detail-cancel').style.display = 'none';
+  document.getElementById('verify-target').textContent = `${targetKm.toFixed(1)}km`;
+  renderVerifyIdle();
+  updateSubmitState();
 
   goToScreen('s-bolt-detail');
 }
@@ -171,16 +196,16 @@ export function init() {
 
   document.getElementById('bolt-detail-action').addEventListener('click', async () => {
     if (!started) {
-      // 번개 시작 → 체크리스트 뷰로 전환
-      started = true;
-      verifiedKm = null;
-      document.getElementById('bolt-detail-waiting').style.display = 'none';
-      document.getElementById('bolt-detail-checklist').style.display = 'block';
-      document.getElementById('bolt-detail-action').textContent = '번개 완료 · 제출';
-      document.getElementById('bolt-detail-cancel').style.display = 'none';
-      document.getElementById('verify-target').textContent = `${targetKm.toFixed(1)}km`;
-      renderVerifyIdle();
-      updateSubmitState();
+      // 번개 시작 — 예정 시각과 무관하게 지금을 실제 시작 시각으로 기록하고,
+      // 체크인/인증 화면 대신 "진행중" 화면으로 이동 (예상완주시간이 지나면
+      // 그 화면에서 자동으로 이 체크인 화면으로 다시 들어오게 됨)
+      try {
+        await startBolt(activeBoltId);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+      openBoltProgress(activeBoltId);
     } else {
       // 제출: 인증 확인 → store에 마일리지 반영
       if (verifiedKm === null || verifiedKm < targetKm) return;

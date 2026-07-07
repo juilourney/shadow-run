@@ -9,10 +9,11 @@ import * as card       from './screens/card.js';
 import * as role       from './screens/role.js';
 import * as dash       from './screens/dash.js';
 import * as bolt       from './screens/bolt.js';
-import * as boltJoin   from './screens/bolt-join.js';
-import * as boltDetail from './screens/bolt-detail.js';
-import * as boltBuff   from './screens/bolt-buff.js';
-import * as boltResult from './screens/bolt-result.js';
+import * as boltJoin     from './screens/bolt-join.js';
+import * as boltDetail   from './screens/bolt-detail.js';
+import * as boltProgress from './screens/bolt-progress.js';
+import * as boltBuff     from './screens/bolt-buff.js';
+import * as boltResult   from './screens/bolt-result.js';
 import * as vote       from './screens/vote.js';
 import * as members    from './screens/members.js';
 import * as guide      from './screens/guide.js';
@@ -22,7 +23,7 @@ import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
 const GAME     = [dash, bolt, vote, members, guide];
-const OVERLAYS = [boltJoin, boltDetail, boltBuff, boltResult, end];
+const OVERLAYS = [boltJoin, boltDetail, boltProgress, boltBuff, boltResult, end];
 
 const app = document.getElementById('app');
 

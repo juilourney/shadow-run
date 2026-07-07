@@ -2,6 +2,7 @@ import { goToScreen, setScrollLock } from '../utils/nav.js';
 import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, ROLES } from '../store.js';
 import { openEndView } from './end.js';
 import { openHostView } from './bolt-detail.js';
+import { openBoltProgress } from './bolt-progress.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -287,8 +288,9 @@ function renderFromStore() {
 
   if (myBolt) {
     document.getElementById('dash-my-bolt-card').addEventListener('click', () => {
-      if (myBolt.isHost) openHostView(myBolt.id);   // 방장 → 인증/완료 뷰
-      else goToScreen('s-bolt-join');               // 참가자 → 참여 뷰
+      if (myBolt.status === 'running') openBoltProgress(myBolt.id);  // 진행중 — 방장·참가자 공통
+      else if (myBolt.isHost) openHostView(myBolt.id);                // 방장(시작 전) → 대기 뷰
+      else goToScreen('s-bolt-join');                                 // 참가자(시작 전) → 참여 뷰
     });
   }
 

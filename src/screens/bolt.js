@@ -130,24 +130,6 @@ export function render() {
     </div>
   </div>
 
-
-  <!-- 진행 중 뷰 -->
-  <div id="bolt-progress-view" style="display:none; position:relative; isolation:isolate; flex:1; align-items:center; justify-content:center; flex-direction:column; gap:16px; padding:0 32px; text-align:center;">
-    <!-- 단일팀 팀 컬러 글로우 (단일팀일 때만 표시) -->
-    <div id="progress-team-glow" class="team-glow" style="display:none;"></div>
-    <div style="width:64px; height:64px; border-radius:20px; background:var(--accent-tint); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:4px;">⚡</div>
-    <p style="font-size:18px; font-weight:700; color:var(--accent);">번개 진행 중</p>
-    <p style="font-size:13px; color:#52525b; line-height:1.7;">한강 새벽 LSD · 반포 잠수교<br/>방장이 완료 처리하면 결과가 공개됩니다</p>
-    <div class="bezel" style="padding:14px 18px; border-radius:16px; width:100%; margin-top:8px;">
-      <p style="font-size:12px; color:#52525b; margin-bottom:8px;">현재 참가자</p>
-      <div style="display:flex; gap:8px; justify-content:center;">
-        <div style="text-align:center"><span style="width:36px;height:36px;border-radius:50%;background:#3f3f46;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto">민</span><p style="font-size:10px;color:#71717a;margin-top:4px">김민수</p></div>
-        <div style="text-align:center"><span style="width:36px;height:36px;border-radius:50%;background:#3f3f46;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto">현</span><p style="font-size:10px;color:#71717a;margin-top:4px">박현우</p></div>
-        <div style="text-align:center"><span style="width:36px;height:36px;border-radius:50%;background:#3f3f46;display:flex;align-items:center;justify-content:center;font-size:13px;margin:0 auto">나</span><p style="font-size:10px;color:#71717a;margin-top:4px">나</p></div>
-      </div>
-    </div>
-  </div>
-
   <!-- 참여 확인 오버레이 (바텀시트) -->
   <div id="bolt-join-overlay"
     style="position:absolute; inset:0; z-index:50; display:none; align-items:flex-end;">
@@ -415,12 +397,3 @@ function showToast(msg) {
   }, 2500);
 }
 
-export function showProgressView(boltId = getJoinedBoltId()) {
-  document.getElementById('bolt-list-view').style.display = 'none';
-  const pv = document.getElementById('bolt-progress-view');
-  pv.style.display = 'flex';
-
-  // 단일팀(같은 팀원끼리 모임)이면 팀 컬러 글로우 표시
-  const bolt = getBolts().find(b => b.id === boltId);
-  document.getElementById('progress-team-glow').style.display = bolt?.isSingleTeam ? 'block' : 'none';
-}

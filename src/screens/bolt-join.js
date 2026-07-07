@@ -1,6 +1,7 @@
 import { goToScreen } from '../utils/nav.js';
 import { cancelJoin } from './bolt.js';
 import { subscribe, getJoinedBoltId, getBolts, getPlayers } from '../store.js';
+import { openBoltProgress } from './bolt-progress.js';
 
 export function render() {
   return `
@@ -99,6 +100,14 @@ function refresh() {
     if (document.getElementById('s-bolt-join').classList.contains('active')) {
       goToScreen('gs-bolt');
       showToast('방장이 번개를 취소했습니다');
+    }
+    return;
+  }
+
+  // 방장이 시작 버튼을 눌러 진행중 상태가 되면 참가자도 진행중 화면으로 이동
+  if (bolt.status === 'running') {
+    if (document.getElementById('s-bolt-join').classList.contains('active')) {
+      openBoltProgress(bolt.id);
     }
     return;
   }

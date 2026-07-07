@@ -42,7 +42,7 @@ export function render() {
 
     <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">신규 게임 생성</p>
     <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:12px;">
-      <p style="font-size:12px; color:#fb7185; margin-bottom:14px;">⚠ 생성 시 현재 게이지·배정·번개·투표 기록이 모두 삭제되고 복구할 수 없습니다.</p>
+      <p style="font-size:12px; color:#fb7185; margin-bottom:14px;">⚠ 생성 시 현재 게이지·배정·번개·투표 기록과 참가자 명단까지 모두 삭제되고 복구할 수 없습니다. 새 시즌은 참가자가 이름을 직접 입력해 새로 모집됩니다.</p>
       <div class="admin-field">
         <label>게임명</label>
         <input class="input" id="new-name" placeholder="예: 2026년 7월 섀도우런 Vol.2" />

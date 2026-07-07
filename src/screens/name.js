@@ -1,10 +1,10 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
-import { isNameRegistered, getAssignment } from '../store.js';
+import { joinRoster, getAssignment } from '../store.js';
 
 const DEFAULT_HINT = '실명으로 입장하세요';
-const REJECT_HINT  = '등록되지 않은 멤버입니다. 운영진에게 문의하세요';
+const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
 
 export function render() {
   return `
@@ -106,17 +106,25 @@ export function init() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enterGame(); } });
 }
 
-function enterGame() {
+async function enterGame() {
   const input = document.getElementById('name-input');
   const hint  = document.getElementById('name-hint');
+  const btn   = document.getElementById('enter-btn');
   const name  = input.value.trim();
   if (!name) { input.focus(); input.style.borderColor = 'rgba(251,113,133,.6)'; return; }
-  if (!isNameRegistered(name)) {
+
+  btn.disabled = true;
+  try {
+    await joinRoster(name); // 명단에 없으면 자동 등록, 있으면 그대로 통과
+  } catch (e) {
     input.style.borderColor = 'rgba(251,113,133,.6)';
     hint.textContent = REJECT_HINT;
     hint.style.color = '#fb7185';
+    btn.disabled = false;
     return;
   }
+  btn.disabled = false;
+
   input.style.borderColor = '';
   state.name = name;
 

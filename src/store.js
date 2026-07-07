@@ -398,6 +398,19 @@ export function isNameRegistered(name) {
   return state.roster.some(r => r.name === name.trim());
 }
 
+// 참가자가 이름 입력 화면에서 직접 자기 이름을 명단에 등록 — 이미 있으면 그대로 통과.
+export async function joinRoster(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('이름을 입력하세요');
+  const res = await fetch('/api/roster', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'selfJoin', name: trimmed }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '등록에 실패했습니다');
+  return data;
+}
+
 export function getAssignment() {
   return { ...state.assignment, players: state.assignment.players.map(p => ({ ...p })) };
 }
@@ -476,11 +489,15 @@ export async function createNewGame({ name, startDate, weeks }) {
   resetAssignment();
 
   await Promise.all(
-    ['bolts', 'votes', 'voteHistory', 'timeline'].map(async name => {
-      const snap = await getDocs(collection(db, name));
-      return Promise.all(snap.docs.map(d => deleteDoc(doc(db, name, d.id))));
+    ['bolts', 'votes', 'voteHistory', 'timeline'].map(async coll => {
+      const snap = await getDocs(collection(db, coll));
+      return Promise.all(snap.docs.map(d => deleteDoc(doc(db, coll, d.id))));
     })
   );
+
+  // 참가자 명단도 새 시즌마다 새로 모집 — roster는 서버 전용 쓰기라 관리자 인증이 붙은
+  // removeRosterMember(각 항목 삭제 API 호출)로 지운다.
+  await Promise.all(state.roster.map(r => removeRosterMember(r.id).catch(err => console.warn('명단 삭제 실패:', err.message))));
 
   notify();
   return getGameSettings();

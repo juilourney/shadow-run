@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { prepareWaiting } from './waiting.js';
-import { isNameRegistered } from '../store.js';
+import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
+import { isNameRegistered, getAssignment } from '../store.js';
 
 const DEFAULT_HINT = '실명으로 입장하세요';
 const REJECT_HINT  = '등록되지 않은 멤버입니다. 운영진에게 문의하세요';
@@ -120,14 +120,21 @@ function enterGame() {
   input.style.borderColor = '';
   state.name = name;
 
-  // 팀·역할은 게임 시작 시 일괄 배정 — 등록 후 대기실로 이동
   state.team = null;
   state.role = null;
   state.cardFlipped = false;
   state.roleFlipped = false;
   state.roleConfirmed = false;
-  // 대기실로 먼저 이동한 뒤 준비 — 이미 배정이 끝난 상태로 들어오면 prepareWaiting()이
-  // 즉시 카드 화면으로 다시 이동시키는데, 순서가 반대면 이 전환을 되돌려버린다.
+
+  // 이미 팀·역할 배정이 끝난 상태라면 대기실을 거치지 않고 바로 카드/게임 화면으로
+  const { assigned, players } = getAssignment();
+  const me = assigned ? players.find(p => p.name === name) : null;
+  if (me) {
+    enterAssignedPlayer(me);
+    return;
+  }
+
+  // 아직 배정 전 — 대기실로 먼저 이동한 뒤 준비 (순서가 반대면 배정 완료 감지 전환을 되돌려버림)
   goToScreen('s-waiting');
   prepareWaiting();
 }

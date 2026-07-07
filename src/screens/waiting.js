@@ -272,8 +272,12 @@ function checkAssignment() {
 function enterGame() {
   if (entered || !pendingMe) return;
   entered = true;
-  const me = pendingMe;
+  enterAssignedPlayer(pendingMe);
+}
 
+// 배정된 내 정보(team/role)를 받아 카드/게임 화면으로 라우팅 —
+// 대기실을 거치지 않고 바로 입장하는 name.js에서도 재사용
+export function enterAssignedPlayer(me) {
   state.team = me.team;
   state.role = me.role;
 

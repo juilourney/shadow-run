@@ -11,8 +11,14 @@ export function render() {
 <div class="game-section" id="gs-dash">
   <div class="scroll-body pb-tab" style="padding:calc(var(--safe-top) + 12px) 18px 0">
 
-    <div class="anim-up" style="padding-top:4px; margin-bottom:16px;">
+    <div class="anim-up" style="padding-top:4px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">대시보드</h2>
+      <div id="my-role-badge" style="display:flex; align-items:center; gap:7px; padding:7px 12px; border-radius:99px;
+        background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); flex-shrink:0;">
+        <span id="my-role-team" style="font-family:'Space Grotesk'; font-size:11px; font-weight:700; letter-spacing:.02em;"></span>
+        <span style="width:3px; height:3px; border-radius:50%; background:#3f3f46;"></span>
+        <span id="my-role-name" style="font-size:12px; font-weight:600; color:#e4e4e7;"></span>
+      </div>
     </div>
 
     <!-- ① 실시간 줄다리기 (게이지 카드 — 최상단) -->
@@ -233,6 +239,15 @@ const TIMELINE_EMPTY = `
 function renderFromStore() {
   const g  = getGauge();
   const me = getMe();
+
+  if (me.team) {
+    const isPacer = me.team === 'pacer';
+    const teamEl  = document.getElementById('my-role-team');
+    teamEl.textContent  = isPacer ? 'PACER' : 'GHOST';
+    teamEl.style.color  = isPacer ? '#38bdf8' : '#c084fc';
+    document.getElementById('my-role-name').textContent = ROLES[me.role]?.name ?? '';
+    document.getElementById('my-role-badge').style.borderColor = isPacer ? 'rgba(56,189,248,.3)' : 'rgba(192,132,252,.3)';
+  }
 
   document.getElementById('gauge-ghost').textContent = fmt(g.ghost);
   document.getElementById('gauge-pacer').textContent = fmt(g.pacer);

@@ -1,6 +1,17 @@
 import { getGameSettings, updateGameSettings, createNewGame } from '../../store.js';
 
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
+const fmtDate = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+
+// 시작일·기간(주) 입력값으로 종료일 계산 (아직 저장 전인 "신규 게임" 미리보기용)
+function computeRange(startDateStr, weeks) {
+  if (!startDateStr || !weeks) return null;
+  const [y, m, d] = startDateStr.split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  const end = new Date(start);
+  end.setDate(start.getDate() + Number(weeks) * 7);
+  return { start, end };
+}
 
 export function render() {
   return `
@@ -44,6 +55,7 @@ export function render() {
         <label>기간(주)</label>
         <input class="input" type="number" min="1" id="new-weeks" value="3" />
       </div>
+      <p id="new-range" style="font-size:12px; color:#a1a1aa; margin-bottom:8px;"></p>
       <p style="font-size:11px; color:#52525b; margin-bottom:14px;">투표 요일 설정은 추후 지원 예정입니다 (현재 월·목 18:00~22:00 고정).</p>
       <button class="btn btn-secondary" id="new-create-btn" style="width:100%; height:48px;">신규 게임 생성</button>
     </div>
@@ -56,7 +68,17 @@ function loadCurrent() {
   document.getElementById('cur-name').value = gs.name;
   document.getElementById('cur-startDate').value = gs.startDate;
   document.getElementById('cur-weeks').value = gs.weeks;
-  document.getElementById('cur-status').textContent = `상태: ${STATUS_LABEL[gs.status]}`;
+  document.getElementById('cur-status').textContent =
+    `${fmtDate(gs.start)} ~ ${fmtDate(gs.end)} (${gs.weeks}주) · 상태: ${STATUS_LABEL[gs.status]}`;
+}
+
+function refreshNewRange() {
+  const range = computeRange(
+    document.getElementById('new-startDate').value,
+    document.getElementById('new-weeks').value
+  );
+  document.getElementById('new-range').textContent =
+    range ? `${fmtDate(range.start)} ~ ${fmtDate(range.end)}` : '';
 }
 
 export function init(goTo) {
@@ -70,6 +92,10 @@ export function init(goTo) {
     });
     loadCurrent();
   });
+
+  document.getElementById('new-startDate').addEventListener('input', refreshNewRange);
+  document.getElementById('new-weeks').addEventListener('input', refreshNewRange);
+  refreshNewRange();
 
   document.getElementById('new-create-btn').addEventListener('click', async () => {
     const name = document.getElementById('new-name').value.trim();

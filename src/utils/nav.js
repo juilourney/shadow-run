@@ -41,6 +41,17 @@ export function goToScreen(id) {
   // 다른 섹션(투표 등)이 올라옴
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
+  if (id === 's-game') {
+    // 사파리(WebKit)는 scroll-snap-type을 최초 페인트 이후 클래스 토글로 바꾸면
+    // 스냅 엔진이 새 값을 인식하지 못해 스와이프 잠금이 풀린 것처럼 동작하는
+    // 경우가 있다(앱을 새로고침하면 최초 페인트부터 다시 계산되어 정상화됨).
+    // 강제로 none → 리플로우 → 원래값 순서로 재적용해 즉시 재인식시킨다.
+    const html = document.documentElement;
+    html.style.scrollSnapType = 'none';
+    void html.offsetHeight; // 강제 리플로우
+    requestAnimationFrame(() => { html.style.scrollSnapType = ''; });
+  }
+
   const tb     = document.getElementById('global-tabbar');
   const handle = document.getElementById('tabbar-handle');
   if (!tb) return;

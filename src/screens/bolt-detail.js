@@ -123,8 +123,8 @@ export function render() {
   </div>
 
   <!-- 체크리스트 뷰 (번개 시작 후) -->
-  <div id="bolt-detail-checklist" style="display:none;" class="scroll-body" style="padding:0 18px 140px">
-    <div style="padding:18px 18px 0;">
+  <div id="bolt-detail-checklist" class="scroll-body" style="display:none; padding:calc(var(--safe-top) + 10px) 18px 140px">
+    <div style="padding:8px 18px 0;">
 
       <!-- 단일팀 번개 시작 알림 -->
       <div id="checklist-singleteam-notice" style="background:rgba(251,146,60,.12); border:1px solid rgba(251,146,60,.3); border-radius:18px; padding:16px 18px; text-align:center; margin-bottom:16px;">

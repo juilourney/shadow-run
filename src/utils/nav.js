@@ -31,9 +31,15 @@ const SECTION_TAB = {
 export function reengageScrollSnap() {
   const html = document.documentElement;
   if (html.classList.contains('lock-scroll')) return;
+  // none → 리플로우 → 인라인 제거 → 리플로우 를 모두 "동기"로 처리.
+  // requestAnimationFrame에 의존하면(백그라운드 탭·저전력 등으로) rAF가 지연될 때
+  // 인라인 scroll-snap-type:none이 그대로 남아 CSS의 y mandatory를 덮어써서
+  // 오히려 스냅이 영구히 풀리는 부작용이 있었다. 인라인을 최종적으로 비워
+  // lock-scroll 클래스 메커니즘(오버레이 열릴 때 none)도 그대로 유지된다.
   html.style.scrollSnapType = 'none';
-  void html.offsetHeight; // 강제 리플로우
-  requestAnimationFrame(() => { html.style.scrollSnapType = ''; });
+  void html.offsetHeight;
+  html.style.scrollSnapType = '';
+  void html.offsetHeight;
 }
 
 export function goToScreen(id) {

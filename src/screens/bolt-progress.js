@@ -16,7 +16,7 @@ export function render() {
     </div>
 
     <div style="position:relative; isolation:isolate;">
-      <div id="bp-team-glow" class="team-glow" style="display:none;"></div>
+      <div id="bp-team-glow"></div>
       <div class="anim-up" style="text-align:center; padding:12px 0 4px;">
         <div style="width:64px; height:64px; border-radius:20px; background:var(--accent-tint); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 12px;">⚡</div>
         <p style="font-size:18px; font-weight:700; color:var(--accent);">번개 진행 중</p>
@@ -75,7 +75,7 @@ function refresh() {
   }
 
   document.getElementById('bp-title').textContent = `${bolt.title} · ${bolt.place}`;
-  document.getElementById('bp-team-glow').style.display = bolt.isSingleTeam ? 'block' : 'none';
+  document.getElementById('bp-team-glow').className = bolt.isSingleTeam ? 'team-glow' : 'team-glow-mixed';
 
   const players = getPlayers();
   document.getElementById('bp-participants').innerHTML = bolt.participants.map(pid => {

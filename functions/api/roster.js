@@ -1,6 +1,7 @@
 // Cloudflare Pages Function — 참가자 명단(roster 컬렉션)을 서버 권한으로만 Firestore에 기록.
 // 관리자 화면의 addRosterMember/updateRosterMember/removeRosterMember가 호출.
 import { getAccessToken, firestoreUrl, toFirestoreValue } from '../_lib/firebase-admin.js';
+import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 
 function jsonError(message, status = 400) {
   return new Response(JSON.stringify({ error: message }), { status, headers: { 'content-type': 'application/json' } });
@@ -8,6 +9,7 @@ function jsonError(message, status = 400) {
 
 export async function onRequestPost(context) {
   try {
+    if (!(await verifyAdminAuth(context.request, context.env))) return unauthorized();
     const { action, id, name } = await context.request.json();
 
     const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = context.env;

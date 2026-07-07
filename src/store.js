@@ -92,6 +92,16 @@ function getSnapshot() {
   return structuredClone(state);
 }
 
+// 관리자 전용 서버 액션(명단·게임 설정·배정 초기화) 호출 시 붙이는 인증 헤더.
+// 로그인 시 발급받은 토큰을 admin/screens/login.js가 여기에 저장해둔다.
+// 참가자 기기는 이 키를 저장한 적이 없으니 항상 빈 헤더 — set-gauge처럼
+// 참가자도 호출해야 하는 엔드포인트에는 애초에 붙이지 않는다.
+const ADMIN_TOKEN_KEY = 'sr_admin_auth';
+function adminAuthHeaders() {
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 // ═══════════════════════════════════════════════════════════
 //  Firestore 실시간 동기화
 // ═══════════════════════════════════════════════════════════
@@ -125,7 +135,7 @@ onSnapshot(settingsDocRef, snap => {
 
 function writeGameSettings() {
   fetch('/api/set-game-settings', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ name: state.game.name, startDate: state.game.startDate, weeks: state.game.weeks }),
   }).catch(err => console.warn('게임 설정 저장 실패:', err.message));
 }
@@ -152,7 +162,7 @@ export async function triggerAssignment() {
 
 function resetAssignment() {
   fetch('/api/assign-teams', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ reset: true }),
   }).catch(err => console.warn('배정 초기화 실패:', err.message));
 }
@@ -482,7 +492,7 @@ export async function addRosterMember(name) {
   if (!trimmed) throw new Error('이름을 입력하세요');
   if (state.roster.some(r => r.name === trimmed)) throw new Error('이미 명단에 있는 이름입니다');
   const res = await fetch('/api/roster', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ action: 'add', name: trimmed }),
   });
   const data = await res.json();
@@ -494,7 +504,7 @@ export async function updateRosterMember(id, name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('이름을 입력하세요');
   const res = await fetch('/api/roster', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ action: 'update', id, name: trimmed }),
   });
   const data = await res.json();
@@ -504,7 +514,7 @@ export async function updateRosterMember(id, name) {
 
 export async function removeRosterMember(id) {
   const res = await fetch('/api/roster', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ action: 'remove', id }),
   });
   const data = await res.json();

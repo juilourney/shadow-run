@@ -1,5 +1,4 @@
 const AUTH_KEY = 'sr_admin_auth';
-const PASSWORD = 'hnrc2026'; // 목업 비밀번호 — Firebase 연동 시 실제 인증으로 교체
 
 export function render() {
   return `
@@ -19,17 +18,28 @@ export function render() {
 export function init(goTo) {
   const pwInput = document.getElementById('admin-login-pw');
   const errorEl = document.getElementById('admin-login-error');
+  const btn     = document.getElementById('admin-login-btn');
 
-  function tryLogin() {
-    if (pwInput.value === PASSWORD) {
-      sessionStorage.setItem(AUTH_KEY, '1');
-      errorEl.style.display = 'none';
+  async function tryLogin() {
+    errorEl.style.display = 'none';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: pwInput.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '로그인에 실패했습니다');
+      sessionStorage.setItem(AUTH_KEY, data.token);
       goTo('dashboard');
-    } else {
+    } catch (e) {
+      errorEl.textContent = e.message;
       errorEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
     }
   }
 
-  document.getElementById('admin-login-btn').addEventListener('click', tryLogin);
+  btn.addEventListener('click', tryLogin);
   pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 }

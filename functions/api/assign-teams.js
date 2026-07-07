@@ -3,6 +3,7 @@
 // 전부 이 엔드포인트를 호출할 수 있으므로, 이미 배정됐으면 그대로 재사용(멱등)한다.
 // 서버가 유일한 계산 주체 — 클라이언트마다 각자 랜덤을 돌리면 기기별로 결과가 달라지는 문제를 막는다.
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
+import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 
 const SPECIAL_ROLES = ['elite', 'anchor', 'double', 'detective', 'spy'];
 
@@ -49,7 +50,9 @@ export async function onRequestPost(context) {
     const authHeaders = { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
 
     // 신규 게임 생성 시 호출 — 배정 결과 초기화 + players 컬렉션 삭제(다음 시즌 모집을 위해)
+    // 참가자 기기가 부를 일이 없는 관리자 전용 액션이라 인증을 요구한다.
     if (reset) {
+      if (!(await verifyAdminAuth(context.request, context.env))) return unauthorized();
       const playersRes = await fetch(firestoreUrl(context.env, 'players'), { headers: authHeaders });
       const playersData = await playersRes.json();
       await Promise.all((playersData.documents || []).map(d =>

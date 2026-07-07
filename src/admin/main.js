@@ -18,4 +18,4 @@ export function goTo(name) {
   SCREENS[name].onShow?.();
 }
 
-goTo(sessionStorage.getItem(AUTH_KEY) === '1' ? 'dashboard' : 'login');
+goTo(sessionStorage.getItem(AUTH_KEY) ? 'dashboard' : 'login');

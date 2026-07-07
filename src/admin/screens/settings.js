@@ -1,7 +1,6 @@
-import { getGameSettings, updateGameSettings, createNewGame, getGameHistory } from '../../store.js';
+import { getGameSettings, updateGameSettings, createNewGame } from '../../store.js';
 
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
-const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export function render() {
   return `
@@ -32,7 +31,7 @@ export function render() {
 
     <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">신규 게임 생성</p>
     <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:12px;">
-      <p style="font-size:12px; color:#fb7185; margin-bottom:14px;">⚠ 생성 시 현재 게이지·번개·투표 기록이 초기화되고, 현재 게임은 히스토리로 보관됩니다.</p>
+      <p style="font-size:12px; color:#fb7185; margin-bottom:14px;">⚠ 생성 시 현재 게이지·배정·번개·투표 기록이 모두 삭제되고 복구할 수 없습니다.</p>
       <div class="admin-field">
         <label>게임명</label>
         <input class="input" id="new-name" placeholder="예: 2026년 7월 섀도우런 Vol.2" />
@@ -48,25 +47,8 @@ export function render() {
       <p style="font-size:11px; color:#52525b; margin-bottom:14px;">투표 요일 설정은 추후 지원 예정입니다 (현재 월·목 18:00~22:00 고정).</p>
       <button class="btn btn-secondary" id="new-create-btn" style="width:100%; height:48px;">신규 게임 생성</button>
     </div>
-
-    <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">게임 히스토리</p>
-    <div class="bezel" style="border-radius:20px; overflow:hidden;" id="game-history-body"></div>
   </div>
 </div>`;
-}
-
-function historyBody() {
-  const history = getGameHistory();
-  if (history.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">지난 게임이 없습니다.</p>`;
-  const TEAM_LABEL = { pacer: '페이서', ghost: '고스트', null: '무승부' };
-  return history.map(h => `
-    <div class="admin-row" style="align-items:flex-start; flex-direction:column; gap:4px;">
-      <div style="display:flex; justify-content:space-between; width:100%;">
-        <span style="font-size:14px; font-weight:600;">${h.name}</span>
-        <span style="font-size:12px; color:#71717a;">우승: ${TEAM_LABEL[h.winner]}</span>
-      </div>
-      <p style="font-size:12px; color:#71717a;">${h.startDate} · ${h.weeks}주 · 참가 ${h.participantCount}명 · 최종 페이서 ${fmt(h.finalGauge.pacer)}km / 고스트 ${fmt(h.finalGauge.ghost)}km</p>
-    </div>`).join('');
 }
 
 function loadCurrent() {
@@ -75,7 +57,6 @@ function loadCurrent() {
   document.getElementById('cur-startDate').value = gs.startDate;
   document.getElementById('cur-weeks').value = gs.weeks;
   document.getElementById('cur-status').textContent = `상태: ${STATUS_LABEL[gs.status]}`;
-  document.getElementById('game-history-body').innerHTML = historyBody();
 }
 
 export function init(goTo) {

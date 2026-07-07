@@ -15,7 +15,7 @@
 
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
 import {
-  doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc,
+  doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
   arrayUnion, arrayRemove, increment,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
@@ -47,7 +47,6 @@ const state = {
     weeks: CONFIG.weeks,
   },
 
-  gameHistory: [],   // 지난 게임 히스토리 — 관리자 화면 조회용 (로컬, 새 게임 생성 시 누적)
   voteHistory: [],   // 투표 히스토리 — voteHistory 컬렉션과 동기화
   roster: [],        // 참가자 명단(사전 등록) — roster 컬렉션과 동기화
   assignment: { assigned: false, players: [] },  // 팀·역할 배정 결과 — game/assignment와 동기화
@@ -379,10 +378,6 @@ export function getVoteHistory() {
   return [...state.voteHistory].sort((a, b) => b.at - a.at);
 }
 
-export function getGameHistory() {
-  return state.gameHistory.map(e => ({ ...e }));
-}
-
 export function getRoster() {
   return state.roster.map(r => ({ ...r })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
@@ -450,17 +445,9 @@ export async function updateGameSettings({ name, startDate, weeks }) {
   return getGameSettings();
 }
 
-// 관리자 — 신규 게임 생성. 현재 게임은 히스토리로 보관, 게이지·번개·투표 기록 초기화.
+// 관리자 — 신규 게임 생성. 이전 게임의 게이지·배정·번개·투표·타임라인을 전부 삭제하고 새로 시작.
+// (참가자 명단(roster)은 크루 소속 정보라 시즌과 무관하게 유지)
 export async function createNewGame({ name, startDate, weeks }) {
-  state.gameHistory.unshift({
-    name: state.game.name,
-    startDate: state.game.startDate,
-    weeks: state.game.weeks,
-    winner: getGauge().leader,
-    finalGauge: { ...state.game.gauge },
-    participantCount: state.players.length,
-  });
-
   state.game.name = name;
   state.game.startDate = startDate;
   state.game.weeks = Number(weeks);
@@ -469,6 +456,14 @@ export async function createNewGame({ name, startDate, weeks }) {
   writeGauge();
   writeGameSettings();
   resetAssignment();
+
+  await Promise.all(
+    ['bolts', 'votes', 'voteHistory', 'timeline'].map(async name => {
+      const snap = await getDocs(collection(db, name));
+      return Promise.all(snap.docs.map(d => deleteDoc(doc(db, name, d.id))));
+    })
+  );
+
   notify();
   return getGameSettings();
 }

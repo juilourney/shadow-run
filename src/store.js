@@ -542,6 +542,10 @@ export async function removeRosterMember(id) {
 export async function createBolt({ title, place, distance, pace, time, startAt }) {
   if (getJoinedBoltId()) throw new Error('이미 참여 중인 번개가 있습니다');
   const myId = myPlayer().id;
+  // players 컬렉션 동기화가 아직 안 끝난 시점(예: 앱 진입 직후)에 번개를 만들면
+  // 방장 본인 id가 null로 들어가버려, 이후 체크인/완료 목록에 본인이 안 보이는
+  // 문제가 생긴다 — 그 전에 명확히 막는다.
+  if (!myId) throw new Error('내 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요');
   const docRef = await addDoc(collection(db, 'bolts'), {
     title, place,
     distance: Number(distance) || 0,
@@ -566,7 +570,9 @@ export async function joinBolt(boltId) {
   if (bolt.locked) throw new Error('잠긴 번개입니다');
   if (bolt.participants.length >= bolt.max) throw new Error('정원이 찼습니다');
 
-  await updateDoc(doc(db, 'bolts', boltId), { participants: arrayUnion(myPlayer().id) });
+  const myId = myPlayer().id;
+  if (!myId) throw new Error('내 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요');
+  await updateDoc(doc(db, 'bolts', boltId), { participants: arrayUnion(myId) });
   return bolt;
 }
 

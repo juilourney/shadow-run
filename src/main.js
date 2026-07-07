@@ -1,6 +1,6 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
-import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll } from './utils/nav.js';
+import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
 import { peekConfirmedName, hasConfirmedRole, getAssignment, subscribe } from './store.js';
 
@@ -96,6 +96,17 @@ function onViewportResize() {
 }
 window.addEventListener('resize', onViewportResize);
 window.visualViewport?.addEventListener('resize', onViewportResize);
+
+// "홈 화면에 추가"한 PWA(standalone)는 백그라운드→포그라운드 전환이 일반 브라우저
+// 탭처럼 새로고침되지 않고 그대로 이어지므로, 복귀 시점에 scroll-snap을 다시
+// 재인식시켜야 스와이프 잠금이 계속 풀린 채로 남는 문제가 생기지 않는다.
+function onAppResume() {
+  if (document.hidden) return;
+  if (!document.getElementById('s-game')?.classList.contains('active')) return;
+  reengageScrollSnap();
+}
+document.addEventListener('visibilitychange', onAppResume);
+window.addEventListener('pageshow', onAppResume);
 
 // iOS Safari는 빠르게 스와이프하면 scroll-snap-stop:always를 무시하고
 // 한 번에 여러 섹션을 건너뛰는 경우가 있음 — 스와이프 시작 시점의 섹션을

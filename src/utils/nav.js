@@ -21,6 +21,21 @@ const SECTION_TAB = {
   'gs-members': 'members', 'gs-guide': 'guide',
 };
 
+// 사파리(WebKit)는 scroll-snap-type을 최초 페인트 이후 동적으로 바꾸면(클래스 토글 등)
+// 스냅 엔진이 새 값을 인식하지 못해 스와이프 잠금이 풀린 것처럼 동작하는 경우가 있다.
+// 강제로 none → 리플로우 → 원래값 순서로 재적용해 즉시 재인식시킨다.
+// - 게임 화면 진입 시(goToScreen)뿐 아니라, "홈 화면에 추가"한 PWA(standalone)를
+//   백그라운드에서 복귀시킬 때도 필요하다 — 일반 브라우저 탭과 달리 standalone은
+//   백그라운드→포그라운드 전환이 페이지 새로고침 없이 그대로 이어지기 때문에,
+//   재진입 시점에 한 번 재적용해도 복귀 시점엔 다시 풀린 채로 남을 수 있다.
+export function reengageScrollSnap() {
+  const html = document.documentElement;
+  if (html.classList.contains('lock-scroll')) return;
+  html.style.scrollSnapType = 'none';
+  void html.offsetHeight; // 강제 리플로우
+  requestAnimationFrame(() => { html.style.scrollSnapType = ''; });
+}
+
 export function goToScreen(id) {
   if (id.startsWith('gs-')) { scrollToSection(id); return; }
 
@@ -41,16 +56,7 @@ export function goToScreen(id) {
   // 다른 섹션(투표 등)이 올라옴
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
-  if (id === 's-game') {
-    // 사파리(WebKit)는 scroll-snap-type을 최초 페인트 이후 클래스 토글로 바꾸면
-    // 스냅 엔진이 새 값을 인식하지 못해 스와이프 잠금이 풀린 것처럼 동작하는
-    // 경우가 있다(앱을 새로고침하면 최초 페인트부터 다시 계산되어 정상화됨).
-    // 강제로 none → 리플로우 → 원래값 순서로 재적용해 즉시 재인식시킨다.
-    const html = document.documentElement;
-    html.style.scrollSnapType = 'none';
-    void html.offsetHeight; // 강제 리플로우
-    requestAnimationFrame(() => { html.style.scrollSnapType = ''; });
-  }
+  if (id === 's-game') reengageScrollSnap();
 
   const tb     = document.getElementById('global-tabbar');
   const handle = document.getElementById('tabbar-handle');

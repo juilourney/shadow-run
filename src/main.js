@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { peekConfirmedName, hasConfirmedRole, getAssignment, subscribe } from './store.js';
+import { peekConfirmedName, hasConfirmedRole, getAssignment, isAssignmentLoaded, subscribe } from './store.js';
 
 import * as name       from './screens/name.js';
 import * as card       from './screens/card.js';
@@ -191,24 +191,22 @@ if (!confirmedName) {
   const finish = () => {
     if (resolved) return;
     resolved = true;
-    clearTimeout(fallbackTimer);
     if (unsub) unsub();
   };
-  // fallbackTimer를 tryAutoEnter보다 먼저 만들어야, tryAutoEnter가 동기적으로(캐시로 인해
-  // 즉시) 성공하는 경우에도 finish()가 실제로 존재하는 타이머를 취소할 수 있다.
-  // (콜백 내부에서도 resolved를 다시 확인해 이중 안전장치를 둔다 — 순서가 바뀌어도 안전)
-  const fallbackTimer = setTimeout(() => {
-    if (resolved) return;
+  // 배정 문서가 아직 한 번도 로드되지 않았으면(=Firestore 연결/동기화 전) 절대 이름
+  // 화면으로 보내지 않고 계속 기다린다. PWA 콜드 재개 시 Firestore 재연결이 수 초 걸릴 수
+  // 있어, 시간 기반 폴백으로 이름 화면에 튕기면 "대시보드 보이다 이름창으로" 문제가 생긴다.
+  // 배정이 실제로 로드된 뒤에만 판정한다:
+  //   - 이 배정이 내가 확인한 배정과 일치하고 내 이름이 있으면 → 바로 게임 화면
+  //   - 로드됐는데 일치하지 않으면(재배정·명단 이탈 등) → 이름 화면
+  const decide = () => {
+    if (resolved || !isAssignmentLoaded()) return;
     finish();
-    goToScreen('s-name');
-  }, 4000);
-  const tryAutoEnter = () => {
-    if (resolved || !hasConfirmedRole()) return;
-    const me = getAssignment().players.find(p => p.name === confirmedName);
-    finish();
+    const { assigned, players } = getAssignment();
+    const me = assigned && hasConfirmedRole() ? players.find(p => p.name === confirmedName) : null;
     if (me) enterAssignedPlayer(me);
     else goToScreen('s-name');
   };
-  unsub = subscribe(tryAutoEnter);
-  tryAutoEnter();
+  unsub = subscribe(decide);
+  decide();
 }

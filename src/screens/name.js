@@ -113,6 +113,16 @@ async function enterGame() {
   const name  = input.value.trim();
   if (!name) { input.focus(); input.style.borderColor = 'rgba(251,113,133,.6)'; return; }
 
+  // 게임 진행 중(배정 완료)에는 배정된 이름만 입장 가능 — 중간 난입 차단.
+  // 배정에 있는 이름은 통과(기기 변경 등으로 재입장하는 기존 참가자).
+  const assignment = getAssignment();
+  if (assignment.assigned && !assignment.players.some(p => p.name === name)) {
+    input.style.borderColor = 'rgba(251,113,133,.6)';
+    hint.textContent = '게임이 진행 중이라 새로 입장할 수 없어요. 다음 시즌에 만나요!';
+    hint.style.color = '#fb7185';
+    return;
+  }
+
   btn.disabled = true;
   try {
     await joinRoster(name); // 명단에 없으면 자동 등록, 있으면 그대로 통과

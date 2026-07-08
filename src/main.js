@@ -203,7 +203,8 @@ if (!rememberedName) {
   // 시간 기반 폴백으로 이름 화면에 튕기면 "대시보드 보이다 이름창으로" 문제가 생긴다.
   // 배정이 실제로 로드된 뒤에만 판정한다:
   //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
-  //   - 배정 전이거나 내 이름이 없으면(새 시즌 등) → 명단 재등록 후 대기실로
+  //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
+  //   - 배정 전(모집 기간)이면 → 명단 재등록(멱등) 후 대기실로
   const decide = () => {
     if (resolved || !isAssignmentLoaded()) return;
     finish();
@@ -211,6 +212,8 @@ if (!rememberedName) {
     const me = assigned ? players.find(p => p.name === rememberedName) : null;
     if (me) {
       enterAssignedPlayer(me);
+    } else if (assigned) {
+      goToScreen('s-name');
     } else {
       // 새 시즌으로 명단이 초기화됐어도 자동으로 다시 등록되도록 (이미 있으면 통과 — 멱등)
       joinRoster(rememberedName).catch(err => console.warn('자동 재등록 실패:', err.message));

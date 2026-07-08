@@ -456,12 +456,13 @@ function lockPrimaryBriefly() {
 function showTooltip(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
+  // 하단 '다음' 버튼(56px + 여백)을 가리지 않도록 그 위에 띄운다
   t.style.cssText = `
-    position:absolute; bottom:20px; left:18px; right:18px;
+    position:absolute; bottom:calc(var(--safe-bottom) + 88px); left:18px; right:18px;
     background:#1c1c1e; border:1px solid rgba(251,113,133,.25); border-radius:14px;
     padding:14px 16px; font-size:13px; color:#fb7185; text-align:center;
     z-index:35; animation:fadeUp .3s var(--spring);
   `;
-  document.getElementById('s-vote').appendChild(t);
+  document.getElementById('s-vote-cast').appendChild(t);
   setTimeout(() => t.remove(), 3000);
 }

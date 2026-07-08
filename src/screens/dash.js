@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, ROLES } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
 import { openEndView } from './end.js';
 import { openHostView } from './bolt-detail.js';
 import { openBoltProgress } from './bolt-progress.js';
@@ -32,17 +32,17 @@ export function render() {
         <div>
           <p style="font-size:10px; color:#a78bfa; font-weight:700; letter-spacing:.06em;">GHOST</p>
           <p class="num" style="font-size:24px; font-weight:800; color:#a78bfa; margin-top:3px; line-height:1;">
-            <span id="gauge-ghost">956</span><span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
+            <span id="gauge-ghost">0.0</span><span id="gauge-ghost-unit" style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
           </p>
         </div>
         <div style="text-align:center; padding-bottom:2px;">
           <p style="font-size:10px; color:#3f3f46; letter-spacing:.04em;">격차</p>
-          <p class="num" id="gauge-diff" style="font-size:13px; font-weight:700; color:#38bdf8; margin-top:2px;">+292 km</p>
+          <p class="num" id="gauge-diff" style="font-size:13px; font-weight:700; color:#38bdf8; margin-top:2px;">비공개</p>
         </div>
         <div style="text-align:right;">
           <p style="font-size:10px; color:#38bdf8; font-weight:700; letter-spacing:.06em;">PACER</p>
           <p class="num" style="font-size:24px; font-weight:800; color:#38bdf8; margin-top:3px; line-height:1;">
-            <span id="gauge-pacer">1,248</span><span style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
+            <span id="gauge-pacer">0.0</span><span id="gauge-pacer-unit" style="font-size:13px; font-weight:400; opacity:.6;"> km</span>
           </p>
         </div>
       </div>
@@ -126,6 +126,14 @@ export function render() {
 export function init() {
   renderFromStore();
   subscribe(renderFromStore);
+
+  // 수치 공개 여부는 시각으로만 바뀌어(투표 18시 진입 등) store 이벤트가 없으므로,
+  // 상태가 실제로 뒤집힐 때만 다시 그린다.
+  let wasPublic = isGaugeNumbersPublic();
+  setInterval(() => {
+    const nowPublic = isGaugeNumbersPublic();
+    if (nowPublic !== wasPublic) { wasPublic = nowPublic; renderFromStore(); }
+  }, 30 * 1000);
 
   document.getElementById('dash-end-btn').addEventListener('click', () => {
     openEndView();
@@ -254,13 +262,25 @@ function renderFromStore() {
     document.getElementById('my-role-badge').style.borderColor = isPacer ? 'rgba(56,189,248,.3)' : 'rgba(192,132,252,.3)';
   }
 
-  document.getElementById('gauge-ghost').textContent = fmt(g.ghost);
-  document.getElementById('gauge-pacer').textContent = fmt(g.pacer);
-
+  // 정확한 수치는 투표 시간·종료 3일 전부터만 공개 — 평소엔 게이지 바(비율)만.
+  // 개별 번개 완료 직후 수치 변화로 참가자의 팀·역할이 역추적되는 것을 막는다.
   const diffEl = document.getElementById('gauge-diff');
-  const sign = g.diff >= 0 ? '+' : '−';
-  diffEl.textContent = `${sign}${fmt(Math.abs(g.diff))} km`;
-  diffEl.style.color = g.leader === 'ghost' ? '#a78bfa' : '#38bdf8';
+  if (isGaugeNumbersPublic()) {
+    document.getElementById('gauge-ghost').textContent = fmt(g.ghost);
+    document.getElementById('gauge-pacer').textContent = fmt(g.pacer);
+    document.getElementById('gauge-ghost-unit').style.display = '';
+    document.getElementById('gauge-pacer-unit').style.display = '';
+    const sign = g.diff >= 0 ? '+' : '−';
+    diffEl.textContent = `${sign}${fmt(Math.abs(g.diff))} km`;
+    diffEl.style.color = g.leader === 'ghost' ? '#a78bfa' : '#38bdf8';
+  } else {
+    document.getElementById('gauge-ghost').textContent = '???';
+    document.getElementById('gauge-pacer').textContent = '???';
+    document.getElementById('gauge-ghost-unit').style.display = 'none';
+    document.getElementById('gauge-pacer-unit').style.display = 'none';
+    diffEl.textContent = '🔒 비공개';
+    diffEl.style.color = '#52525b';
+  }
 
   // 점유율 비례 × 50% (중앙에서 뻗음)
   document.getElementById('gauge-bar-pacer').style.width = `${(g.pacerRatio * 50).toFixed(1)}%`;

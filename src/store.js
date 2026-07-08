@@ -268,6 +268,24 @@ export function getCalendar(now = new Date()) {
   return { start, end, dayIndex, totalDays, week, weeks, started, ended, dday, monthLabel };
 }
 
+// 투표 시간(게임 기간 중 월·목 18~22시) 여부 — vote.js와 대시보드 공개 판정이 공유
+export function isVoteWindowNow(now = new Date()) {
+  const cal = getCalendar(now);
+  if (!cal.started || cal.ended) return false;
+  const day = now.getDay(), hour = now.getHours();
+  return (day === 1 || day === 4) && hour >= 18 && hour < 22;
+}
+
+// 팀 마일리지 "숫자" 공개 여부 — 평소엔 게이지 바(비율)만 보여 개별 번개의
+// 증가분으로 참가자 팀·역할을 역추적하는 것을 막는다. 정확한 수치는
+// ① 투표 시간 동안(추리 재료) ② 종료 3일 전부터(마지막 줄다리기 스퍼트) 공개.
+export function isGaugeNumbersPublic(now = new Date()) {
+  const cal = getCalendar(now);
+  if (cal.ended) return true;
+  if (cal.started && cal.dday <= 3) return true;
+  return isVoteWindowNow(now);
+}
+
 // 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — startDate 기준 경과일로 판정.
 // 게임 시작 전(dayIndex 음수)에는 나머지 연산이 6 등으로 감겨 줄다리기로 오판되므로
 // (상대 게이지를 깎는 규칙이 잘못 발동) 시작 전에는 항상 탐색전으로 취급한다.

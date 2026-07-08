@@ -129,11 +129,26 @@ onSnapshot(gaugeDocRef, snap => {
   notify();
 }, err => console.warn('게이지 실시간 동기화 실패:', err.message));
 
+// 절대값 기록 — 문서 초기화·신규 게임 리셋 전용.
+// 게임 진행(번개 완료 등) 반영에는 절대 쓰지 말 것: 로컬 값을 통째로 올려보내면
+// 스냅샷 수신과 겹칠 때 서로 덮어써서 증가분이 유실된다 → applyGaugeDelta 사용.
 function writeGauge() {
   fetch('/api/set-gauge', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(state.game.gauge),
   }).catch(err => console.warn('게이지 저장 실패:', err.message));
+}
+
+// 증감 기록 — 서버가 원자 increment로 반영(동시 완료·스냅샷 경쟁에도 안전).
+// 로컬에도 즉시 반영해 UI가 스냅샷 왕복을 기다리지 않게 한다(0 미만은 게임 규칙상 클램프).
+function applyGaugeDelta(delta) {
+  if (!delta.pacer && !delta.ghost) return;
+  state.game.gauge.pacer = Math.max(0, state.game.gauge.pacer + delta.pacer);
+  state.game.gauge.ghost = Math.max(0, state.game.gauge.ghost + delta.ghost);
+  fetch('/api/set-gauge', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ pacerDelta: delta.pacer, ghostDelta: delta.ghost }),
+  }).catch(err => console.warn('게이지 증감 저장 실패:', err.message));
 }
 
 // 게임 설정(이름·시작일·기간) — 쓰기는 서버(/api/set-game-settings)만
@@ -254,10 +269,12 @@ export function getCalendar(now = new Date()) {
 }
 
 // 현재 단계: 탐색전(1~4일차) / 줄다리기(5~7일차) — startDate 기준 경과일로 판정.
+// 게임 시작 전(dayIndex 음수)에는 나머지 연산이 6 등으로 감겨 줄다리기로 오판되므로
+// (상대 게이지를 깎는 규칙이 잘못 발동) 시작 전에는 항상 탐색전으로 취급한다.
 export function getPhase(now = new Date()) {
   const cal = getCalendar(now);
   const gameDay = ((cal.dayIndex % 7) + 7) % 7;
-  const isTug = gameDay >= 4 && gameDay <= 6;
+  const isTug = cal.started && gameDay >= 4 && gameDay <= 6;
   return {
     phase: isTug ? 'tug' : 'scout',
     isTug,
@@ -327,18 +344,19 @@ function sweepExpiredBolts() {
     if (ACTIVE_BOLT_STATUSES.includes(b.status) && now > boltDeadline(b)) {
       const km = b.distance * CONFIG.expiredPenalty;
       b.status = 'expired';   // 로컬 즉시 반영(중복 스윕 방지)
+      const delta = { pacer: 0, ghost: 0 };
       for (const pid of b.participants) {
         const p = playerById(pid);
         if (!p) continue;
-        if (isTug) subtractOpponent(p.team, km);
-        else state.game.gauge[p.team] += km;
+        if (isTug) delta[opponentOf(p.team)] -= km;
+        else delta[p.team] += km;
         p.km += km;
         updateDoc(doc(db, 'players', pid), { km: increment(km) })
           .catch(err => console.warn('만료 페널티 반영 실패:', err.message));
       }
       updateDoc(doc(db, 'bolts', b.id), { status: 'expired' })
         .catch(err => console.warn('번개 만료 처리 실패:', err.message));
-      writeGauge();
+      applyGaugeDelta(delta);
     }
   }
 }
@@ -642,6 +660,7 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
   const { isTug } = getPhase();
   const singleTeam = isSingleTeamBolt(bolt);
   const writes = [];
+  const delta = { pacer: 0, ghost: 0 };
 
   participantIds.forEach(pid => {
     const p = playerById(pid);
@@ -654,12 +673,12 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     if (penalized) km *= CONFIG.votePenalty;
 
     if (p.role === 'anchor' && !stripped) {
-      state.game.gauge[p.team] += km;
-      subtractOpponent(p.team, km);
+      delta[p.team] += km;
+      delta[opponentOf(p.team)] -= km;
     } else if (isTug) {
-      subtractOpponent(p.team, km);
+      delta[opponentOf(p.team)] -= km;
     } else {
-      state.game.gauge[p.team] += km;
+      delta[p.team] += km;
     }
 
     writes.push(updateDoc(doc(db, 'players', pid), { km: increment(distanceKm), boltsCompleted: increment(1) }));
@@ -669,16 +688,16 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     const team = playerById(bolt.participants[0]).team;
     const heads = participantIds.length;
     if (team === 'pacer') {
-      state.game.gauge.pacer += heads * CONFIG.pacerSynergyPerHead;
+      delta.pacer += heads * CONFIG.pacerSynergyPerHead;
     } else {
-      subtractOpponent('ghost', distanceKm);
-      state.game.gauge.ghost += CONFIG.ghostGaugeShift;
+      delta.pacer -= distanceKm;
+      delta.ghost += CONFIG.ghostGaugeShift;
     }
   }
 
   writes.push(updateDoc(doc(db, 'bolts', boltId), { status: 'done' }));
   await Promise.all(writes);
-  writeGauge();
+  applyGaugeDelta(delta);
 
   const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;
   return { singleTeam, isTug, distanceKm, buffMultiplier, participantIds, participantCount: participantIds.length, boltTeam };
@@ -802,9 +821,8 @@ export async function useAbility(targetId) {
 }
 
 // ── 내부 헬퍼 ─────────────────────────────────────────────
-function subtractOpponent(myTeam, km) {
-  const opp = myTeam === 'pacer' ? 'ghost' : 'pacer';
-  state.game.gauge[opp] = Math.max(0, state.game.gauge[opp] - km);
+function opponentOf(team) {
+  return team === 'pacer' ? 'ghost' : 'pacer';
 }
 
 function isPenalized(player) {

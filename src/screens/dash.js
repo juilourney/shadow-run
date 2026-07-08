@@ -26,7 +26,7 @@ export function render() {
     <div class="bezel anim-up-1" style="padding:18px 20px; border-radius:24px;">
       <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;">
         <h2 style="font-size:16px; font-weight:700; letter-spacing:-.01em;">실시간 줄다리기</h2>
-        <p style="font-size:11px; color:#52525b; letter-spacing:.04em;">${cal.monthLabel} · D-${cal.dday}</p>
+        <p id="dash-dday" style="font-size:11px; color:#52525b; letter-spacing:.04em;">${cal.monthLabel} · D-${cal.dday}</p>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px;">
         <div>
@@ -240,6 +240,10 @@ const TIMELINE_EMPTY = `
 function renderFromStore() {
   const g  = getGauge();
   const me = getMe();
+
+  // 부팅 시 박제된 라벨 갱신 — 관리자가 게임 기간을 바꾸거나 자정을 넘겨도 반영되게
+  const cal = getCalendar();
+  document.getElementById('dash-dday').textContent = `${cal.monthLabel} · D-${cal.dday}`;
 
   if (me.team) {
     const isPacer = me.team === 'pacer';

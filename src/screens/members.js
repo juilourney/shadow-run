@@ -35,7 +35,7 @@ export function render() {
     <div class="anim-up" style="margin-bottom:14px; display:flex; align-items:center; justify-content:space-between">
       <div>
         <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">참가자</h2>
-        <p style="font-size:12px; color:#52525b; margin-top:2px">${getPlayers({ excludeSelf: true }).length}명 참가 중</p>
+        <p id="members-count" style="font-size:12px; color:#52525b; margin-top:2px">0명 참가 중</p>
       </div>
       <!-- 정렬 토글 -->
       <button id="sort-toggle"
@@ -46,12 +46,12 @@ export function render() {
       </button>
     </div>
 
-    <!-- 특수 역할 능력 상태창 -->
-    ${isSpecial ? `
-    <div id="ability-bar" class="anim-up-1" style="padding:12px 16px; border-radius:16px; margin-bottom:14px;
-      background:rgba(96,165,250,.08); border:1px solid rgba(96,165,250,.2); display:flex; align-items:center; gap:10px;">
+    <!-- 특수 역할 능력 상태창 — 부팅 시점엔 players가 비어 역할 판정이 불가하므로
+         항상 렌더해두고, 실데이터가 오면 updateAbilityBar()가 표시 여부를 결정한다 -->
+    <div id="ability-bar" class="anim-up-1" style="display:none; padding:12px 16px; border-radius:16px; margin-bottom:14px;
+      background:rgba(96,165,250,.08); border:1px solid rgba(96,165,250,.2); align-items:center; gap:10px;">
       <p style="font-size:13px; color:#93c5fd; font-weight:600;" id="ability-label">${abilityLabel}</p>
-    </div>` : ''}
+    </div>
 
     <!-- 참가자 리스트 -->
     <div id="member-list" style="display:flex; flex-direction:column; gap:8px;"></div>
@@ -70,9 +70,7 @@ export function render() {
       <div style="display:flex; justify-content:center; margin-bottom:18px;">
         <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
       </div>
-      <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;">
-        ${getAbility().kind === 'team' ? '탐정 능력' : '밀정 능력'}
-      </p>
+      <p id="ability-confirm-kind" style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;"></p>
       <h3 id="ability-confirm-title" style="font-size:19px; font-weight:700; margin-bottom:6px;"></h3>
       <p id="ability-confirm-sub" style="font-size:13px; color:#52525b; margin-bottom:22px;"></p>
       <div style="display:flex; gap:10px;">
@@ -151,6 +149,11 @@ function renderList() {
   const canUse = isSpecial && ab.left > 0;
   const revealed = ab.revealed;
   updateAbilityBar();
+
+  // 헤더 인원수 — render() 시점(부팅 직후)엔 players가 아직 비어있어 0명으로
+  // 박제되므로, 목록을 다시 그릴 때마다 함께 갱신한다.
+  const countEl = document.getElementById('members-count');
+  if (countEl) countEl.textContent = `${sorted.length}명 참가 중`;
 
   const html = sorted.map(m => {
     // 공개 팀 배지 (투표로 밝혀진 것 — 전체 공개)
@@ -262,14 +265,17 @@ function showInfoToast(msg) {
 }
 
 function updateAbilityBar() {
+  const barWrap = document.getElementById('ability-bar');
   const bar = document.getElementById('ability-label');
-  if (!bar) return;
+  if (!bar || !barWrap) return;
   const ab = getAbility();
+  barWrap.style.display = ab.isSpecial ? 'flex' : 'none';
+  if (!ab.isSpecial) return;
   const type = ab.kind === 'team' ? '🔍 팀 확인' : '🕵️ 역할 확인';
   bar.textContent = `${type} 남은 횟수: ${ab.left} / ${ab.limit}회`;
   if (ab.left === 0) {
-    document.getElementById('ability-bar').style.background = 'rgba(255,255,255,.03)';
-    document.getElementById('ability-bar').style.borderColor = 'rgba(255,255,255,.06)';
+    barWrap.style.background = 'rgba(255,255,255,.03)';
+    barWrap.style.borderColor = 'rgba(255,255,255,.06)';
     bar.style.color = '#52525b';
   }
 }
@@ -278,6 +284,7 @@ function openConfirm(id, name) {
   const ab = getAbility();
   const remaining = ab.left;
   const isDetective = ab.kind === 'team';
+  document.getElementById('ability-confirm-kind').textContent = isDetective ? '탐정 능력' : '밀정 능력';
   document.getElementById('ability-confirm-title').textContent =
     isDetective ? `${name}님의 팀을 확인하시겠습니까?` : `${name}님의 역할을 확인하시겠습니까?`;
   document.getElementById('ability-confirm-sub').textContent =

@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole } from '../store.js';
+import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity } from '../store.js';
 import { prepareCard } from './card.js';
 import { applyTeamTheme } from '../utils/theme.js';
 import { initPhase } from '../utils/phase.js';
@@ -131,6 +131,12 @@ export function render() {
       style="width:100%; height:46px; font-size:13px;">
       📖 게임 가이드 보기
     </button>
+
+    <button id="waiting-change-name"
+      style="display:block; margin:14px auto 0; background:none; border:none; cursor:pointer;
+        font-size:12px; color:#52525b; text-decoration:underline; text-underline-offset:3px;">
+      다른 이름으로 입장
+    </button>
   </div>
 
   <!-- 가이드 패널 -->
@@ -159,6 +165,13 @@ export function init() {
   // 가이드 보기 — 기존 가이드 탭 재사용
   document.getElementById('waiting-view-guide').addEventListener('click', () => {
     document.getElementById('wtab-guide').click();
+  });
+
+  // 잘못된 이름으로 저장된 경우 탈출구 — 저장 기록을 지우고 이름 입력 화면으로
+  document.getElementById('waiting-change-name').addEventListener('click', () => {
+    clearSavedIdentity();
+    state.name = '';
+    goToScreen('s-name');
   });
 
   document.getElementById('waiting-start-btn').addEventListener('click', enterGame);

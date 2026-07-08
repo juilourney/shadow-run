@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { peekConfirmedName, hasConfirmedRole, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
+import { peekConfirmedName, getSavedName, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
 
 import * as name       from './screens/name.js';
 import * as card       from './screens/card.js';
@@ -18,7 +18,7 @@ import * as vote       from './screens/vote.js';
 import * as members    from './screens/members.js';
 import * as guide      from './screens/guide.js';
 import * as waiting    from './screens/waiting.js';
-import { enterAssignedPlayer } from './screens/waiting.js';
+import { enterAssignedPlayer, prepareWaiting } from './screens/waiting.js';
 import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
@@ -183,14 +183,14 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   }, { passive: true });
 });
 
-// 이 기기에서 이미 카드·역할 확인을 마친 이름 기록이 있으면, 그 배정이 아직 유효한지
-// 확인될 때까지 잠시 기다렸다가 이름 입력 화면 없이 바로 게임 화면으로 진입시킨다.
-// (배정이 바뀌었거나 확인이 안 되면 일반적인 이름 입력 화면으로 진행)
-const confirmedName = peekConfirmedName();
-if (!confirmedName) {
+// 이 기기에 저장된 이름(마지막 입장 이름 또는 카드·역할 확인 기록)이 있으면
+// 이름 입력 화면을 건너뛰고 자동 입장시킨다. 잘못 저장된 경우를 위한 탈출구는
+// 대기실의 "이름 변경" 버튼(clearSavedIdentity).
+const rememberedName = peekConfirmedName() || getSavedName();
+if (!rememberedName) {
   goToScreen('s-name');
 } else {
-  state.name = confirmedName;
+  state.name = rememberedName;
   let resolved = false;
   let unsub = null;
   const finish = () => {
@@ -198,19 +198,25 @@ if (!confirmedName) {
     resolved = true;
     if (unsub) unsub();
   };
-  // 배정 문서가 아직 한 번도 로드되지 않았으면(=Firestore 연결/동기화 전) 절대 이름
-  // 화면으로 보내지 않고 계속 기다린다. PWA 콜드 재개 시 Firestore 재연결이 수 초 걸릴 수
-  // 있어, 시간 기반 폴백으로 이름 화면에 튕기면 "대시보드 보이다 이름창으로" 문제가 생긴다.
+  // 배정 문서가 아직 한 번도 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
+  // 하지 않고 계속 기다린다. PWA 콜드 재개 시 Firestore 재연결이 수 초 걸릴 수 있어,
+  // 시간 기반 폴백으로 이름 화면에 튕기면 "대시보드 보이다 이름창으로" 문제가 생긴다.
   // 배정이 실제로 로드된 뒤에만 판정한다:
-  //   - 이 배정이 내가 확인한 배정과 일치하고 내 이름이 있으면 → 바로 게임 화면
-  //   - 로드됐는데 일치하지 않으면(재배정·명단 이탈 등) → 이름 화면
+  //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
+  //   - 배정 전이거나 내 이름이 없으면(새 시즌 등) → 명단 재등록 후 대기실로
   const decide = () => {
     if (resolved || !isAssignmentLoaded()) return;
     finish();
     const { assigned, players } = getAssignment();
-    const me = assigned && hasConfirmedRole() ? players.find(p => p.name === confirmedName) : null;
-    if (me) enterAssignedPlayer(me);
-    else goToScreen('s-name');
+    const me = assigned ? players.find(p => p.name === rememberedName) : null;
+    if (me) {
+      enterAssignedPlayer(me);
+    } else {
+      // 새 시즌으로 명단이 초기화됐어도 자동으로 다시 등록되도록 (이미 있으면 통과 — 멱등)
+      joinRoster(rememberedName).catch(err => console.warn('자동 재등록 실패:', err.message));
+      goToScreen('s-waiting');
+      prepareWaiting();
+    }
   };
   unsub = subscribe(decide);
   decide();

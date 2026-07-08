@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
-import { joinRoster, getAssignment } from '../store.js';
+import { joinRoster, getAssignment, saveName } from '../store.js';
 
 const DEFAULT_HINT = '실명으로 입장하세요';
 const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
@@ -127,6 +127,7 @@ async function enterGame() {
 
   input.style.borderColor = '';
   state.name = name;
+  saveName(name);   // 다음부터 이름 입력 없이 자동 입장
 
   state.team = null;
   state.role = null;

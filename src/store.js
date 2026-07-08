@@ -524,6 +524,26 @@ export function markRoleConfirmed() {
   } catch {}
 }
 
+// 이 기기에서 마지막으로 입장한 이름 — 매번 이름을 다시 입력하지 않도록 저장.
+// (카드·역할 확인 전 대기실 단계에서도 자동 입장되게 하는 용도)
+const SAVED_NAME_KEY = 'sr_name';
+
+export function getSavedName() {
+  try { return localStorage.getItem(SAVED_NAME_KEY) || null; } catch { return null; }
+}
+
+export function saveName(name) {
+  try { localStorage.setItem(SAVED_NAME_KEY, name); } catch {}
+}
+
+// "이름 변경" — 저장된 이름과 확인 기록을 지워 다음 부팅부터 이름 입력 화면으로
+export function clearSavedIdentity() {
+  try {
+    localStorage.removeItem(SAVED_NAME_KEY);
+    localStorage.removeItem(CONFIRMED_KEY);
+  } catch {}
+}
+
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
 function isSingleTeamBolt(bolt) {
   if (bolt.participants.length < CONFIG.singleTeamMin) return false;

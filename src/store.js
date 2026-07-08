@@ -16,7 +16,7 @@
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
 import {
   doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
-  arrayUnion, arrayRemove, increment,
+  arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
@@ -100,6 +100,21 @@ const ADMIN_TOKEN_KEY = 'sr_admin_auth';
 function adminAuthHeaders() {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
   return token ? { authorization: `Bearer ${token}` } : {};
+}
+
+// "홈 화면에 추가"한 PWA(standalone)는 오래 백그라운드에 있다가 돌아오면 iOS가
+// 실제 네트워크 소켓까지 완전히 정지시켜, Firestore의 실시간 연결(WebChannel)이
+// 끊긴 채로 남아있는 경우가 있다 — SDK의 자체 재연결 로직이 뒤늦게 돌거나 아예
+// 멈춰서, 다른 사람이 그 사이 만든 변경사항(번개 시작 등)이 화면에 실시간으로
+// 반영되지 않고 새로고침을 해야만 보이는 문제로 이어진다. 앱이 다시 포그라운드로
+// 올 때 연결을 강제로 끊었다 다시 붙여 확실하게 재동기화시킨다.
+export async function reconnectFirestore() {
+  try {
+    await disableNetwork(db);
+    await enableNetwork(db);
+  } catch (err) {
+    console.warn('Firestore 재연결 실패:', err.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════

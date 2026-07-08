@@ -8,20 +8,19 @@ let autoAdvanced   = false;
 
 export function render() {
   return `
-<div class="screen" id="s-bolt-progress">
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 10px) 18px 40px">
+<div class="screen" id="s-bolt-progress" style="overflow:hidden;">
+  <div id="bp-team-glow" style="position:absolute; inset:0; pointer-events:none; z-index:0;"></div>
+
+  <div class="scroll-body" style="position:relative; z-index:2; padding:calc(var(--safe-top) + 10px) 18px 40px">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
       <button class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:14px; border-radius:10px" id="bp-back">← 대시보드</button>
       <span></span>
     </div>
 
-    <div style="position:relative; isolation:isolate;">
-      <div id="bp-team-glow"></div>
-      <div class="anim-up" style="text-align:center; padding:12px 0 4px;">
-        <div style="width:64px; height:64px; border-radius:20px; background:var(--accent-tint); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 12px;">⚡</div>
-        <p style="font-size:18px; font-weight:700; color:var(--accent);">번개 진행 중</p>
-        <p id="bp-title" style="font-size:13px; color:#52525b; margin-top:6px; line-height:1.6;"></p>
-      </div>
+    <div class="anim-up" style="text-align:center; padding:12px 0 4px;">
+      <div style="width:64px; height:64px; border-radius:20px; background:var(--accent-tint); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 12px;">⚡</div>
+      <p style="font-size:18px; font-weight:700; color:var(--accent);">번개 진행 중</p>
+      <p id="bp-title" style="font-size:13px; color:#52525b; margin-top:6px; line-height:1.6;"></p>
     </div>
 
     <div class="bezel anim-up-1" style="margin-top:16px; padding:20px; border-radius:22px; text-align:center;">

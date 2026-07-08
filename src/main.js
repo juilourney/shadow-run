@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { peekConfirmedName, hasConfirmedRole, getAssignment, isAssignmentLoaded, subscribe } from './store.js';
+import { peekConfirmedName, hasConfirmedRole, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
 
 import * as name       from './screens/name.js';
 import * as card       from './screens/card.js';
@@ -99,12 +99,16 @@ window.addEventListener('resize', onViewportResize);
 window.visualViewport?.addEventListener('resize', onViewportResize);
 
 // "홈 화면에 추가"한 PWA(standalone)는 백그라운드→포그라운드 전환이 일반 브라우저
-// 탭처럼 새로고침되지 않고 그대로 이어지므로, 복귀 시점에 scroll-snap을 다시
-// 재인식시켜야 스와이프 잠금이 계속 풀린 채로 남는 문제가 생기지 않는다.
+// 탭처럼 새로고침되지 않고 그대로 이어지므로, 복귀 시점에 몇 가지를 직접
+// 재점검해야 한다:
+//  - scroll-snap 재인식(게임 화면일 때만 의미 있음)
+//  - Firestore 실시간 연결 재확인(오래 백그라운드에 있으면 iOS가 소켓까지
+//    끊어버려, 그 사이 다른 사람이 만든 변경(번개 시작 등)이 반영 안 된 채로
+//    남는 문제가 있어 화면 종류와 무관하게 항상 재연결을 시도한다)
 function onAppResume() {
   if (document.hidden) return;
-  if (!document.getElementById('s-game')?.classList.contains('active')) return;
-  reengageScrollSnap();
+  reconnectFirestore();
+  if (document.getElementById('s-game')?.classList.contains('active')) reengageScrollSnap();
 }
 document.addEventListener('visibilitychange', onAppResume);
 window.addEventListener('pageshow', onAppResume);

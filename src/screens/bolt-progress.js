@@ -10,6 +10,10 @@ export function render() {
   return `
 <div class="screen" id="s-bolt-progress" style="overflow:hidden;">
   <div id="bp-team-glow" style="position:absolute; inset:0; pointer-events:none; z-index:0;"></div>
+  <div id="bp-neutral-orbs" class="game-orbs" style="display:none; z-index:0;">
+    <div class="game-orb-a"></div>
+    <div class="game-orb-b"></div>
+  </div>
 
   <div class="scroll-body" style="position:relative; z-index:2; padding:calc(var(--safe-top) + 10px) 18px 40px">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
@@ -74,7 +78,19 @@ function refresh() {
   }
 
   document.getElementById('bp-title').textContent = `${bolt.title} · ${bolt.place}`;
-  document.getElementById('bp-team-glow').className = bolt.isSingleTeam ? 'team-glow' : 'team-glow-mixed';
+
+  // 단일팀이면 내 팀 컬러 글로우, 혼합팀이면 특별한 색 없이 평소 게임 화면과
+  // 똑같은 중립 배경(game-orb-a/b)을 그대로 사용한다.
+  const glow    = document.getElementById('bp-team-glow');
+  const neutral = document.getElementById('bp-neutral-orbs');
+  if (bolt.isSingleTeam) {
+    glow.className = 'team-glow';
+    glow.style.display = 'block';
+    neutral.style.display = 'none';
+  } else {
+    glow.style.display = 'none';
+    neutral.style.display = 'block';
+  }
 
   const players = getPlayers();
   document.getElementById('bp-participants').innerHTML = bolt.participants.map(pid => {

@@ -63,17 +63,6 @@
               inset 0 0 150px 40px var(--accent-tint);
   animation: team-glow-breathe 3.6s ease-in-out infinite;
 }
-/* 혼합 번개(양 팀 섞임) — 보는 사람의 개인 팀 컬러(--accent-*)와 무관하게
-   페이서(파랑)·고스트(보라) 두 색을 좌우로 섞어 "혼합팀"임을 표시 */
-.team-glow-mixed {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  box-shadow: inset 70px 0 100px -30px rgba(56,189,248,.4),
-              inset -70px 0 100px -30px rgba(192,132,252,.4);
-  animation: team-glow-breathe 3.6s ease-in-out infinite;
-}
 
 .anim-up   { animation: fadeUp .6s var(--spring) both; }
 .anim-up-1 { animation: fadeUp .6s .08s var(--spring) both; }

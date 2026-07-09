@@ -573,6 +573,7 @@ export function isSavedNameStale() {
 export function clearSavedIdentity() {
   try {
     localStorage.removeItem(SAVED_NAME_KEY);
+    localStorage.removeItem(SAVED_SEASON_KEY);
     localStorage.removeItem(CONFIRMED_KEY);
   } catch {}
 }

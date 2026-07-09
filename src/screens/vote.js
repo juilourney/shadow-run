@@ -51,13 +51,25 @@ function getVoteStatus() {
   return { isVotingNow, nextLabel, closeDate };
 }
 
-export function render() {
-  const { nextLabel, isVotingNow } = getVoteStatus();
-  const v = getVote();
-  const me = getMe();
-  const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => `
+// 참가자 1명의 지목 카드 — v(getVote() 결과)의 castCount/left를 반영해 지목 상태를 그린다.
+// 부팅 직후 render()가 한 번 그린 뒤로 store 갱신 때마다 renderPlayerList()가 다시
+// 호출하므로, 매번 이 함수로 통일해서 그려야 지목 하이라이트가 재렌더링에도 유지된다.
+function playerRowHtml(p, i, v) {
+  const cnt = v.castCount[p.id] || 0;
+  const exhausted = v.left <= 0;
+  const highlighted = cnt > 0;
+  let btnBg = 'rgba(251,113,133,.12)', btnBorder = 'rgba(251,113,133,.3)', btnColor = '#fb7185', pe = '';
+  let label = '지목하기';
+  if (exhausted) {
+    btnBg = 'rgba(255,255,255,.03)'; btnBorder = 'rgba(255,255,255,.06)'; btnColor = '#3f3f46'; pe = 'pointer-events:none;';
+    label = cnt > 1 ? `지목됨 ×${cnt}` : cnt === 1 ? '지목됨' : '마감';
+  } else if (cnt > 0) {
+    label = cnt > 1 ? `지목됨 ×${cnt}` : '지목됨';
+  }
+  return `
     <div class="bezel anim-up-${Math.min(i + 1, 4)}" id="player-row-${p.id}"
-      style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; gap:12px;">
+      style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; gap:12px;
+        ${highlighted ? 'background:rgba(251,113,133,.08); border:1px solid rgba(251,113,133,.25);' : ''}">
       <span style="width:36px;height:36px;border-radius:50%;background:#3f3f46;
         display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
         ${p.name[0]}
@@ -67,14 +79,21 @@ export function render() {
         <p class="num" style="font-size:11px; color:#52525b; margin-top:2px">${p.km.toFixed(1)} km</p>
       </div>
       <button class="vote-btn" data-id="${p.id}" data-name="${p.name}"
-        style="background:rgba(251,113,133,.12); border:1px solid rgba(251,113,133,.3);
-          color:#fb7185; border-radius:12px; padding:0 14px; height:34px;
+        style="background:${btnBg}; border:1px solid ${btnBorder}; color:${btnColor};
+          border-radius:12px; padding:0 14px; height:34px; ${pe}
           font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
           transition:all .3s var(--spring);">
-        지목하기
+        ${label}
       </button>
     </div>
-  `).join('');
+  `;
+}
+
+export function render() {
+  const { nextLabel, isVotingNow } = getVoteStatus();
+  const v = getVote();
+  const me = getMe();
+  const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
 
   return `
 <div class="game-section" id="gs-vote">
@@ -306,25 +325,36 @@ export function init() {
     }
   };
 
-  // 리스트 지목 버튼 → 전체화면 플로우 시작
-  document.querySelectorAll('.vote-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const v = getVote();
-      if (v.left <= 0) return;
-      pendingPlayerId   = btn.dataset.id;
-      pendingPlayerName = btn.dataset.name;
-      pendingRole       = '';
-      paintRoleOpts();
-      document.getElementById('vc-avatar').textContent = pendingPlayerName[0];
-      document.getElementById('vc-name-1').textContent = pendingPlayerName;
-      document.getElementById('vc-name-2').textContent = pendingPlayerName;
-      // 더블(2표)이면 회차 표시 — 투표 과정을 두 번 반복
-      document.getElementById('vc-header-label').textContent =
-        v.total > 1 ? `투표 · ${v.total - v.left + 1}번째 지목 (총 ${v.total}회)` : '투표 · 지목';
-      showStep(1);
-      goToScreen('s-vote-cast');
+  // 참가자 목록 — render() 시점(부팅 직후)엔 players/votes가 아직 로드되기 전이라
+  // 텅 빈 채로 굳어버리므로, store 갱신마다(subscribe) 다시 그려서 뒤늦게 도착한
+  // 참가자 명단과 지목 상태를 반영한다.
+  function renderPlayerList() {
+    const container = document.getElementById('player-list');
+    if (!container) return;
+    const v = getVote();
+    container.innerHTML = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
+
+    container.querySelectorAll('.vote-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = getVote();
+        if (v.left <= 0) return;
+        pendingPlayerId   = btn.dataset.id;
+        pendingPlayerName = btn.dataset.name;
+        pendingRole       = '';
+        paintRoleOpts();
+        document.getElementById('vc-avatar').textContent = pendingPlayerName[0];
+        document.getElementById('vc-name-1').textContent = pendingPlayerName;
+        document.getElementById('vc-name-2').textContent = pendingPlayerName;
+        // 더블(2표)이면 회차 표시 — 투표 과정을 두 번 반복
+        document.getElementById('vc-header-label').textContent =
+          v.total > 1 ? `투표 · ${v.total - v.left + 1}번째 지목 (총 ${v.total}회)` : '투표 · 지목';
+        showStep(1);
+        goToScreen('s-vote-cast');
+      });
     });
-  });
+  }
+  renderPlayerList();
+  subscribe(renderPlayerList);
 
   // 다음 / 지목 확정
   primary.addEventListener('click', () => {

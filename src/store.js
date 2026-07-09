@@ -504,7 +504,8 @@ const CONFIRMED_KEY = 'sr_confirmed';
 export function hasConfirmedRole() {
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIRMED_KEY) || 'null');
-    return !!saved && saved.name === identity.name && saved.assignedAt === state.assignment.assignedAt;
+    return !!saved && !!saved.team && !!saved.role
+      && saved.name === identity.name && saved.assignedAt === state.assignment.assignedAt;
   } catch {
     return false;
   }

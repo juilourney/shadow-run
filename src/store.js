@@ -164,7 +164,7 @@ onSnapshot(settingsDocRef, snap => {
 }, err => console.warn('게임 설정 실시간 동기화 실패:', err.message));
 
 function writeGameSettings() {
-  fetch('/api/set-game-settings', {
+  return fetch('/api/set-game-settings', {
     method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ name: state.game.name, startDate: state.game.startDate, weeks: state.game.weeks }),
   }).catch(err => console.warn('게임 설정 저장 실패:', err.message));
@@ -191,7 +191,7 @@ export async function triggerAssignment() {
 }
 
 function resetAssignment() {
-  fetch('/api/assign-teams', {
+  return fetch('/api/assign-teams', {
     method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ reset: true }),
   }).catch(err => console.warn('배정 초기화 실패:', err.message));
@@ -588,8 +588,7 @@ export async function updateGameSettings({ name, startDate, weeks }) {
   return getGameSettings();
 }
 
-// 관리자 — 신규 게임 생성. 이전 게임의 게이지·배정·번개·투표·타임라인을 전부 삭제하고 새로 시작.
-// (참가자 명단(roster)은 크루 소속 정보라 시즌과 무관하게 유지)
+// 관리자 — 신규 게임 생성. 이전 게임의 게이지·배정·번개·투표·타임라인·참가자 명단을 전부 삭제하고 새로 시작.
 export async function createNewGame({ name, startDate, weeks }) {
   state.game.name = name;
   state.game.startDate = startDate;
@@ -597,8 +596,7 @@ export async function createNewGame({ name, startDate, weeks }) {
   state.game.gauge = { pacer: 0, ghost: 0 };
 
   writeGauge();
-  writeGameSettings();
-  resetAssignment();
+  await writeGameSettings();
 
   await Promise.all(
     ['bolts', 'votes', 'voteHistory', 'timeline'].map(async coll => {
@@ -610,6 +608,10 @@ export async function createNewGame({ name, startDate, weeks }) {
   // 참가자 명단도 새 시즌마다 새로 모집 — roster는 서버 전용 쓰기라 관리자 인증이 붙은
   // removeRosterMember(각 항목 삭제 API 호출)로 지운다.
   await Promise.all(state.roster.map(r => removeRosterMember(r.id).catch(err => console.warn('명단 삭제 실패:', err.message))));
+
+  // 배정 초기화는 맨 마지막에 확정 — 정리 도중 대기실을 띄워둔 다른 기기가 옛 시작일 기준으로
+  // 자동 배정을 먼저 실행해버려도(구 명단으로), 이 마지막 호출이 최종 승자가 되어 assigned:false로 되돌린다.
+  await resetAssignment();
 
   notify();
   return getGameSettings();

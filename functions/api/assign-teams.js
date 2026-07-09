@@ -59,9 +59,14 @@ export async function onRequestPost(context) {
         fetch(firestoreUrl(context.env, `players/${d.name.split('/').pop()}`), { method: 'DELETE', headers: authHeaders })
       ));
 
+      // seasonId — 새 시즌마다 값이 바뀌어, 참가자 기기가 로컬에 남겨둔 "이름 기억하기"가
+      // 이전 시즌 것인지 구분하는 용도(store.js의 getSavedName 참고).
       const resetRes = await fetch(firestoreUrl(context.env, 'game/assignment'), {
         method: 'PATCH', headers: authHeaders,
-        body: JSON.stringify({ fields: { assigned: toFirestoreValue(false), players: toFirestoreValue([]), assignedAt: toFirestoreValue(0) } }),
+        body: JSON.stringify({ fields: {
+          assigned: toFirestoreValue(false), players: toFirestoreValue([]), assignedAt: toFirestoreValue(0),
+          seasonId: toFirestoreValue(Date.now()),
+        } }),
       });
       const resetData = await resetRes.json();
       return new Response(JSON.stringify(resetData), { status: resetRes.status, headers: { 'content-type': 'application/json' } });

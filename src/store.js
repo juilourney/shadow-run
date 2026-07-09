@@ -540,13 +540,33 @@ export function markRoleConfirmed() {
 // 이 기기에서 마지막으로 입장한 이름 — 매번 이름을 다시 입력하지 않도록 저장.
 // (카드·역할 확인 전 대기실 단계에서도 자동 입장되게 하는 용도)
 const SAVED_NAME_KEY = 'sr_name';
+const SAVED_SEASON_KEY = 'sr_name_season';
 
 export function getSavedName() {
   try { return localStorage.getItem(SAVED_NAME_KEY) || null; } catch { return null; }
 }
 
+// 이름을 저장할 당시의 시즌(game/assignment.seasonId)도 함께 남겨, 그 사이 관리자가
+// "신규 게임 생성"으로 새 시즌을 열었는지 나중에(부팅 시) 구분할 수 있게 한다.
 export function saveName(name) {
-  try { localStorage.setItem(SAVED_NAME_KEY, name); } catch {}
+  try {
+    localStorage.setItem(SAVED_NAME_KEY, name);
+    localStorage.setItem(SAVED_SEASON_KEY, String(state.assignment.seasonId ?? ''));
+  } catch {}
+}
+
+// 저장된 이름이 지금과 다른(이미 지난) 시즌의 것인지 — 참이면 자동 재입장시키지 않고
+// 이름 입력부터 다시 받아야 한다(그래야 관리자가 새 시즌을 열었을 때 옛 이름으로
+// 조용히 재등록되어버리는 걸 막을 수 있다). 시즌 정보가 아직 없던(레거시) 기록은
+// 통과시켜 기존 사용자 경험을 깨지 않는다.
+export function isSavedNameStale() {
+  try {
+    const saved = localStorage.getItem(SAVED_SEASON_KEY);
+    if (saved === null) return false;
+    return saved !== String(state.assignment.seasonId ?? '');
+  } catch {
+    return false;
+  }
 }
 
 // "다른 이름으로 입장" — 저장된 이름과 확인 기록을 모두 지워 이름 입력 화면으로

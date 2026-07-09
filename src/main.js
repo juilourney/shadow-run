@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -251,6 +251,13 @@ if (confirmed && confirmed.team && confirmed.role) {
   const decide = () => {
     if (resolved || !isAssignmentLoaded()) return;
     finish();
+    // 관리자가 그 사이 "신규 게임 생성"으로 새 시즌을 열었으면, 이 기기가 기억하고 있던
+    // 이전 시즌 이름으로 조용히 재등록되지 않도록 기록을 지우고 이름 입력부터 다시 받는다.
+    if (isSavedNameStale()) {
+      clearSavedIdentity();
+      goToScreen('s-name');
+      return;
+    }
     routeByAssignment(rememberedName);
   };
   unsub = subscribe(decide);

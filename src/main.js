@@ -190,6 +190,14 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
 //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
 //   - 배정 전(모집 기간)이면 → 명단 재등록(멱등) 후 대기실로
 function routeByAssignment(name) {
+  // 관리자가 그 사이 "신규 게임 생성"으로 새 시즌을 열었으면, 이 기기가 기억하고 있던
+  // 이전 시즌 이름으로 조용히 재등록되지 않도록 기록을 지우고 이름 입력부터 다시 받는다.
+  // (확인 완료 기기의 stale 복구 경로와 단순 "이름 기억하기" 경로 양쪽에서 공유하는 최종 관문)
+  if (isSavedNameStale()) {
+    clearSavedIdentity();
+    goToScreen('s-name');
+    return;
+  }
   const { assigned, players } = getAssignment();
   const me = assigned ? players.find(p => p.name === name) : null;
   if (me) {
@@ -251,13 +259,6 @@ if (confirmed && confirmed.team && confirmed.role) {
   const decide = () => {
     if (resolved || !isAssignmentLoaded()) return;
     finish();
-    // 관리자가 그 사이 "신규 게임 생성"으로 새 시즌을 열었으면, 이 기기가 기억하고 있던
-    // 이전 시즌 이름으로 조용히 재등록되지 않도록 기록을 지우고 이름 입력부터 다시 받는다.
-    if (isSavedNameStale()) {
-      clearSavedIdentity();
-      goToScreen('s-name');
-      return;
-    }
     routeByAssignment(rememberedName);
   };
   unsub = subscribe(decide);

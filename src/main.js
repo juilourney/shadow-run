@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearSavedIdentity, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -185,6 +185,24 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   }, { passive: true });
 });
 
+// 이름은 알지만 이 배정에서의 확인은 안 된 상태 — 로드된 배정 기준으로 화면을 정한다.
+//   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
+//   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
+//   - 배정 전(모집 기간)이면 → 명단 재등록(멱등) 후 대기실로
+function routeByAssignment(name) {
+  const { assigned, players } = getAssignment();
+  const me = assigned ? players.find(p => p.name === name) : null;
+  if (me) {
+    enterAssignedPlayer(me);
+  } else if (assigned) {
+    goToScreen('s-name');
+  } else {
+    joinRoster(name).catch(err => console.warn('자동 재등록 실패:', err.message));
+    goToScreen('s-waiting');
+    prepareWaiting();
+  }
+}
+
 // 이 기기에 저장된 이름(마지막 입장 이름 또는 카드·역할 확인 기록)이 있으면
 // 이름 입력 화면을 건너뛰고 자동 입장시킨다. 잘못 저장된 경우를 위한 탈출구는
 // 대기실의 "다른 이름으로 입장" 버튼(clearSavedIdentity).
@@ -195,7 +213,7 @@ if (confirmed && confirmed.team && confirmed.role) {
   // 카드·역할까지 확인한 기기 — 저장된 팀·역할로 Firestore 응답을 기다리지 않고
   // 즉시 게임 화면으로. (PWA 재개 시 Firestore 재연결이 느려도 준비/카드 화면으로
   // 잘못 튕기지 않게 한다.) 배정이 실제로 로드된 뒤 재배정·명단 이탈이 확인되면
-  // 그때 이름 화면으로 되돌린다.
+  // 확인 기록만 지우고(이름은 유지) 새 배정 기준으로 다시 라우팅한다.
   state.name = confirmed.name;
   state.team = confirmed.team;
   state.role = confirmed.role;
@@ -212,10 +230,9 @@ if (confirmed && confirmed.team && confirmed.role) {
     const { assigned, assignedAt, players } = getAssignment();
     const stillValid = assigned && assignedAt === confirmed.assignedAt
       && players.some(p => p.name === confirmed.name);
-    if (!stillValid) {   // 재배정·새 시즌 등으로 무효화됨 — 확인 기록 지우고 이름 화면으로
-      clearSavedIdentity();
-      state.name = '';
-      goToScreen('s-name');
+    if (!stillValid) {
+      clearConfirmedRecord();   // 이름은 유지, 확인 기록만 삭제
+      routeByAssignment(confirmed.name);
     }
   });
 } else if (!rememberedName) {
@@ -230,25 +247,11 @@ if (confirmed && confirmed.team && confirmed.role) {
     if (unsub) unsub();
   };
   // 배정 문서가 아직 한 번도 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
-  // 하지 않고 계속 기다린다. 배정이 실제로 로드된 뒤에만 판정한다:
-  //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
-  //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
-  //   - 배정 전(모집 기간)이면 → 명단 재등록(멱등) 후 대기실로
+  // 하지 않고 계속 기다린다. 로드된 뒤에만 배정 기준으로 라우팅한다.
   const decide = () => {
     if (resolved || !isAssignmentLoaded()) return;
     finish();
-    const { assigned, players } = getAssignment();
-    const me = assigned ? players.find(p => p.name === rememberedName) : null;
-    if (me) {
-      enterAssignedPlayer(me);
-    } else if (assigned) {
-      goToScreen('s-name');
-    } else {
-      // 새 시즌으로 명단이 초기화됐어도 자동으로 다시 등록되도록 (이미 있으면 통과 — 멱등)
-      joinRoster(rememberedName).catch(err => console.warn('자동 재등록 실패:', err.message));
-      goToScreen('s-waiting');
-      prepareWaiting();
-    }
+    routeByAssignment(rememberedName);
   };
   unsub = subscribe(decide);
   decide();

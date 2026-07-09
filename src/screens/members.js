@@ -133,7 +133,7 @@ export function init() {
 }
 
 function getSortedMembers() {
-  const list = getPlayers({ excludeSelf: true });
+  const list = getPlayers();   // 본인 포함 — 카드에 (나)로 표시
   if (sortMode === 'name') {
     list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   } else {

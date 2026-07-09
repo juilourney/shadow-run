@@ -546,12 +546,18 @@ export function saveName(name) {
   try { localStorage.setItem(SAVED_NAME_KEY, name); } catch {}
 }
 
-// "이름 변경" — 저장된 이름과 확인 기록을 지워 다음 부팅부터 이름 입력 화면으로
+// "다른 이름으로 입장" — 저장된 이름과 확인 기록을 모두 지워 이름 입력 화면으로
 export function clearSavedIdentity() {
   try {
     localStorage.removeItem(SAVED_NAME_KEY);
     localStorage.removeItem(CONFIRMED_KEY);
   } catch {}
+}
+
+// 확인(카드·역할 뒤집기) 기록만 삭제 — 저장된 이름은 유지.
+// 재배정으로 확인 기록이 무효화됐을 때, 이름은 그대로 두고 다시 카드/대기실로 보낼 때 쓴다.
+export function clearConfirmedRecord() {
+  try { localStorage.removeItem(CONFIRMED_KEY); } catch {}
 }
 
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────

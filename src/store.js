@@ -524,12 +524,11 @@ export function peekConfirmedName() {
 
 export function markRoleConfirmed() {
   try {
-    const me = myPlayer();
     localStorage.setItem(CONFIRMED_KEY, JSON.stringify({
       name: identity.name,
       assignedAt: state.assignment.assignedAt,
-      team: me.team,
-      role: me.role,
+      team: identity.team,
+      role: identity.role,
     }));
   } catch {}
 }

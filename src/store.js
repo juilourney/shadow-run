@@ -411,9 +411,12 @@ export async function startBolt(boltId) {
 export function getVote() {
   const meP = myPlayer();
   const total = (meP.role === 'double' && !meP.abilityStripped) ? 2 : 1;
-  const myVotesUsed = state.vote.ballots.filter(b => b.voterId === meP.id).length;
+  const myBallots = state.vote.ballots.filter(b => b.voterId === meP.id);
+  const myVotesUsed = myBallots.length;
+  // 투표는 익명 지목이라 남이 누구를 지목했는지는 본인도 알면 안 됨 —
+  // castCount는 내가 직접 지목한 대상만 집계한다(집계·공개 판정은 tallyVote가 전체 ballots로 별도 처리).
   const castCount = {};
-  for (const b of state.vote.ballots) castCount[b.targetId] = (castCount[b.targetId] || 0) + 1;
+  for (const b of myBallots) castCount[b.targetId] = (castCount[b.targetId] || 0) + 1;
   return {
     total,
     used: myVotesUsed,

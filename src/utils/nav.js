@@ -1,5 +1,14 @@
 let currentScreen = null;   // 아직 어떤 .screen도 활성화되지 않은 상태 — 첫 goToScreen 호출이 실제 전환으로 인식되게 함
 let _programmaticScroll = false;
+let _bootGateRemoved = false;
+
+// 부팅 라우팅이 어느 화면으로 갈지 정해지는 순간(첫 goToScreen 호출) 부팅 게이트를 걷는다 —
+// 그 전까지는 boot-gate가 화면을 덮고 있어 대기실/카드 같은 엉뚱한 화면이 잠깐이라도 비치지 않는다.
+function removeBootGate() {
+  if (_bootGateRemoved) return;
+  _bootGateRemoved = true;
+  document.getElementById('boot-gate')?.remove();
+}
 
 export function isProgrammaticScroll() { return _programmaticScroll; }
 
@@ -43,6 +52,7 @@ export function reengageScrollSnap() {
 }
 
 export function goToScreen(id) {
+  removeBootGate();
   if (id.startsWith('gs-')) { scrollToSection(id); return; }
 
   const prev = document.getElementById(currentScreen);

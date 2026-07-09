@@ -27,6 +27,9 @@
 </head>
 <body>
 <div id="app"></div>
+<!-- 부팅 게이트 — 이름/대기실/카드 등 어느 화면으로 갈지 정해지기 전까지는 아무 화면도
+     비치지 않도록 덮어둔다. 라우팅이 정해지는 즉시(goToScreen 최초 호출) nav.js가 지운다. -->
+<div id="boot-gate" style="position:fixed; inset:0; z-index:10000; background:#050505;"></div>
 <!-- 제작자 크레딧 — 모든 화면 위에 상시 표시(터치는 통과) -->
 <div id="maker-credit"
   style="position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom, 0px) + 3px);
@@ -35,6 +38,6 @@
     letter-spacing:.22em; text-transform:uppercase; color:rgba(255,255,255,.16);">
   made by JUIL
 </div>
-<script type="module" src="src/main.js?v=98"></script>
+<script type="module" src="src/main.js?v=99"></script>
 </body>
 </html>

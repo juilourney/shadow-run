@@ -72,7 +72,14 @@ export function goToScreen(id) {
   // 다른 섹션(투표 등)이 올라옴
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
-  if (id === 's-game') reengageScrollSnap();
+  if (id === 's-game') {
+    reengageScrollSnap();
+    // iOS WebKit은 lock-scroll 해제와 같은 프레임의 재적용을 무시하는 경우가 있다
+    // (이전 화면의 500ms 퇴장 애니메이션·scrollIntoView와 겹칠 때) — 카드/역할 확인을
+    // 거쳐 처음 게임 화면에 들어온 직후 상하 스냅이 안 걸리는 증상. 전환이 끝난 뒤
+    // 한 번 더 재적용해 확실히 물린다.
+    setTimeout(reengageScrollSnap, 550);
+  }
 
   const tb     = document.getElementById('global-tabbar');
   const handle = document.getElementById('tabbar-handle');

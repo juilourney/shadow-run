@@ -1,3 +1,11 @@
+// 팀 공개 전 화면(대기실 등)으로 돌아올 때 — 이전에 적용된 팀 테마 잔재를 걷어내
+// 팀이 비공개인 단계의 버튼/포인트 컬러로 소속이 비치지 않게 한다.
+export function resetTeamTheme() {
+  const app = document.getElementById('app');
+  app.removeAttribute('data-team');
+  app.classList.remove('mesh-pacer', 'mesh-ghost');
+}
+
 export function applyTeamTheme(team) {
   const app = document.getElementById('app');
   app.setAttribute('data-team', team);

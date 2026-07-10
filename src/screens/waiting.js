@@ -2,7 +2,7 @@ import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity, isNameRegistered, isRosterLoaded } from '../store.js';
 import { prepareCard } from './card.js';
-import { applyTeamTheme } from '../utils/theme.js';
+import { applyTeamTheme, resetTeamTheme } from '../utils/theme.js';
 import { initPhase } from '../utils/phase.js';
 
 
@@ -122,8 +122,12 @@ export function render() {
       </div>
     </div>
 
-    <button id="waiting-start-btn" class="btn btn-primary"
-      style="width:100%; height:50px; font-size:15px; display:none; margin-bottom:10px;">
+    <!-- 팀 비공개 단계 — 팀 컬러(--accent) 대신 이름 화면 입장 버튼과 같은
+         두 팀 혼합 그라디언트로 "아직 팀 미정"을 표현 -->
+    <button id="waiting-start-btn" class="btn"
+      style="width:100%; height:50px; font-size:15px; display:none; margin-bottom:10px;
+        background:linear-gradient(135deg, #0ea5e9, #7c3aed); color:#fff;
+        box-shadow:0 6px 20px -6px rgba(100,100,240,.5);">
       🚀 게임 시작!
     </button>
 
@@ -242,6 +246,7 @@ export function prepareWaiting() {
   entered = false;
   pendingMe = null;
   wasInRoster = false;
+  resetTeamTheme();   // 이전에 확인했던 팀 컬러가 대기실(팀 비공개 단계)에 새지 않게
   document.getElementById('waiting-start-btn').style.display = 'none';
   refreshRegCount();
 

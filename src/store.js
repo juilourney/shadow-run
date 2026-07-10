@@ -438,12 +438,46 @@ export function getVote() {
   };
 }
 
+// 능력 사용 기록·조사 결과 영속화 — 메모리에만 두면 새로고침으로 주간 한도가
+// 초기화되고(사실상 무제한 사용) 애써 알아낸 조사 결과도 사라진다.
+// 이름·배정(assignedAt)이 함께 저장돼, 재배정·새 시즌·다른 이름 입장 시엔 자동 폐기.
+const ME_PERSIST_KEY = 'sr_me';
+let _meLoadedFor = null;
+
+function ensureMeLoaded() {
+  const key = `${identity.name}|${state.assignment.assignedAt}`;
+  if (_meLoadedFor === key) return;
+  _meLoadedFor = key;
+  state.me.abilityLog = [];
+  state.me.revealed = {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(ME_PERSIST_KEY) || 'null');
+    if (saved && saved.name === identity.name && saved.assignedAt === state.assignment.assignedAt) {
+      state.me.abilityLog = saved.abilityLog || [];
+      state.me.revealed = saved.revealed || {};
+    }
+  } catch {}
+}
+
+function persistMe() {
+  try {
+    localStorage.setItem(ME_PERSIST_KEY, JSON.stringify({
+      name: identity.name,
+      assignedAt: state.assignment.assignedAt,
+      abilityLog: state.me.abilityLog,
+      revealed: state.me.revealed,
+    }));
+  } catch {}
+}
+
 function abilityUsedThisWeek() {
+  ensureMeLoaded();
   const { week } = getPhase();
   return state.me.abilityLog.filter(e => e.week === week).length;
 }
 
 export function getAbility() {
+  ensureMeLoaded();
   const meP = myPlayer();
   const stripped = !!meP.abilityStripped;
   const isSpecial = (meP.role === 'detective' || meP.role === 'spy') && !stripped;
@@ -591,6 +625,7 @@ export function clearSavedIdentity() {
     localStorage.removeItem(SAVED_NAME_KEY);
     localStorage.removeItem(SAVED_SEASON_KEY);
     localStorage.removeItem(CONFIRMED_KEY);
+    localStorage.removeItem(ME_PERSIST_KEY);   // 능력 기록·조사 결과 — 신원이 바뀌면 함께 폐기
   } catch {}
 }
 
@@ -826,14 +861,10 @@ export async function tallyVote() {
     if (!target) continue;
 
     const targetBallots = ballots.filter(b => b.targetId === topId);
-    const update = {};
 
-    const correctN = targetBallots.filter(b => b.voterTeam && b.voterTeam !== target.team).length;
-    const teamCaught = correctN > targetBallots.length / 2;
-    if (teamCaught) {
-      update.publicTeam = target.team;
-      update.penalized  = true;
-    }
+    // 최다 득표자는 어느 팀이 지목했는지와 무관하게 팀 공개 + 마일리지 페널티 (가이드 룰)
+    const teamCaught = true;
+    const update = { publicTeam: target.team, penalized: true };
 
     let roleRevealed = false, guessFailed = false, guessedRole = null;
     const roleCount = {};
@@ -896,6 +927,7 @@ export async function tallyVote() {
 
 // 탐정/밀정 능력 사용
 export async function useAbility(targetId) {
+  ensureMeLoaded();
   const meP = myPlayer();
   if (meP.role !== 'detective' && meP.role !== 'spy') throw new Error('능력이 없습니다');
   if (meP.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
@@ -909,6 +941,7 @@ export async function useAbility(targetId) {
 
   state.me.revealed[targetId] = result;
   state.me.abilityLog.push({ week: getPhase().week });
+  persistMe();
 
   pushTimelineEvent({ kind: 'ability', abilityRole: meP.role });
 

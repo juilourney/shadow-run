@@ -107,8 +107,12 @@ window.visualViewport?.addEventListener('resize', onViewportResize);
 //  - Firestore 실시간 연결 재확인(오래 백그라운드에 있으면 iOS가 소켓까지
 //    끊어버려, 그 사이 다른 사람이 만든 변경(번개 시작 등)이 반영 안 된 채로
 //    남는 문제가 있어 화면 종류와 무관하게 항상 재연결을 시도한다)
-function onAppResume() {
+function onAppResume(e) {
   if (document.hidden) return;
+  // 최초 페이지 로드의 pageshow는 제외 — 연결이 새것이라 재연결이 불필요할 뿐 아니라,
+  // disableNetwork 순간 Firestore가 "빈 캐시" 스냅샷을 쏴서 부팅 라우팅(배정 로드 판정)이
+  // 배정 없음으로 오판하는 원인이 된다. bfcache 복원(persisted)일 때만 재연결.
+  if (e.type === 'pageshow' && !e.persisted) return;
   reconnectFirestore();
   if (document.getElementById('s-game')?.classList.contains('active')) reengageScrollSnap();
 }

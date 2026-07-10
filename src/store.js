@@ -176,15 +176,20 @@ onSnapshot(collection(db, 'roster'), snap => {
   notify();
 }, err => console.warn('명단 실시간 동기화 실패:', err.message));
 
-// 팀·역할 배정 결과 — 쓰기는 서버(/api/assign-teams)만
+// 팀·역할 배정 결과 — 쓰기는 서버(/api/assign-teams)만.
+// 배정은 부팅 라우팅(게임/대기실/이름 화면 판정)의 근거라 서버 확정 스냅샷만 신뢰한다 —
+// 재연결(disableNetwork) 중엔 빈 캐시 기준 스냅샷이 와서 "배정 없음"으로 오판할 수 있다.
 onSnapshot(doc(db, 'game', 'assignment'), snap => {
+  if (snap.metadata.fromCache) return;
   state.assignment = snap.exists() ? snap.data() : { assigned: false, players: [] };
   state.assignmentLoaded = true;
   notify();
 }, err => console.warn('배정 결과 실시간 동기화 실패:', err.message));
 
 export async function triggerAssignment() {
-  const res = await fetch('/api/assign-teams', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  // 관리자 브라우저에서는 인증 헤더가 붙어 시작 전에도 수동 마감·배정 가능.
+  // 참가자 기기는 빈 헤더 — 서버가 시작 시각 전 요청을 거절한다(경합 차단).
+  const res = await fetch('/api/assign-teams', { method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() }, body: '{}' });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '배정에 실패했습니다');
   return data;
@@ -534,6 +539,9 @@ export function markRoleConfirmed() {
       team: identity.team,
       role: identity.role,
     }));
+    // 시즌 스탬프 갱신 — 이름 저장(saveName) 시점엔 Firestore가 아직 로드 전이었을 수
+    // 있으므로, 배정이 확실히 로드돼 있는 역할 확인 시점에 다시 찍어 일치를 보장한다.
+    localStorage.setItem(SAVED_SEASON_KEY, String(state.assignment.seasonId ?? ''));
   } catch {}
 }
 
@@ -557,13 +565,13 @@ export function saveName(name) {
 
 // 저장된 이름이 지금과 다른(이미 지난) 시즌의 것인지 — 참이면 자동 재입장시키지 않고
 // 이름 입력부터 다시 받아야 한다(그래야 관리자가 새 시즌을 열었을 때 옛 이름으로
-// 조용히 재등록되어버리는 걸 막을 수 있다). 시즌 정보가 아직 없던(레거시) 기록은
-// 통과시켜 기존 사용자 경험을 깨지 않는다.
+// 조용히 재등록되어버리는 걸 막을 수 있다). 서버에 시즌 정보가 있을 때만 판정하고,
+// 기기에 시즌 기록이 없는 것도(=이번 시즌에 입장한 적 없음) 지난 시즌으로 취급한다.
 export function isSavedNameStale() {
   try {
-    const saved = localStorage.getItem(SAVED_SEASON_KEY);
-    if (saved === null) return false;
-    return saved !== String(state.assignment.seasonId ?? '');
+    const server = state.assignment.seasonId;
+    if (server == null) return false;   // 시즌 추적 도입 전 서버 문서 — 판정 불가, 통과
+    return localStorage.getItem(SAVED_SEASON_KEY) !== String(server);
   } catch {
     return false;
   }

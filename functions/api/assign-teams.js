@@ -82,6 +82,24 @@ export async function onRequestPost(context) {
       }
     }
 
+    // 게임 시작 시각 전의 참가자 기기 배정 요청은 거절 — 대기실을 켜둔 채 방치된 기기가
+    // 옛(이미 지난) 시작 시각 기준으로 자동 배정을 쏘는 경합을 서버에서 원천 차단한다.
+    // 관리자 화면의 "지금 마감하고 배정" 버튼은 인증 토큰이 있어 시작 전에도 수동 배정 가능.
+    if (!(await verifyAdminAuth(context.request, context.env))) {
+      const settingsRes = await fetch(firestoreUrl(context.env, 'game/settings'), { headers: authHeaders });
+      if (settingsRes.ok) {
+        const settings = fromFirestoreFields((await settingsRes.json()).fields);
+        if (settings.startDate) {
+          const start = Date.parse(`${settings.startDate}T00:00:00+09:00`); // 크루 기준(KST) 자정
+          if (Date.now() < start) {
+            return new Response(JSON.stringify({ error: '아직 게임 시작 전입니다' }), {
+              status: 400, headers: { 'content-type': 'application/json' }
+            });
+          }
+        }
+      }
+    }
+
     // 명단 조회
     const rosterRes = await fetch(firestoreUrl(context.env, 'roster'), { headers: authHeaders });
     const rosterData = await rosterRes.json();
@@ -108,7 +126,11 @@ export async function onRequestPost(context) {
       }) }),
     })));
 
-    const writeRes = await fetch(firestoreUrl(context.env, 'game/assignment'), {
+    // updateMask 필수 — 없으면 문서 전체가 교체되어 seasonId가 지워지고, 클라이언트의
+    // 시즌 비교(isSavedNameStale)가 배정 직후부터 전부 "시즌 바뀜"으로 오판하게 된다.
+    const writeUrl = `${firestoreUrl(context.env, 'game/assignment')}` +
+      `?updateMask.fieldPaths=assigned&updateMask.fieldPaths=players&updateMask.fieldPaths=assignedAt`;
+    const writeRes = await fetch(writeUrl, {
       method: 'PATCH', headers: authHeaders,
       body: JSON.stringify({ fields: { assigned: toFirestoreValue(true), players: toFirestoreValue(players), assignedAt: toFirestoreValue(result.assignedAt) } }),
     });

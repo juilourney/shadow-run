@@ -2,84 +2,9 @@ import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity, isNameRegistered, isRosterLoaded } from '../store.js';
 import { prepareCard } from './card.js';
+import { guideBody } from './guide.js';
 import { applyTeamTheme, resetTeamTheme } from '../utils/theme.js';
 import { initPhase } from '../utils/phase.js';
-
-
-function rowG(label, value, color = '#a1a1aa') {
-  return `
-  <div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.05);">
-    <p style="font-size:12px; font-weight:600; color:#e4e4e7; width:80px; flex-shrink:0; line-height:1.5;">${label}</p>
-    <p style="font-size:12px; color:${color}; line-height:1.6; flex:1;">${value}</p>
-  </div>`;
-}
-
-function roleRowG(role, ability, desc) {
-  return `
-  <div style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,.05);">
-    <p style="font-size:13px; font-weight:700; color:#e4e4e7; margin-bottom:3px;">${role}</p>
-    <p style="font-size:12px; color:#60a5fa; margin-bottom:2px;">${ability}</p>
-    <p style="font-size:12px; color:#71717a; line-height:1.5;">${desc}</p>
-  </div>`;
-}
-
-function sectionG(emoji, title, content) {
-  return `
-  <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:10px;">
-    <div style="display:flex; align-items:center; gap:9px; margin-bottom:12px;">
-      <span style="font-size:16px; line-height:1;">${emoji}</span>
-      <h3 style="font-size:14px; font-weight:700;">${title}</h3>
-    </div>
-    ${content}
-  </div>`;
-}
-
-const guideContent = `
-  ${sectionG('🎯', '게임 개요 및 승리 조건', `
-    <p style="font-size:12px; color:#a1a1aa; line-height:1.75; margin-bottom:8px;">페이서팀과 고스트팀이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.</p>
-    <div style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,.05);">
-      <p style="font-size:12px; font-weight:600; color:#e4e4e7; margin-bottom:4px;">승리</p>
-      <p style="font-size:12px; color:#34d399; line-height:1.6;">3주 후 게이지가 더 기운 팀이 우승합니다</p>
-    </div>
-  `)}
-  ${sectionG('🎭', '팀 및 특수 역할', `
-    <p style="font-size:12px; color:#a1a1aa; line-height:1.75; margin-bottom:8px;">각 팀에는 엘리트, 앵커, 더블, 탐정, 밀정이 하나씩 존재하며 정체는 팀원에게도 비공개입니다.</p>
-    ${roleRowG('👑 엘리트', '번개 마일리지 2배 적립', '팀의 핵심 마일리지 기여자. 투표로 적발되면 마일리지가 0.5배로 급감합니다.')}
-    ${roleRowG('⚓ 앵커', '게이지를 통째로 끌어온다', '번개 마일리지(버프 포함)만큼 상대팀 게이지에서 깎는 동시에 내 팀 게이지에 더합니다.')}
-    ${roleRowG('×2 더블', '투표 시 2표 행사', '같은 사람에게 2표 모두 사용할 수 있습니다.')}
-    ${roleRowG('🔍 탐정', '누군가의 팀 확인 (주 2회)', '[참가자 탭]에서 아군인지 적군인지 은밀히 판별합니다.')}
-    ${roleRowG('🕵️ 밀정', '누군가의 역할 확인 (주 2회)', '[참가자 탭]에서 상대의 구체적인 역할을 파악합니다.')}
-  `)}
-  ${sectionG('📅', '주간 운영 체계', `
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      <div style="background:rgba(255,255,255,.04); border-radius:12px; padding:12px 14px;">
-        <p style="font-size:11px; font-weight:700; color:#a1a1aa; letter-spacing:.04em; margin-bottom:4px;">탐색 기간 · 일 ~ 수</p>
-        <p style="font-size:12px; color:#e4e4e7; line-height:1.6;">달린 마일리지가 1:1로 게이지에 반영됩니다. 아군을 탐색하고 정보를 수집하세요.</p>
-      </div>
-      <div style="background:rgba(255,255,255,.04); border-radius:12px; padding:12px 14px;">
-        <p style="font-size:11px; font-weight:700; color:#a1a1aa; letter-spacing:.04em; margin-bottom:4px;">줄다리기 기간 · 목 ~ 토</p>
-        <p style="font-size:12px; color:#e4e4e7; line-height:1.6;">달린 만큼 상대팀 게이지에서 직접 삭감합니다. 본격적인 승부를 벌이는 시기입니다.</p>
-      </div>
-    </div>
-  `)}
-  ${sectionG('⚡', '번개와 팀 고유 스킬', `
-    ${rowG('단일팀 번개', '3~4명이 같은 팀일 때 팀 고유 스킬이 자동 발동됩니다.')}
-    ${rowG("'페이서 시너지'", '참여 인원 × 50km의 마일리지를 추가 적립합니다.', '#38bdf8')}
-    ${rowG("'고스트 게이지'", '상대팀 마일리지 삭감에 더해 게이지 바를 100km 즉시 이동시킵니다.', '#a78bfa')}
-    ${rowG('일반 번개', '팀 혼합 시 스킬 없음. 버프카드가 랜덤으로 적용되어 마일리지가 최대 3배까지 오를 수 있습니다.')}
-  `)}
-  ${sectionG('🗳️', '투표 및 정체 공개', `
-    ${rowG('일시', '주 2회 — 월요일, 목요일 18:00 ~ 22:00')}
-    ${rowG('진행', '상대 팀으로 의심되는 플레이어 1명을 지목합니다.')}
-    ${rowG('결과', '최다 득표자는 팀 소속이 공개되며, 마일리지가 영구적으로 50% 감소합니다.')}
-  `)}
-  <div style="background:rgba(56,189,248,.06); border:1px solid rgba(56,189,248,.15);
-    border-radius:18px; padding:16px 18px; margin-bottom:10px;">
-    <p style="font-size:11px; font-weight:700; color:var(--accent); margin-bottom:6px;
-      letter-spacing:.06em; text-transform:uppercase;">전략 팁</p>
-    <p style="font-size:12px; color:#a1a1aa; line-height:1.75;">탐색 기간에는 아군을 찾아 세력을 확보하고, 줄다리기 기간에는 고유 스킬과 앵커의 능력을 총동원해 게이지를 뺏어오세요. 투표를 통해 상대팀의 엘리트를 찾아내는 것이 역전의 발판입니다.</p>
-  </div>
-`;
 
 export function render() {
   return `
@@ -101,17 +26,17 @@ export function render() {
     <div style="margin-bottom:20px;">
       <p style="font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:700;
         color:#3f3f46; margin-bottom:6px;">GAME READY</p>
-      <h2 style="font-size:24px; font-weight:800; letter-spacing:-.02em; line-height:1.2;">
+      <h2 id="waiting-headline" style="font-size:24px; font-weight:800; letter-spacing:-.02em; line-height:1.2;">
         게임 시작까지<br/>잠시 기다려주세요
       </h2>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
       <div class="bezel" style="padding:16px; border-radius:20px; text-align:center;">
-        <p style="font-size:10px; color:#52525b; font-weight:600; letter-spacing:.06em; margin-bottom:8px;">시작까지</p>
+        <p id="waiting-timer-label" style="font-size:10px; color:#52525b; font-weight:600; letter-spacing:.06em; margin-bottom:8px;">시작까지</p>
         <p class="num" id="waiting-timer"
           style="font-size:26px; font-weight:800; color:var(--accent); line-height:1; letter-spacing:-.02em;">00:00</p>
-        <p style="font-size:10px; color:#52525b; margin-top:6px;">남음</p>
+        <p id="waiting-timer-sub" style="font-size:10px; color:#52525b; margin-top:6px;">남음</p>
       </div>
       <div class="bezel" style="padding:16px; border-radius:20px; text-align:center; display:flex; flex-direction:column; justify-content:center;">
         <p style="font-size:10px; color:#52525b; font-weight:600; letter-spacing:.06em; margin-bottom:8px;">참가 등록</p>
@@ -164,7 +89,7 @@ export function render() {
       <p style="font-size:12px; color:#52525b; margin-top:2px;">정체를 숨기고 아군을 찾아라! 3주간의 줄다리기 레이스</p>
     </div>
 
-    ${guideContent}
+    ${guideBody()}
   </div>
   </section>
 
@@ -308,6 +233,10 @@ export function prepareWaiting() {
   wasInRoster = false;
   resetTeamTheme();   // 이전에 확인했던 팀 컬러가 대기실(팀 비공개 단계)에 새지 않게
   document.getElementById('waiting-start-btn').style.display = 'none';
+  // 대기(카운트다운) 상태 문구로 초기화 — 배정 완료 문구가 남아있을 수 있음
+  document.getElementById('waiting-headline').innerHTML = '게임 시작까지<br/>잠시 기다려주세요';
+  document.getElementById('waiting-timer-label').textContent = '시작까지';
+  document.getElementById('waiting-timer-sub').textContent = '남음';
   refreshRegCount();
 
   // 홈 패널로 초기화 — 스냅 스크롤을 맨 위(홈)로 즉시 되돌림
@@ -361,6 +290,12 @@ function checkAssignment() {
   if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
 
+  // 배정 완료 상태로 화면 문구 전환 — "기다려주세요 + 00:00 남음"이 남아있으면
+  // 시작 버튼과 상태가 안 맞아 어색하다
+  document.getElementById('waiting-headline').innerHTML = '팀 배정이 끝났어요!<br/>지금 입장하세요';
+  document.getElementById('waiting-timer-label').textContent = '배정 상태';
+  document.getElementById('waiting-timer').textContent = '완료';
+  document.getElementById('waiting-timer-sub').textContent = '입장 가능';
   document.getElementById('waiting-start-btn').style.display = 'block';
 }
 

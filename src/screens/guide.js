@@ -33,16 +33,10 @@ function para(text) {
   return `<p style="font-size:13px; color:#a1a1aa; line-height:1.75; margin-bottom:10px;">${text}</p>`;
 }
 
-export function render() {
+// 가이드 본문 — 게임 내 가이드 탭과 대기실 가이드 패널이 공유하는 단일 원본.
+// (대기실에 복사본을 두면 내용이 서로 어긋나므로 반드시 여기만 수정할 것)
+export function guideBody() {
   return `
-<div class="game-section" id="gs-guide">
-  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 40px">
-
-    <div class="anim-up" style="padding-top:4px; margin-bottom:20px;">
-      <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">가이드</h2>
-      <p style="font-size:12px; color:#52525b; margin-top:2px;">정체를 숨기고 아군을 찾아라! 3주간의 줄다리기 레이스</p>
-    </div>
-
     ${section('🎯', '게임 개요 및 승리 조건', `
       ${para('<span style="color:#38bdf8; font-weight:700;">페이서팀</span>과 <span style="color:#c084fc; font-weight:700;">고스트팀</span>이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.')}
       <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">
@@ -111,7 +105,20 @@ export function render() {
       border-radius:20px; padding:18px 20px; margin-bottom:12px;">
       <p style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase;">전략 팁</p>
       <p style="font-size:13px; color:#a1a1aa; line-height:1.75;">탐색 기간에는 정체를 드러내지 말고 아군을 찾아 세력을 넓히는 데 집중하세요.<br/>줄다리기 기간이 시작되면 그동안 모은 정보와 팀 고유 스킬을 총동원해 게이지를 끌어오세요.<br/>투표는 상대 팀의 판도를 흔들 수 있는 결정적 변수이니, 지목과 침묵 모두 전략이 될 수 있습니다.</p>
+    </div>`;
+}
+
+export function render() {
+  return `
+<div class="game-section" id="gs-guide">
+  <div class="scroll-body" style="padding:calc(var(--safe-top) + 12px) 18px 40px">
+
+    <div class="anim-up" style="padding-top:4px; margin-bottom:20px;">
+      <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em;">가이드</h2>
+      <p style="font-size:12px; color:#52525b; margin-top:2px;">정체를 숨기고 아군을 찾아라! 3주간의 줄다리기 레이스</p>
     </div>
+
+    ${guideBody()}
 
   </div>
 

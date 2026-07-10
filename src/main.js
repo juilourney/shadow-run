@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, joinRoster, getAssignment, isAssignmentLoaded, subscribe, reconnectFirestore } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, subscribe, reconnectFirestore } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -192,7 +192,7 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
 // 이름은 알지만 이 배정에서의 확인은 안 된 상태 — 로드된 배정 기준으로 화면을 정한다.
 //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
 //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
-//   - 배정 전(모집 기간)이면 → 명단 재등록(멱등) 후 대기실로
+//   - 배정 전(모집 기간)이고 명단에 있으면 → 대기실 / 명단에 없으면(관리자 삭제) → 이름 화면
 function routeByAssignment(name) {
   // 관리자가 그 사이 "신규 게임 생성"으로 새 시즌을 열었으면, 이 기기가 기억하고 있던
   // 이전 시즌 이름으로 조용히 재등록되지 않도록 기록을 지우고 이름 입력부터 다시 받는다.
@@ -208,10 +208,14 @@ function routeByAssignment(name) {
     enterAssignedPlayer(me);
   } else if (assigned) {
     goToScreen('s-name');
-  } else {
-    joinRoster(name).catch(err => console.warn('자동 재등록 실패:', err.message));
+  } else if (isNameRegistered(name)) {
     goToScreen('s-waiting');
     prepareWaiting();
+  } else {
+    // 같은 시즌에 명단에서 이름이 사라지는 경로는 관리자 삭제뿐 — 자동 재등록으로
+    // 이름을 되살리지 않고, 저장된 기록을 지우고 처음(이름 입력)부터 다시 받는다.
+    clearSavedIdentity();
+    goToScreen('s-name');
   }
 }
 
@@ -237,7 +241,8 @@ if (confirmed && confirmed.team && confirmed.role) {
   goToScreen('s-game');
 
   const unsub = subscribe(() => {
-    if (!isAssignmentLoaded()) return;
+    // routeByAssignment가 배정과 명단을 모두 판정 근거로 쓰므로 둘 다 로드된 뒤에만
+    if (!isAssignmentLoaded() || !isRosterLoaded()) return;
     unsub();
     const { assigned, assignedAt, players } = getAssignment();
     const stillValid = assigned && assignedAt === confirmed.assignedAt
@@ -258,10 +263,10 @@ if (confirmed && confirmed.team && confirmed.role) {
     resolved = true;
     if (unsub) unsub();
   };
-  // 배정 문서가 아직 한 번도 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
-  // 하지 않고 계속 기다린다. 로드된 뒤에만 배정 기준으로 라우팅한다.
+  // 배정·명단 문서가 아직 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
+  // 하지 않고 계속 기다린다. 둘 다 로드된 뒤에만 라우팅한다.
   const decide = () => {
-    if (resolved || !isAssignmentLoaded()) return;
+    if (resolved || !isAssignmentLoaded() || !isRosterLoaded()) return;
     finish();
     routeByAssignment(rememberedName);
   };

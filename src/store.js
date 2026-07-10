@@ -49,6 +49,7 @@ const state = {
 
   voteHistory: [],   // 투표 히스토리 — voteHistory 컬렉션과 동기화
   roster: [],        // 참가자 명단(사전 등록) — roster 컬렉션과 동기화
+  rosterLoaded: false,   // roster onSnapshot이 최초 1회라도 도착했는지 (강퇴 판정용)
   assignment: { assigned: false, players: [] },  // 팀·역할 배정 결과 — game/assignment와 동기화
   assignmentLoaded: false,   // game/assignment onSnapshot이 최초 1회라도 도착했는지 (부팅 라우팅 판정용)
 
@@ -170,11 +171,18 @@ function writeGameSettings() {
   }).catch(err => console.warn('게임 설정 저장 실패:', err.message));
 }
 
-// 참가자 명단 — 쓰기는 서버(/api/roster)만
+// 참가자 명단 — 쓰기는 서버(/api/roster)만.
+// 명단은 강퇴 판정(관리자가 내 이름을 지웠는지)의 근거이기도 하므로 서버 확정 스냅샷만 신뢰.
 onSnapshot(collection(db, 'roster'), snap => {
+  if (snap.metadata.fromCache) return;
   state.roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  state.rosterLoaded = true;
   notify();
 }, err => console.warn('명단 실시간 동기화 실패:', err.message));
+
+export function isRosterLoaded() {
+  return state.rosterLoaded;
+}
 
 // 팀·역할 배정 결과 — 쓰기는 서버(/api/assign-teams)만.
 // 배정은 부팅 라우팅(게임/대기실/이름 화면 판정)의 근거라 서버 확정 스냅샷만 신뢰한다 —

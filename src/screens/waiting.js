@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity } from '../store.js';
+import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity, isNameRegistered, isRosterLoaded } from '../store.js';
 import { prepareCard } from './card.js';
 import { applyTeamTheme } from '../utils/theme.js';
 import { initPhase } from '../utils/phase.js';
@@ -236,10 +236,12 @@ let unsubscribeStore = null;
 let assigning = false;   // 배정 요청 중복 호출 방지
 let entered = false;     // 게임 화면 진입 중복 방지
 let pendingMe = null;    // 배정은 완료됐지만 아직 "게임 시작!" 버튼을 누르기 전인 내 정보
+let wasInRoster = false; // 명단에서 내 이름을 한 번이라도 확인했는지 — 등록 반영 전 오탐 방지
 
 export function prepareWaiting() {
   entered = false;
   pendingMe = null;
+  wasInRoster = false;
   document.getElementById('waiting-start-btn').style.display = 'none';
   refreshRegCount();
 
@@ -256,9 +258,27 @@ export function prepareWaiting() {
   if (unsubscribeStore) unsubscribeStore();
   unsubscribeStore = subscribe(() => {
     refreshRegCount();
+    checkKicked();
     checkAssignment();
   });
+  checkKicked();     // 진입 시점에 이미 명단이 로드돼 있으면 여기서 wasInRoster를 세워둬야
+                     // 이후 변화 없이 삭제만 일어나도 강퇴를 감지할 수 있다
   checkAssignment(); // 이미 배정된 상태로 대기실에 들어온 경우 대비
+}
+
+// 관리자가 명단에서 내 이름을 지우면 — 대기 중인 기기도 즉시 저장 기록을 지우고
+// 이름 입력 화면으로 돌려보낸다. 방금 등록해서 아직 명단 반영 전인 경우와 구분하기 위해
+// "명단에서 한 번이라도 확인된 뒤 사라진" 때만 강퇴로 판정한다.
+function checkKicked() {
+  if (!isRosterLoaded() || !state.name || getAssignment().assigned) return;
+  if (isNameRegistered(state.name)) { wasInRoster = true; return; }
+  if (!wasInRoster) return;
+
+  if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  clearSavedIdentity();
+  state.name = '';
+  goToScreen('s-name');
 }
 
 function refreshRegCount() {

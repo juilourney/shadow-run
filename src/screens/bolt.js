@@ -307,7 +307,9 @@ function openCreateOverlay() {
   distanceInput.style.borderColor = '';
   document.getElementById('create-pace').value     = '';
   overlay.style.display = 'block';
-  document.documentElement.style.overflow = 'hidden';
+  // setScrollLock — overflow만 인라인으로 잠그면 scroll-snap이 살아 있어, iOS에서
+  // 키보드가 올라온 동안 overflow:hidden이 무시될 때 배경 섹션이 스냅 스크롤로 흘러다닌다
+  setScrollLock(true);
   hideSidebar();
   requestAnimationFrame(() => requestAnimationFrame(() => {
     sheet.style.transform = 'translateX(0)';
@@ -317,7 +319,7 @@ function openCreateOverlay() {
 function closeCreateOverlay() {
   const sheet = document.getElementById('bolt-create-sheet');
   sheet.style.transform = 'translateX(100%)';
-  document.documentElement.style.overflow = '';
+  setScrollLock(false);
   showSidebar();
   setTimeout(() => { document.getElementById('bolt-create-overlay').style.display = 'none'; }, 400);
 }

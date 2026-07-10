@@ -189,6 +189,24 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   }, { passive: true });
 });
 
+// iOS는 키보드가 올라와 있는 동안 html의 overflow:hidden(lock-scroll)을 무시하고
+// 배경 문서를 손가락으로 스크롤할 수 있게 풀어버린다 — 번개 만들기 등 입력 화면
+// 밑에서 게임 섹션이 위아래로 흘러다니는 문제. 잠금 중에는 오버레이 내부의 실제
+// 스크롤 영역(overflow auto/scroll + 넘치는 내용)이 아닌 곳의 touchmove를 직접 차단한다.
+document.addEventListener('touchmove', e => {
+  if (!document.documentElement.classList.contains('lock-scroll')) return;
+  if (!e.cancelable) return;
+  let el = e.target;
+  while (el && el !== document.documentElement) {
+    if (el.scrollHeight > el.clientHeight + 2) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy === 'auto' || oy === 'scroll') return;   // 오버레이 내부 스크롤은 허용
+    }
+    el = el.parentElement;
+  }
+  e.preventDefault();
+}, { passive: false });
+
 // 이름은 알지만 이 배정에서의 확인은 안 된 상태 — 로드된 배정 기준으로 화면을 정한다.
 //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
 //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로

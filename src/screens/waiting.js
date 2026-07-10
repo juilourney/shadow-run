@@ -85,9 +85,17 @@ export function render() {
   return `
 <div class="screen" id="s-waiting" >
 
+  <!-- 본게임과 같은 세로 스냅 스크롤 — 홈/가이드 패널을 display 토글이 아니라
+       네이티브 스크롤로 넘겨 화면 전환이 부드럽게 이어진다 -->
+  <div id="waiting-scroll"
+    style="position:absolute; inset:0; overflow-y:auto;
+      scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch;">
+
   <!-- 홈 패널 -->
+  <section style="height:100%; scroll-snap-align:start; scroll-snap-stop:always;
+    overflow:hidden; display:flex; flex-direction:column;">
   <div id="wpanel-home" class="scroll-body"
-    style="position:absolute; inset:0;
+    style="flex:1;
       padding:calc(var(--safe-top) + 16px) 18px 0;">
 
     <div style="margin-bottom:20px;">
@@ -142,10 +150,13 @@ export function render() {
       다른 이름으로 입장
     </button>
   </div>
+  </section>
 
   <!-- 가이드 패널 -->
+  <section style="height:100%; scroll-snap-align:start; scroll-snap-stop:always;
+    overflow:hidden; display:flex; flex-direction:column;">
   <div id="wpanel-guide" class="scroll-body"
-    style="position:absolute; inset:0; display:none;
+    style="flex:1;
       padding:calc(var(--safe-top) + 16px) 18px 0;">
 
     <div style="margin-bottom:16px;">
@@ -154,6 +165,9 @@ export function render() {
     </div>
 
     ${guideContent}
+  </div>
+  </section>
+
   </div>
 
   <!-- 내부 탭바 (홈·가이드만) - 본게임처럼 오른쪽 사이드 스타일 적용 -->
@@ -194,45 +208,91 @@ export function init() {
     }
   });
 
-  // 내부 탭 전환
-  const tabs = [
-    { tab: 'wtab-home',  panel: 'wpanel-home' },
-    { tab: 'wtab-guide', panel: 'wpanel-guide' },
-  ];
+  // 내부 탭 전환 — 패널은 스냅 스크롤 컨테이너의 섹션이므로 스크롤로 이동
+  const tabs = ['wtab-home', 'wtab-guide'];
+  const outer = document.getElementById('waiting-scroll');
 
-  function showPanel(index) {
-    tabs.forEach((t, i) => {
-      document.getElementById(t.tab).classList.toggle('on', i === index);
-      document.getElementById(t.panel).style.display = i === index ? 'block' : 'none';
-    });
-    close();
+  function paintTabs(index) {
+    tabs.forEach((id, i) =>
+      document.getElementById(id).classList.toggle('on', i === index));
   }
 
-  tabs.forEach(({ tab }, index) => {
-    document.getElementById(tab).addEventListener('click', e => {
+  // 프로그램 전환은 rAF 트윈으로 직접 굴린다 — mandatory 스냅 컨테이너에서
+  // 네이티브 smooth 스크롤(scrollTo/scrollIntoView)은 스냅 엔진이 애니메이션을
+  // 시작 즉시 끊고 제자리로 되돌려 동작하지 않는다.
+  let panelAnim = null;
+  function showPanel(index) {
+    const startTop = outer.scrollTop;
+    const endTop = index * outer.clientHeight;
+    paintTabs(index);
+    close();
+    if (Math.abs(endTop - startTop) < 2) return;
+
+    // 주의: 스냅이 인라인으로 선언돼 있어 ''로 지우면 복원이 아니라 삭제가 된다 — 명시 값으로 되돌릴 것
+    const SNAP = 'y mandatory';
+    outer.style.scrollSnapType = 'none';   // 트윈 중간 프레임을 스냅이 가로채지 않게
+    cancelAnimationFrame(panelAnim);
+    const t0 = performance.now();
+    const DUR = 420;
+    const ease = t => 1 - Math.pow(1 - t, 3);   // easeOutCubic — 스냅 감속과 유사한 느낌
+    const step = now => {
+      const p = Math.min(1, (now - t0) / DUR);
+      outer.scrollTop = startTop + (endTop - startTop) * ease(p);
+      if (p < 1) panelAnim = requestAnimationFrame(step);
+      else { panelAnim = null; outer.style.scrollSnapType = SNAP; }
+    };
+    panelAnim = requestAnimationFrame(step);
+  }
+
+  // 트윈 도중 손가락이 닿으면 즉시 제어권을 사용자에게 — 스냅도 복원
+  outer.addEventListener('touchstart', () => {
+    if (panelAnim === null) return;
+    cancelAnimationFrame(panelAnim);
+    panelAnim = null;
+    outer.style.scrollSnapType = 'y mandatory';
+  }, { passive: true });
+
+  tabs.forEach((id, index) => {
+    document.getElementById(id).addEventListener('click', e => {
       e.stopPropagation();
       showPanel(index);
     });
   });
 
-  // 위/아래 스와이프로도 홈 ↔ 가이드 전환 (사이드 탭바는 그대로 유지)
-  const screen = document.getElementById('s-waiting');
-  let touchStartY = null;
-
-  screen.addEventListener('touchstart', e => {
-    touchStartY = e.touches[0].clientY;
+  // 손가락 스크롤로 패널이 넘어가면 탭 표시 동기화
+  outer.addEventListener('scroll', () => {
+    paintTabs(Math.round(outer.scrollTop / outer.clientHeight));
   }, { passive: true });
 
-  screen.addEventListener('touchend', e => {
-    if (touchStartY === null) return;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    touchStartY = null;
-    if (Math.abs(dy) < 60) return;   // 짧은 터치/스크롤은 무시
+  // iOS WebKit에서 내부 scroll-body가 경계에 닿았을 때 바깥 스냅 스크롤로
+  // 이어지지 않는 문제를 JS로 보완 — 본게임(main.js)과 같은 패턴
+  outer.querySelectorAll('.scroll-body').forEach((body, idx) => {
+    let startY = 0;
+    let chaining = false;
 
-    const currentIndex = tabs.findIndex(t => document.getElementById(t.tab).classList.contains('on'));
-    if (dy < 0 && currentIndex < tabs.length - 1) showPanel(currentIndex + 1);   // 위로 스와이프 → 다음
-    else if (dy > 0 && currentIndex > 0) showPanel(currentIndex - 1);           // 아래로 스와이프 → 이전
-  }, { passive: true });
+    body.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY;
+      chaining = false;
+    }, { passive: true });
+
+    body.addEventListener('touchmove', e => {
+      if (chaining) return;
+      // 내용이 화면에 다 들어오면 네이티브 스냅이 처리 — 실제 내부 스크롤이 있을 때만 보완
+      if (body.scrollHeight <= body.clientHeight + 2) return;
+
+      const dy = e.touches[0].clientY - startY;
+      const atTop    = body.scrollTop <= 0;
+      const atBottom = body.scrollHeight - body.scrollTop <= body.clientHeight + 2;
+
+      if (atTop && dy > 8 && idx > 0) {
+        chaining = true;
+        showPanel(idx - 1);
+      } else if (atBottom && dy < -8 && idx < tabs.length - 1) {
+        chaining = true;
+        showPanel(idx + 1);
+      }
+    }, { passive: true });
+  });
 }
 
 let countdownInterval = null;
@@ -250,13 +310,10 @@ export function prepareWaiting() {
   document.getElementById('waiting-start-btn').style.display = 'none';
   refreshRegCount();
 
-  // 홈 탭 초기화
-  ['wtab-home','wtab-guide'].forEach(id =>
-    document.getElementById(id).classList.remove('on'));
-  ['wpanel-home','wpanel-guide'].forEach(id =>
-    document.getElementById(id).style.display = 'none');
+  // 홈 패널로 초기화 — 스냅 스크롤을 맨 위(홈)로 즉시 되돌림
+  document.getElementById('waiting-scroll').scrollTo({ top: 0, behavior: 'instant' });
   document.getElementById('wtab-home').classList.add('on');
-  document.getElementById('wpanel-home').style.display = 'block';
+  document.getElementById('wtab-guide').classList.remove('on');
 
   startCountdown();
 

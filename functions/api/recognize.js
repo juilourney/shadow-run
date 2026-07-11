@@ -25,12 +25,12 @@ export async function onRequestPost(context) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 20,
+        max_tokens: 100,
         messages: [{
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageData } },
-            { type: 'text', text: '이건 러닝/운동 앱 스크린샷이야. 화면에 표시된 "총 달린 거리"를 킬로미터 숫자만 반환해. 예: 5.27 또는 10.3 . 마일이면 km로 환산해. 거리를 못 찾으면 정확히 NONE 이라고만 반환해. 다른 말은 절대 쓰지 마.' }
+            { type: 'text', text: '이건 러닝/운동 앱 스크린샷이야. JSON 한 줄로만 답해. 형식: {"km": 숫자|null, "at": "YYYY-MM-DDTHH:mm"|null}\n- km: 화면에 표시된 "총 달린 거리"(킬로미터). 마일이면 km로 환산. 못 찾으면 null.\n- at: 이 운동 기록의 날짜와 시각. 연도가 안 보이면 올해로 간주. "오늘"/"어제"/"2시간 전" 같은 상대 표기이거나 날짜·시각이 확실하지 않으면 null. 추측 금지.\nJSON 외 다른 텍스트는 절대 쓰지 마.' }
           ]
         }]
       })

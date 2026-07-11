@@ -786,7 +786,9 @@ export async function toggleBoltLock(boltId, locked) {
 // 번개 완료 → 마일리지·게이지 반영 (게임의 핵심 규칙)
 // card: 방장이 뽑은 버프/스킬 카드 — 결과를 번개 문서에 저장해 참가자 전원이
 // 같은 결과 화면을 볼 수 있게 한다(방장 기기에만 있으면 나머지는 결과를 못 봄).
-export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1, card = null) {
+// cert: { certPhoto, certAt } — 인증 사진과 사진 속 기록 시각. 관리자 인증 관리에서
+// 심사하고, 불인정 시 저장된 gaugeDelta로 기여분을 정확히 원복한다.
+export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1, card = null, cert = {}) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
 
@@ -833,10 +835,16 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     singleTeam, isTug, distanceKm, buffMultiplier,
     participantIds, participantCount: participantIds.length,
     boltTeam, card, boltTitle: bolt.title,
+    gaugeDelta: { ...delta },        // 불인정 시 원복용 — 완료 시점에 적용한 값 그대로 보존
+    certAt: cert.certAt ?? null,
   };
 
   // 결과를 문서에 함께 저장 — 참가자 기기들이 완료를 감지하면 같은 결과 화면을 띄운다
-  writes.push(updateDoc(doc(db, 'bolts', boltId), { status: 'done', result }));
+  writes.push(updateDoc(doc(db, 'bolts', boltId), {
+    status: 'done', result,
+    certPhoto: cert.certPhoto ?? null,
+    reviewStatus: 'pending',          // 관리자 인증 심사 대기
+  }));
   await Promise.all(writes);
   applyGaugeDelta(delta);
 
@@ -845,6 +853,55 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
   pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: participantIds.length });
 
   return result;
+}
+
+// ── 관리자 — 번개 인증 심사 ─────────────────────────────
+// 완료된 번개 목록(최신순) + 심사에 필요한 정보. 자동 만료(expired)는 사진이 없어 제외.
+export function getCertReviews() {
+  return state.bolts
+    .filter(b => b.status === 'done')
+    .map(b => ({
+      id: b.id,
+      title: b.title,
+      place: b.place,
+      time: b.time,
+      startAt: b.startAt ?? null,
+      deadline: boltDeadline(b),
+      certPhoto: b.certPhoto ?? null,
+      reviewStatus: b.reviewStatus ?? null,   // null = 심사 기능 도입 전 완료분
+      result: b.result ?? null,
+      participantNames: (b.result?.participantIds ?? b.participants ?? [])
+        .map(pid => playerById(pid)?.name ?? '?'),
+    }))
+    .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
+}
+
+export async function approveBoltCert(boltId) {
+  await updateDoc(doc(db, 'bolts', boltId), { reviewStatus: 'approved' });
+}
+
+// 불인정 — 완료 시 저장해둔 gaugeDelta를 그대로 되돌리고(이후 역할 변화와 무관하게 정확),
+// 참가자들의 개인 마일리지·완료 횟수도 원복한다. 전체 공개 타임라인에 취소 소식을 남긴다.
+export async function rejectBoltCert(boltId) {
+  const bolt = state.bolts.find(b => b.id === boltId);
+  if (!bolt || bolt.status !== 'done') throw new Error('완료된 번개가 아닙니다');
+  if (bolt.reviewStatus === 'rejected') return;
+  const r = bolt.result;
+  if (!r) throw new Error('결과 기록이 없어 원복할 수 없습니다(구버전 완료분)');
+
+  const writes = [updateDoc(doc(db, 'bolts', boltId), { reviewStatus: 'rejected' })];
+  for (const pid of r.participantIds ?? []) {
+    if (!playerById(pid)) continue;
+    writes.push(updateDoc(doc(db, 'players', pid), {
+      km: increment(-r.distanceKm), boltsCompleted: increment(-1),
+    }));
+  }
+  await Promise.all(writes);
+
+  const d = r.gaugeDelta ?? { pacer: 0, ghost: 0 };
+  applyGaugeDelta({ pacer: -d.pacer, ghost: -d.ghost });
+
+  pushTimelineEvent({ kind: 'reject', title: bolt.title });
 }
 
 // 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)

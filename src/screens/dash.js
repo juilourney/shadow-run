@@ -222,6 +222,9 @@ function timelineRow(e) {
     // km·버프 수치는 비공개(게이지 숫자 비공개 설계와 일관) — 참가자는 결과 화면에서 상세 확인
     icon = '⚡'; tint = 'rgba(56,189,248,.05)'; textColor = '#a1a1aa';
     body = `<b style="color:#e4e4e7;">${e.title}</b> 번개가 완료됐습니다 · ${e.count}명 완주`;
+  } else if (e.kind === 'reject') {
+    icon = '🚫'; tint = 'rgba(251,113,133,.06)'; textColor = '#a1a1aa';
+    body = `<b style="color:#e4e4e7;">${e.title}</b> 번개 기록이 관리자 심사로 취소됐습니다`;
   } else if (e.kind === 'ability') {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';

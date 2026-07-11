@@ -298,7 +298,8 @@ export function init() {
         // card를 함께 넘겨 결과가 번개 문서에 저장되게 한다(참가자 전원 결과 공유)
         const result = await completeBolt(
           pending.boltId, pending.distanceKm, pending.participantIds,
-          drawnCard?.multiplier ?? 1, drawnCard
+          drawnCard?.multiplier ?? 1, drawnCard,
+          { certPhoto: pending.certPhoto ?? null, certAt: pending.certAt ?? null }
         );
         markBoltResultSeen(pending.boltId);   // 방장은 지금 직접 보므로 자동 재표시 대상에서 제외
         setLastBoltResult(result);

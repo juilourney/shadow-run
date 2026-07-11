@@ -2,8 +2,9 @@ import * as login     from './screens/login.js';
 import * as dashboard from './screens/dashboard.js';
 import * as settings  from './screens/settings.js';
 import * as roster    from './screens/roster.js';
+import * as certs     from './screens/certs.js';
 
-const SCREENS = { login, dashboard, settings, roster };
+const SCREENS = { login, dashboard, settings, roster, certs };
 const app = document.getElementById('admin-app');
 
 app.innerHTML = Object.values(SCREENS).map(s => s.render()).join('');

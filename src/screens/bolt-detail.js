@@ -219,6 +219,7 @@ export function init() {
         isSingleTeam: bolt?.isSingleTeam ?? false,
         team: bolt?.isSingleTeam ? (firstParticipant?.team ?? null) : null,
         boltTitle: bolt?.title ?? '번개',
+        certPhoto, certAt,   // 관리자 인증 심사용 — 완료 시 번개 문서에 저장
       });
       openBuffView();
       goToScreen('s-bolt-buff');
@@ -268,6 +269,8 @@ function updateSubmitState() {
 
 // ── 인증 존 상태별 렌더 ──────────────────────────────────
 function renderVerifyIdle() {
+  certPhoto = null;
+  certAt = null;
   const zone = document.getElementById('verify-zone');
   zone.innerHTML = `
     <button id="verify-upload-btn" type="button"
@@ -291,6 +294,20 @@ function showAnalyzing() {
 function showResult(km) {
   const ok = km >= targetKm;
   verifiedKm = ok ? km : null;
+
+  // 사진 속 기록 시각 표시 — 번개 일정(시작~인증 마감)과 어긋나면 어긋남 표시
+  let certLine = '';
+  if (certAt) {
+    const bolt = getBolts().find(b => b.id === activeBoltId);
+    const stale = bolt?.startAt
+      && (certAt < bolt.startAt - 30 * 60 * 1000 || (bolt.deadline !== Infinity && certAt > bolt.deadline));
+    const label = new Date(certAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    certLine = `
+      <p style="font-size:12px; margin-top:8px; color:${stale ? '#fbbf24' : '#52525b'};">
+        사진 기록 시각: ${label}${stale ? ' · ⚠️ 번개 일정과 달라요' : ''}
+      </p>`;
+  }
+
   const zone = document.getElementById('verify-zone');
   zone.innerHTML = `
     <div style="padding:16px; border-radius:16px;
@@ -305,6 +322,7 @@ function showResult(km) {
         <span style="font-size:13px; font-weight:700; text-align:right; color:${ok ? '#34d399' : '#fb7185'};">
           ${ok ? '✅ 인증 완료' : `❌ ${targetKm.toFixed(1)}km 미달`}</span>
       </div>
+      ${certLine}
       <button id="verify-retry" type="button"
         style="margin-top:12px; width:100%; height:40px; border-radius:12px;
           background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
@@ -339,13 +357,19 @@ function showManualFallback() {
 }
 
 // ── 업로드 + AI 인식 (runluck 방식) ──────────────────────
+// 인증 사진과 사진 속 기록 시각 — 제출 시 번개 문서에 저장되어 관리자 인증 관리에서 심사
+let certPhoto = null;
+let certAt = null;
+
 async function handleUpload(file) {
   showAnalyzing();
   const small = await resizeImage(file, 600, 0.65);
   if (!small) { showManualFallback(); return; }
-  const km = await recognizeDistance(small);
-  if (km === null) { showManualFallback(); return; }
-  showResult(km);
+  certPhoto = small;
+  const rec = await recognizeCert(small);
+  certAt = rec?.at ?? null;
+  if (rec?.km == null) { showManualFallback(); return; }
+  showResult(rec.km);
 }
 
 function resizeImage(file, max, q) {
@@ -365,7 +389,8 @@ function resizeImage(file, max, q) {
   });
 }
 
-async function recognizeDistance(dataUrl) {
+// 사진에서 거리(km)와 기록 시각을 함께 인식 — { km: number|null, at: ms|null }
+async function recognizeCert(dataUrl) {
   const b64   = dataUrl.split(',')[1];
   const media = dataUrl.slice(5, dataUrl.indexOf(';'));
   const abort = new AbortController();
@@ -381,12 +406,19 @@ async function recognizeDistance(dataUrl) {
     if (!res.ok) return null;
     const data = await res.json();
     const txt = (data.content?.[0]?.text ?? '').trim();
-    if (/NONE/i.test(txt)) return null;
-    const m = txt.match(/(\d+(?:\.\d+)?)/);
-    if (!m) return null;
-    const v = parseFloat(m[1]);
-    if (isNaN(v) || v <= 0 || v > 200) return null;
-    return Math.round(v * 100) / 100;
+    let parsed = null;
+    try { parsed = JSON.parse(txt.match(/\{[\s\S]*\}/)?.[0] ?? 'null'); } catch {}
+    if (!parsed) return null;
+
+    let km = typeof parsed.km === 'number' ? Math.round(parsed.km * 100) / 100 : null;
+    if (km !== null && (km <= 0 || km > 200)) km = null;
+
+    let at = null;
+    if (typeof parsed.at === 'string') {
+      const t = Date.parse(parsed.at);
+      if (!isNaN(t)) at = t;
+    }
+    return { km, at };
   } catch {
     clearTimeout(timer);
     return null;

@@ -218,6 +218,10 @@ function timelineRow(e) {
   } else if (e.kind === 'role') {
     icon = '🎭'; tint = 'rgba(52,211,153,.06)'; textColor = '#e4e4e7';
     body = `<b>${e.name}</b> 님의 역할이 공개됐습니다 (<span style="color:#34d399; font-weight:700;">${ROLES[e.role].name}</span>)`;
+  } else if (e.kind === 'bolt') {
+    // km·버프 수치는 비공개(게이지 숫자 비공개 설계와 일관) — 참가자는 결과 화면에서 상세 확인
+    icon = '⚡'; tint = 'rgba(56,189,248,.05)'; textColor = '#a1a1aa';
+    body = `<b style="color:#e4e4e7;">${e.title}</b> 번개가 완료됐습니다 · ${e.count}명 완주`;
   } else if (e.kind === 'ability') {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';

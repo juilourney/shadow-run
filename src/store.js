@@ -784,7 +784,9 @@ export async function toggleBoltLock(boltId, locked) {
 }
 
 // 번개 완료 → 마일리지·게이지 반영 (게임의 핵심 규칙)
-export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1) {
+// card: 방장이 뽑은 버프/스킬 카드 — 결과를 번개 문서에 저장해 참가자 전원이
+// 같은 결과 화면을 볼 수 있게 한다(방장 기기에만 있으면 나머지는 결과를 못 봄).
+export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1, card = null) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
 
@@ -826,12 +828,23 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     }
   }
 
-  writes.push(updateDoc(doc(db, 'bolts', boltId), { status: 'done' }));
+  const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;
+  const result = {
+    singleTeam, isTug, distanceKm, buffMultiplier,
+    participantIds, participantCount: participantIds.length,
+    boltTeam, card, boltTitle: bolt.title,
+  };
+
+  // 결과를 문서에 함께 저장 — 참가자 기기들이 완료를 감지하면 같은 결과 화면을 띄운다
+  writes.push(updateDoc(doc(db, 'bolts', boltId), { status: 'done', result }));
   await Promise.all(writes);
   applyGaugeDelta(delta);
 
-  const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;
-  return { singleTeam, isTug, distanceKm, buffMultiplier, participantIds, participantCount: participantIds.length, boltTeam };
+  // 전체 공개 소식 — 게이지 숫자 비공개 설계를 지키기 위해 km·버프 수치는 싣지 않는다
+  // (상세 결과는 참가자 전용 결과 화면에서만)
+  pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: participantIds.length });
+
+  return result;
 }
 
 // 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)

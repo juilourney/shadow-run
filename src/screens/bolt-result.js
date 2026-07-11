@@ -1,5 +1,23 @@
 import { goToScreen } from '../utils/nav.js';
-import { getLastBoltResult, getPlayers, CONFIG } from '../store.js';
+import { getLastBoltResult, setLastBoltResult, getBolts, getMe, getPlayers, subscribe, CONFIG } from '../store.js';
+import { state as identity } from '../state.js';
+
+// 이 기기에서 이미 확인한 번개 결과 — 완료된 번개의 결과 화면을 참가자마다
+// 딱 한 번만 자동으로 띄우기 위한 기록(새로고침에도 유지되게 localStorage 저장)
+const SEEN_KEY = 'sr_seen_bolt_results';
+
+function loadSeenResults() {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch { return []; }
+}
+
+export function markBoltResultSeen(boltId) {
+  try {
+    const seen = loadSeenResults();
+    if (seen.includes(boltId)) return;
+    seen.push(boltId);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen.slice(-100)));
+  } catch {}
+}
 
 export function render() {
   return `
@@ -167,5 +185,24 @@ function calcTotal(singleTeam, team, distanceKm, buffMultiplier, count) {
 export function init() {
   document.getElementById('result-confirm-btn').addEventListener('click', () => {
     goToScreen('gs-bolt');
+  });
+
+  // 참가자 결과 공유 — 내가 참여한 번개가 완료되면(방장이 인증) 이 기기에서도
+  // 같은 결과 화면을 자동으로 띄운다. 게임 화면 진입 전(카드·역할 확인 중)에는
+  // 미뤄뒀다가 진입 후 첫 갱신 때 표시되고, 한 번 본 결과는 다시 뜨지 않는다.
+  subscribe(() => {
+    if (!identity.roleConfirmed) return;
+    const myId = getMe().id;
+    if (!myId) return;
+    const seen = loadSeenResults();
+    const done = getBolts().find(b =>
+      b.status === 'done' && b.result &&
+      b.result.participantIds?.includes(myId) && !seen.includes(b.id));
+    if (!done) return;
+
+    markBoltResultSeen(done.id);
+    setLastBoltResult(done.result);
+    openResultView();
+    goToScreen('s-bolt-result');
   });
 }

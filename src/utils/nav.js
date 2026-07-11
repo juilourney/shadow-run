@@ -95,7 +95,8 @@ export function goToScreen(id) {
     // 게임 화면 진입 시 항상 홈(대시보드)에서 시작 — 예전 스크롤 위치가 남아있으면
     // 엉뚱한 섹션이 먼저 보이는 문제 방지. scrollToSection이 다른 섹션을 원하면
     // 뒤이어 다시 스크롤하므로 여기서는 무조건 gs-dash로 리셋해도 안전하다.
-    document.getElementById('gs-dash')?.scrollIntoView({ block: 'start' });
+    // (behavior 미지정 시 html의 scroll-behavior:smooth가 적용돼 애니메이션이 됨 — instant 필수)
+    document.getElementById('gs-dash')?.scrollIntoView({ behavior: 'instant', block: 'start' });
   } else {
     tb.style.display = 'none';
     if (handle) handle.style.display = 'none';
@@ -112,10 +113,11 @@ export function scrollToSection(gsId) {
 
   if (enter) {
     goToScreen('s-game');
-    setTimeout(() => {
-      document.getElementById(gsId)?.scrollIntoView({ block: 'start' });
-      setActiveTab(SECTION_TAB[gsId] || 'home');
-    }, 60);
+    // 동기 + instant로 즉시 목표 섹션에 정렬 — html의 scroll-behavior:smooth 때문에
+    // behavior를 명시하지 않으면 애니메이션 이동이 되어, 스냅·화면 퇴장 애니메이션과
+    // 경합해 엉뚱한 위치에 걸린다(결과 화면 확인 → 번개 화면 이동이 갈피를 못 잡던 원인).
+    document.getElementById(gsId)?.scrollIntoView({ behavior: 'instant', block: 'start' });
+    setActiveTab(SECTION_TAB[gsId] || 'home');
   } else {
     document.getElementById(gsId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setActiveTab(SECTION_TAB[gsId] || 'home');

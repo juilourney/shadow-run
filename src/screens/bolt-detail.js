@@ -295,8 +295,9 @@ function showResult(km) {
   const ok = km >= targetKm;
   verifiedKm = ok ? km : null;
 
-  // 사진 속 기록 시각 표시 — 번개 일정(시작~인증 마감)과 어긋나면 어긋남 표시
-  let certLine = '';
+  // 사진 속 기록 시각 표시 — 번개 일정(시작~인증 마감)과 어긋나면 어긋남 표시.
+  // 인식이 안 된 경우에도 "인식 안 됨"을 보여줘 정상 동작(구버전과 구분) 여부를 알 수 있게 한다.
+  let certLine;
   if (certAt) {
     const bolt = getBolts().find(b => b.id === activeBoltId);
     const stale = bolt?.startAt
@@ -305,6 +306,11 @@ function showResult(km) {
     certLine = `
       <p style="font-size:12px; margin-top:8px; color:${stale ? '#fbbf24' : '#52525b'};">
         사진 기록 시각: ${label}${stale ? ' · ⚠️ 번개 일정과 달라요' : ''}
+      </p>`;
+  } else {
+    certLine = `
+      <p style="font-size:12px; margin-top:8px; color:#3f3f46;">
+        사진 기록 시각: 인식 안 됨
       </p>`;
   }
 

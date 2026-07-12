@@ -1,12 +1,12 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
   ghost: { label: '고스트', color: '#a78bfa' },
 };
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
+// 참여자 목록은 별도 '참가자 명단' 메뉴로 분리 — 대시보드는 히스토리만
 const TABS = [
-  { key: 'players', label: '참여자' },
   { key: 'votes',   label: '투표 히스토리' },
   { key: 'bolts',   label: '번개 히스토리' },
 ];
@@ -14,7 +14,7 @@ const TABS = [
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fmtDate = ts => new Date(ts).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-let activeTab = 'players';
+let activeTab = 'votes';
 
 export function render() {
   return `
@@ -60,26 +60,6 @@ export function render() {
 </div>`;
 }
 
-function playersBody() {
-  const players = getPlayers();
-  const groups = ['pacer', 'ghost'].map(team => {
-    const list = players.filter(p => p.team === team);
-    const t = TEAM[team];
-    return `
-      <div style="padding:10px 16px; font-size:12px; font-weight:700; color:${t.color}; background:rgba(255,255,255,.02);">${t.label} · ${list.length}명</div>
-      ${list.map(p => `
-        <div class="admin-row">
-          <div>
-            <p style="font-size:14px; font-weight:600;">${p.name}</p>
-            <p style="font-size:11px; color:#71717a; margin-top:2px;">${ROLES[p.role]?.name ?? p.role}</p>
-          </div>
-          <span class="num" style="font-size:14px; font-weight:700;">${fmt(p.km)} km</span>
-        </div>`).join('')}
-    `;
-  }).join('');
-  return groups;
-}
-
 function votesBody() {
   const history = getVoteHistory();
   if (history.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">아직 투표 기록이 없습니다.</p>`;
@@ -112,7 +92,7 @@ function boltsBody() {
     </div>`).join('');
 }
 
-const BODY_RENDERERS = { players: playersBody, votes: votesBody, bolts: boltsBody };
+const BODY_RENDERERS = { votes: votesBody, bolts: boltsBody };
 
 function renderTabBody() {
   document.getElementById('admin-tab-body').innerHTML = BODY_RENDERERS[activeTab]();

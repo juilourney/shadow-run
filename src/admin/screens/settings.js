@@ -19,7 +19,6 @@ export function render() {
   <div class="admin-shell">
     <div class="admin-header">
       <h2 style="font-size:22px; font-weight:700;">게임 기간 설정</h2>
-      <button class="btn btn-secondary" id="settings-back-btn" style="height:40px; padding:0 16px;">← 대시보드</button>
     </div>
 
     <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">현재 게임 관리</p>
@@ -82,8 +81,6 @@ function refreshNewRange() {
 }
 
 export function init(goTo) {
-  document.getElementById('settings-back-btn').addEventListener('click', () => goTo('dashboard'));
-
   document.getElementById('cur-save-btn').addEventListener('click', async () => {
     await updateGameSettings({
       name: document.getElementById('cur-name').value.trim(),

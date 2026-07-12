@@ -1,15 +1,82 @@
-/* 관리자 화면 전용 레이아웃 — 참가자 앱(#app, max-width:430px)과 분리된 데스크톱 우선 레이아웃 */
+/* 관리자 화면 전용 레이아웃 — 본게임과 같은 상하 스냅 슬라이드 + 오른쪽 플로팅 메뉴 */
 #admin-app {
   min-height: 100dvh;
   background: var(--ink);
 }
 
-.admin-screen {
+/* 로그인 — 전체를 덮는 오버레이(인증 전에는 이것만 보임) */
+#admin-login {
   display: none;
-  min-height: 100dvh;
-  padding: 32px 24px calc(32px + var(--safe-bottom));
+  position: fixed; inset: 0; z-index: 80;
+  background: var(--ink);
+  padding: 32px 24px;
+  overflow-y: auto;
 }
-.admin-screen.active { display: block; }
+#admin-login.active { display: block; }
+
+/* 스냅 스크롤 컨테이너 — 메뉴(대시보드/인증/명단/설정)가 한 화면씩 상하로 넘어감 */
+#admin-scroll {
+  position: fixed; inset: 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-section {
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.admin-section .admin-screen {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(24px + var(--safe-top)) 20px calc(48px + var(--safe-bottom));
+}
+
+/* 오른쪽 플로팅 메뉴 — 본게임 사이드 탭바와 같은 사용감 */
+#admin-tab-handle {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+  z-index: 60; width: 22px; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#admin-tab-handle span {
+  width: 4px; height: 48px; border-radius: 99px;
+  background: rgba(255,255,255,.22);
+}
+#admin-tab-handle.hidden { opacity: 0; pointer-events: none; }
+
+#admin-tabbar {
+  position: fixed; right: 10px; top: 50%;
+  transform: translateY(-50%) translateX(84px);
+  z-index: 70;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 8px;
+  background: rgba(18,18,21,.92);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0; pointer-events: none;
+  transition: transform .35s var(--spring), opacity .3s;
+}
+#admin-tabbar.open {
+  transform: translateY(-50%) translateX(0);
+  opacity: 1; pointer-events: auto;
+}
+.admin-side-tab {
+  width: 46px; height: 46px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.admin-side-tab.on {
+  background: var(--accent-tint);
+  border-color: var(--accent-border);
+}
 
 .admin-shell {
   max-width: 720px;

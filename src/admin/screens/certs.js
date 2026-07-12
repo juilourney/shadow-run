@@ -12,7 +12,6 @@ export function render() {
   <div class="admin-shell">
     <div class="admin-header">
       <h2 style="font-size:22px; font-weight:700;">번개 인증 관리</h2>
-      <button class="btn btn-secondary" id="certs-back-btn" style="height:40px; padding:0 16px;">← 대시보드</button>
     </div>
 
     <p style="font-size:12px; color:#71717a; margin-bottom:14px;">
@@ -88,8 +87,6 @@ function refresh() {
 }
 
 export function init(goTo) {
-  document.getElementById('certs-back-btn').addEventListener('click', () => goTo('dashboard'));
-
   document.getElementById('certs-list').addEventListener('click', async e => {
     const approve = e.target.closest('.cert-approve-btn');
     const reject  = e.target.closest('.cert-reject-btn');

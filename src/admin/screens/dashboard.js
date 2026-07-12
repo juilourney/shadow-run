@@ -28,11 +28,7 @@ export function render() {
           <span id="admin-game-dday" style="font-size:12px; color:#71717a;"></span>
         </div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-        <button class="btn btn-secondary" id="admin-certs-btn" style="height:40px; padding:0 16px;">인증 관리<span id="admin-certs-pending"></span></button>
-        <button class="btn btn-secondary" id="admin-roster-btn" style="height:40px; padding:0 16px;">참가자 명단</button>
-        <button class="btn btn-secondary" id="admin-settings-btn" style="height:40px; padding:0 16px;">게임 설정</button>
-      </div>
+      <span id="admin-certs-pending" style="font-size:12px; color:#fbbf24; font-weight:700; flex-shrink:0;"></span>
     </div>
 
     <div class="bezel" style="padding:16px 18px; border-radius:20px; margin-bottom:20px;">
@@ -150,16 +146,13 @@ function refresh() {
   assignBtn.textContent = assignment.assigned ? '배정 완료됨' : '지금 마감하고 배정';
 
   const pendingCerts = getBolts().filter(b => b.status === 'done' && b.reviewStatus === 'pending').length;
-  document.getElementById('admin-certs-pending').innerHTML =
-    pendingCerts ? ` <span style="color:#fbbf24; font-weight:700;">${pendingCerts}</span>` : '';
+  document.getElementById('admin-certs-pending').textContent =
+    pendingCerts ? `인증 대기 ${pendingCerts}건` : '';
 
   renderTabBody();
 }
 
 export function init(goTo) {
-  document.getElementById('admin-settings-btn').addEventListener('click', () => goTo('settings'));
-  document.getElementById('admin-roster-btn').addEventListener('click', () => goTo('roster'));
-  document.getElementById('admin-certs-btn').addEventListener('click', () => goTo('certs'));
   document.getElementById('admin-assign-btn').addEventListener('click', async () => {
     if (!confirm('지금 모집을 마감하고 팀·역할을 배정할까요? 되돌릴 수 없습니다.')) return;
     try {

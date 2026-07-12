@@ -6,7 +6,6 @@ export function render() {
   <div class="admin-shell">
     <div class="admin-header">
       <h2 style="font-size:22px; font-weight:700;">참가자 명단</h2>
-      <button class="btn btn-secondary" id="roster-back-btn" style="height:40px; padding:0 16px;">← 대시보드</button>
     </div>
 
     <p style="font-size:12px; color:#71717a; margin-bottom:14px;">게임 시작 전 참여 가능한 실명 목록입니다. 참가자는 이 명단에 있는 이름으로만 입장할 수 있습니다.</p>
@@ -51,8 +50,6 @@ function showError(msg) {
 }
 
 export function init(goTo) {
-  document.getElementById('roster-back-btn').addEventListener('click', () => goTo('dashboard'));
-
   const nameInput = document.getElementById('roster-new-name');
 
   document.getElementById('roster-add-btn').addEventListener('click', async () => {

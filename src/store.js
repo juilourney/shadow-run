@@ -849,8 +849,8 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
   applyGaugeDelta(delta);
 
   // 전체 공개 소식 — 게이지 숫자 비공개 설계를 지키기 위해 km·버프 수치는 싣지 않는다
-  // (상세 결과는 참가자 전용 결과 화면에서만)
-  pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: participantIds.length });
+  // (상세 결과는 참가자 전용 결과 화면에서만). boltId는 불인정 시 이 소식을 지우는 데 쓴다.
+  pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: participantIds.length, boltId });
 
   return result;
 }
@@ -895,6 +895,13 @@ export async function rejectBoltCert(boltId) {
     writes.push(updateDoc(doc(db, 'players', pid), {
       km: increment(-r.distanceKm), boltsCompleted: increment(-1),
     }));
+  }
+  // 이 번개의 "완료됐습니다" 소식 삭제 — 남겨두면 취소 소식과 완료 소식이 나란히 보여
+  // 다시 완료된 것처럼 오해를 부른다
+  for (const e of state.timeline) {
+    if (e.kind === 'bolt' && e.boltId === boltId) {
+      writes.push(deleteDoc(doc(db, 'timeline', e.id)));
+    }
   }
   await Promise.all(writes);
 

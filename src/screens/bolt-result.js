@@ -196,7 +196,7 @@ export function init() {
     if (!myId) return;
     const seen = loadSeenResults();
     const done = getBolts().find(b =>
-      b.status === 'done' && b.result &&
+      b.status === 'done' && b.result && b.reviewStatus !== 'rejected' &&
       b.result.participantIds?.includes(myId) && !seen.includes(b.id));
     if (!done) return;
 

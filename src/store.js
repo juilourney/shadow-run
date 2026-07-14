@@ -16,7 +16,7 @@
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
 import {
   doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
-  arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork,
+  arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork, runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
@@ -366,31 +366,50 @@ export function boltDeadline(bolt) {
 }
 
 // 마감 지난 진행 중(open/running) 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
-// 로컬 상태를 즉시 갱신해 같은 기기에서 중복 처리되지 않게 막고, Firestore 반영은
-// 백그라운드로 진행(다른 기기와 거의 동시에 감지되는 극히 드문 경우의 중복 반영은 감수).
+// 여러 기기가 거의 동시에 마감을 감지하므로, 트랜잭션으로 상태 전환을 선점한 기기 하나만
+// 페널티(마일리지·게이지)를 반영한다 — 중복 반영 방지.
 function sweepExpiredBolts() {
   const now = Date.now();
   const { isTug } = getPhase();
   for (const b of state.bolts) {
     if (ACTIVE_BOLT_STATUSES.includes(b.status) && now > boltDeadline(b)) {
-      const km = b.distance * CONFIG.expiredPenalty;
-      b.status = 'expired';   // 로컬 즉시 반영(중복 스윕 방지)
-      const delta = { pacer: 0, ghost: 0 };
-      for (const pid of b.participants) {
-        const p = playerById(pid);
-        if (!p) continue;
-        if (isTug) delta[opponentOf(p.team)] -= km;
-        else delta[p.team] += km;
-        p.km += km;
-        updateDoc(doc(db, 'players', pid), { km: increment(km) })
-          .catch(err => console.warn('만료 페널티 반영 실패:', err.message));
-      }
-      updateDoc(doc(db, 'bolts', b.id), { status: 'expired' })
-        .catch(err => console.warn('번개 만료 처리 실패:', err.message));
-      applyGaugeDelta(delta);
+      b.status = 'expired';   // 로컬 즉시 반영(이 기기의 중복 스윕 방지)
+      claimAndApplyExpiry(b, isTug);
     }
   }
 }
+
+async function claimAndApplyExpiry(b, isTug) {
+  // 상태 전환 선점 — 아직 진행 중(open/running)일 때만 expired로 바꾸는 데 성공한
+  // 기기가 승자. 이미 다른 기기가 바꿨으면(또는 완료됐으면) 아무것도 반영하지 않는다.
+  let won = false;
+  try {
+    won = await runTransaction(db, async tx => {
+      const snap = await tx.get(doc(db, 'bolts', b.id));
+      if (!snap.exists() || !ACTIVE_BOLT_STATUSES.includes(snap.data().status)) return false;
+      tx.update(doc(db, 'bolts', b.id), { status: 'expired' });
+      return true;
+    });
+  } catch (err) {
+    console.warn('만료 처리 실패:', err.message);
+    return;
+  }
+  if (!won) return;
+
+  const km = b.distance * CONFIG.expiredPenalty;
+  const delta = { pacer: 0, ghost: 0 };
+  for (const pid of b.participants) {
+    const p = playerById(pid);
+    if (!p) continue;
+    if (isTug) delta[opponentOf(p.team)] -= km;
+    else delta[p.team] += km;
+    p.km += km;
+    updateDoc(doc(db, 'players', pid), { km: increment(km) })
+      .catch(err => console.warn('만료 페널티 반영 실패:', err.message));
+  }
+  applyGaugeDelta(delta);
+}
+
 
 export function getBolts() {
   sweepExpiredBolts();
@@ -670,6 +689,7 @@ export async function createNewGame({ name, startDate, weeks }) {
   writeGauge();
   await writeGameSettings();
 
+  // certPhotos는 클라이언트 쓰기가 막힌 컬렉션 — 서버 리셋(/api/assign-teams reset)이 함께 지운다
   await Promise.all(
     ['bolts', 'votes', 'voteHistory', 'timeline'].map(async coll => {
       const snap = await getDocs(collection(db, coll));
@@ -839,12 +859,21 @@ export async function completeBolt(boltId, distanceKm, participantIds, buffMulti
     certAt: cert.certAt ?? null,
   };
 
-  // 결과를 문서에 함께 저장 — 참가자 기기들이 완료를 감지하면 같은 결과 화면을 띄운다
+  // 결과를 문서에 함께 저장 — 참가자 기기들이 완료를 감지하면 같은 결과 화면을 띄운다.
+  // 인증 사진은 관리자만 보므로 별도 컬렉션(certPhotos)에 서버 API로 저장 — bolts 문서에
+  // 넣으면 모든 참가자 기기가 스냅샷으로 사진(수백 KB)까지 내려받아 규모가 커질수록 무거워진다.
   writes.push(updateDoc(doc(db, 'bolts', boltId), {
     status: 'done', result,
-    certPhoto: cert.certPhoto ?? null,
     reviewStatus: 'pending',          // 관리자 인증 심사 대기
   }));
+  if (cert.certPhoto) {
+    writes.push(
+      fetch('/api/cert-photo', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ boltId, photo: cert.certPhoto }),
+      }).catch(err => console.warn('인증 사진 저장 실패:', err.message))
+    );
+  }
   await Promise.all(writes);
   applyGaugeDelta(delta);
 
@@ -867,13 +896,27 @@ export function getCertReviews() {
       time: b.time,
       startAt: b.startAt ?? null,
       deadline: boltDeadline(b),
-      certPhoto: b.certPhoto ?? null,
       reviewStatus: b.reviewStatus ?? null,   // null = 심사 기능 도입 전 완료분
       result: b.result ?? null,
       participantNames: (b.result?.participantIds ?? b.participants ?? [])
         .map(pid => playerById(pid)?.name ?? '?'),
     }))
     .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
+}
+
+// 인증 사진 조회 — 관리자 인증 관리 화면에서만 개별 로드(구독하지 않음).
+// 참가자 앱도 이 store를 공유하므로, 컬렉션 구독을 걸면 분리한 의미가 없어진다.
+export async function fetchCertPhoto(boltId) {
+  try {
+    const res = await fetch('/api/cert-photo', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ boltId, get: true }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()).photo ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function approveBoltCert(boltId) {

@@ -53,11 +53,14 @@ export async function onRequestPost(context) {
     // 참가자 기기가 부를 일이 없는 관리자 전용 액션이라 인증을 요구한다.
     if (reset) {
       if (!(await verifyAdminAuth(context.request, context.env))) return unauthorized();
-      const playersRes = await fetch(firestoreUrl(context.env, 'players'), { headers: authHeaders });
-      const playersData = await playersRes.json();
-      await Promise.all((playersData.documents || []).map(d =>
-        fetch(firestoreUrl(context.env, `players/${d.name.split('/').pop()}`), { method: 'DELETE', headers: authHeaders })
-      ));
+      // players + certPhotos(클라이언트 쓰기 불가 컬렉션) 정리 — 다음 시즌 준비
+      for (const coll of ['players', 'certPhotos']) {
+        const listRes = await fetch(firestoreUrl(context.env, coll), { headers: authHeaders });
+        const listData = await listRes.json();
+        await Promise.all((listData.documents || []).map(d =>
+          fetch(firestoreUrl(context.env, `${coll}/${d.name.split('/').pop()}`), { method: 'DELETE', headers: authHeaders })
+        ));
+      }
 
       // seasonId — 새 시즌마다 값이 바뀌어, 참가자 기기가 로컬에 남겨둔 "이름 기억하기"가
       // 이전 시즌 것인지 구분하는 용도(store.js의 getSavedName 참고).

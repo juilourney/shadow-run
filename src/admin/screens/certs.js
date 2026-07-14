@@ -1,4 +1,8 @@
-import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert } from '../../store.js';
+import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, fetchCertPhoto } from '../../store.js';
+
+// 인증 사진은 별도 컬렉션에서 개별 로드(참가자 기기 부담 방지) — 한 번 받은 건 캐시
+const photoCache = new Map();   // boltId → dataURL | null(없음)
+const photoLoading = new Set();
 
 const STATUS_META = {
   pending:  { label: '심사 대기', color: '#fbbf24', bg: 'rgba(251,191,36,.12)' },
@@ -66,14 +70,36 @@ function certCard(c) {
       <span style="font-size:11px; font-weight:700; color:${status.color}; background:${status.bg};
         border-radius:8px; padding:3px 10px; flex-shrink:0;">${status.label}</span>
     </div>
-    ${c.certPhoto
-      ? `<img src="${c.certPhoto}" alt="인증 사진" style="width:100%; max-height:340px; object-fit:contain;
-          background:rgba(0,0,0,.3); border-radius:14px; margin-bottom:10px;" />`
-      : `<p style="font-size:12px; color:#52525b; padding:14px; text-align:center; background:rgba(255,255,255,.03);
-          border-radius:14px; margin-bottom:10px;">저장된 인증 사진이 없습니다 (수동 입력 또는 구버전 완료분)</p>`}
+    <div class="cert-photo-slot" data-id="${c.id}" style="margin-bottom:10px;">${photoSlotHtml(c.id)}</div>
     ${infoRows}
     ${actions}
   </div>`;
+}
+
+function photoSlotHtml(id) {
+  const photo = photoCache.get(id);
+  if (photo) {
+    return `<img src="${photo}" alt="인증 사진" style="width:100%; max-height:340px; object-fit:contain;
+      background:rgba(0,0,0,.3); border-radius:14px;" />`;
+  }
+  const label = photoCache.has(id)
+    ? '저장된 인증 사진이 없습니다 (수동 입력 또는 구버전 완료분)'
+    : '사진 불러오는 중…';
+  return `<p style="font-size:12px; color:#52525b; padding:14px; text-align:center;
+    background:rgba(255,255,255,.03); border-radius:14px;">${label}</p>`;
+}
+
+function loadMissingPhotos(list) {
+  for (const c of list) {
+    if (photoCache.has(c.id) || photoLoading.has(c.id)) continue;
+    photoLoading.add(c.id);
+    fetchCertPhoto(c.id).then(photo => {
+      photoCache.set(c.id, photo);
+      photoLoading.delete(c.id);
+      const slot = document.querySelector(`.cert-photo-slot[data-id="${c.id}"]`);
+      if (slot) slot.innerHTML = photoSlotHtml(c.id);
+    });
+  }
 }
 
 function refresh() {
@@ -84,6 +110,7 @@ function refresh() {
         <p style="font-size:13px; color:#52525b;">완료된 번개가 아직 없습니다.</p></div>`
     : `<p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">완료 ${list.length}건 · 심사 대기 ${pending}건</p>`
       + list.map(certCard).join('');
+  loadMissingPhotos(list);
 }
 
 export function init(goTo) {

@@ -16,7 +16,7 @@
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
 import {
   doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
-  arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork, runTransaction,
+  arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
@@ -122,32 +122,30 @@ export async function reconnectFirestore() {
 //  Firestore 실시간 동기화
 // ═══════════════════════════════════════════════════════════
 
-// 게이지 — 쓰기는 서버(/api/set-gauge)만
+// 게이지 — 쓰기는 서버만. 게이지는 승부 조건이라 set-gauge는 관리자 인증 필요.
+// 정상 게임 중 게이지 변경(번개 완료·만료)은 /api/complete-bolt·/api/expire-bolt가
+// 서버 내부에서 처리한다. 문서가 없으면 기본 0/0 유지(생성은 서버 리셋만).
 const gaugeDocRef = doc(db, 'game', 'gauge');
 onSnapshot(gaugeDocRef, snap => {
   if (snap.exists()) state.game.gauge = snap.data();
-  else writeGauge();
   notify();
 }, err => console.warn('게이지 실시간 동기화 실패:', err.message));
 
-// 절대값 기록 — 문서 초기화·신규 게임 리셋 전용.
-// 게임 진행(번개 완료 등) 반영에는 절대 쓰지 말 것: 로컬 값을 통째로 올려보내면
-// 스냅샷 수신과 겹칠 때 서로 덮어써서 증가분이 유실된다 → applyGaugeDelta 사용.
+// 절대값 기록 — 신규 게임 리셋 전용(관리자). set-gauge가 admin 인증을 요구하므로 헤더 포함.
 function writeGauge() {
   fetch('/api/set-gauge', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify(state.game.gauge),
   }).catch(err => console.warn('게이지 저장 실패:', err.message));
 }
 
-// 증감 기록 — 서버가 원자 increment로 반영(동시 완료·스냅샷 경쟁에도 안전).
-// 로컬에도 즉시 반영해 UI가 스냅샷 왕복을 기다리지 않게 한다(0 미만은 게임 규칙상 클램프).
+// 증감 기록 — 관리자 인증 심사 불인정 원복 전용(관리자 화면에서만 호출). 로컬 즉시 반영 포함.
 function applyGaugeDelta(delta) {
   if (!delta.pacer && !delta.ghost) return;
   state.game.gauge.pacer = Math.max(0, state.game.gauge.pacer + delta.pacer);
   state.game.gauge.ghost = Math.max(0, state.game.gauge.ghost + delta.ghost);
   fetch('/api/set-gauge', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
     body: JSON.stringify({ pacerDelta: delta.pacer, ghostDelta: delta.ghost }),
   }).catch(err => console.warn('게이지 증감 저장 실패:', err.message));
 }
@@ -368,46 +366,22 @@ export function boltDeadline(bolt) {
 // 마감 지난 진행 중(open/running) 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
 // 여러 기기가 거의 동시에 마감을 감지하므로, 트랜잭션으로 상태 전환을 선점한 기기 하나만
 // 페널티(마일리지·게이지)를 반영한다 — 중복 반영 방지.
+// 만료 판정·페널티 반영은 서버(/api/expire-bolt)가 한다 — 만료 게이지도 조작 통로가 되면
+// 안 되므로 서버가 계산·검증·선점한다. 로컬은 즉시 expired로 표시해 이 기기의 반복 호출만 막는다.
+const _expireRequested = new Set();
 function sweepExpiredBolts() {
   const now = Date.now();
-  const { isTug } = getPhase();
   for (const b of state.bolts) {
     if (ACTIVE_BOLT_STATUSES.includes(b.status) && now > boltDeadline(b)) {
       b.status = 'expired';   // 로컬 즉시 반영(이 기기의 중복 스윕 방지)
-      claimAndApplyExpiry(b, isTug);
+      if (_expireRequested.has(b.id)) continue;
+      _expireRequested.add(b.id);
+      fetch('/api/expire-bolt', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ boltId: b.id }),
+      }).catch(err => console.warn('만료 처리 요청 실패:', err.message));
     }
   }
-}
-
-async function claimAndApplyExpiry(b, isTug) {
-  // 상태 전환 선점 — 아직 진행 중(open/running)일 때만 expired로 바꾸는 데 성공한
-  // 기기가 승자. 이미 다른 기기가 바꿨으면(또는 완료됐으면) 아무것도 반영하지 않는다.
-  let won = false;
-  try {
-    won = await runTransaction(db, async tx => {
-      const snap = await tx.get(doc(db, 'bolts', b.id));
-      if (!snap.exists() || !ACTIVE_BOLT_STATUSES.includes(snap.data().status)) return false;
-      tx.update(doc(db, 'bolts', b.id), { status: 'expired' });
-      return true;
-    });
-  } catch (err) {
-    console.warn('만료 처리 실패:', err.message);
-    return;
-  }
-  if (!won) return;
-
-  const km = b.distance * CONFIG.expiredPenalty;
-  const delta = { pacer: 0, ghost: 0 };
-  for (const pid of b.participants) {
-    const p = playerById(pid);
-    if (!p) continue;
-    if (isTug) delta[opponentOf(p.team)] -= km;
-    else delta[p.team] += km;
-    p.km += km;
-    updateDoc(doc(db, 'players', pid), { km: increment(km) })
-      .catch(err => console.warn('만료 페널티 반영 실패:', err.message));
-  }
-  applyGaugeDelta(delta);
 }
 
 
@@ -808,80 +782,26 @@ export async function toggleBoltLock(boltId, locked) {
 // 같은 결과 화면을 볼 수 있게 한다(방장 기기에만 있으면 나머지는 결과를 못 봄).
 // cert: { certPhoto, certAt } — 인증 사진과 사진 속 기록 시각. 관리자 인증 관리에서
 // 심사하고, 불인정 시 저장된 gaugeDelta로 기여분을 정확히 원복한다.
-export async function completeBolt(boltId, distanceKm, participantIds, buffMultiplier = 1, card = null, cert = {}) {
+// 게이지·마일리지 계산과 쓰기는 전부 서버(/api/complete-bolt)가 한다 — 클라가 게이지 증감을
+// 보내던 방식은 승부 조작 통로였다. 버프 배수도 서버가 draw한다(항상 ×3 우회 차단).
+// 서버가 { result, card }를 돌려주고, 그 카드로 버프 리빌·결과 화면을 그린다.
+export async function completeBolt(boltId, distanceKm, participantIds, _ignoredBuff, _ignoredCard, cert = {}) {
   const bolt = state.bolts.find(b => b.id === boltId);
-  if (!bolt) throw new Error('번개를 찾을 수 없습니다');
-
-  const { isTug } = getPhase();
-  const singleTeam = isSingleTeamBolt(bolt);
-  const writes = [];
-  const delta = { pacer: 0, ghost: 0 };
-
-  participantIds.forEach(pid => {
-    const p = playerById(pid);
-    if (!p) return;
-
-    const penalized = isPenalized(p);
-    const stripped  = isAbilityStripped(p);
-    let km = distanceKm * (singleTeam ? 1 : buffMultiplier);
-    if (p.role === 'elite' && !stripped) km *= CONFIG.eliteMultiplier;
-    if (penalized) km *= CONFIG.votePenalty;
-
-    if (p.role === 'anchor' && !stripped) {
-      delta[p.team] += km;
-      delta[opponentOf(p.team)] -= km;
-    } else if (isTug) {
-      delta[opponentOf(p.team)] -= km;
-    } else {
-      delta[p.team] += km;
-    }
-
-    writes.push(updateDoc(doc(db, 'players', pid), { km: increment(distanceKm), boltsCompleted: increment(1) }));
+  const res = await fetch('/api/complete-bolt', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      boltId, distanceKm, participantIds,
+      certPhoto: cert.certPhoto ?? null,
+      certAt: cert.certAt ?? null,
+    }),
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '번개 완료 처리에 실패했습니다');
 
-  if (singleTeam) {
-    const team = playerById(bolt.participants[0]).team;
-    const heads = participantIds.length;
-    if (team === 'pacer') {
-      delta.pacer += heads * CONFIG.pacerSynergyPerHead;
-    } else {
-      delta.pacer -= distanceKm;
-      delta.ghost += CONFIG.ghostGaugeShift;
-    }
-  }
+  // 전체 공개 소식 — km·버프 수치는 싣지 않는다(게이지 숫자 비공개 설계). boltId는 불인정 시 삭제용.
+  pushTimelineEvent({ kind: 'bolt', title: bolt?.title ?? data.result.boltTitle, count: data.result.participantCount, boltId });
 
-  const boltTeam = singleTeam ? playerById(bolt.participants[0])?.team ?? null : null;
-  const result = {
-    singleTeam, isTug, distanceKm, buffMultiplier,
-    participantIds, participantCount: participantIds.length,
-    boltTeam, card, boltTitle: bolt.title,
-    gaugeDelta: { ...delta },        // 불인정 시 원복용 — 완료 시점에 적용한 값 그대로 보존
-    certAt: cert.certAt ?? null,
-  };
-
-  // 결과를 문서에 함께 저장 — 참가자 기기들이 완료를 감지하면 같은 결과 화면을 띄운다.
-  // 인증 사진은 관리자만 보므로 별도 컬렉션(certPhotos)에 서버 API로 저장 — bolts 문서에
-  // 넣으면 모든 참가자 기기가 스냅샷으로 사진(수백 KB)까지 내려받아 규모가 커질수록 무거워진다.
-  writes.push(updateDoc(doc(db, 'bolts', boltId), {
-    status: 'done', result,
-    reviewStatus: 'pending',          // 관리자 인증 심사 대기
-  }));
-  if (cert.certPhoto) {
-    writes.push(
-      fetch('/api/cert-photo', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ boltId, photo: cert.certPhoto }),
-      }).catch(err => console.warn('인증 사진 저장 실패:', err.message))
-    );
-  }
-  await Promise.all(writes);
-  applyGaugeDelta(delta);
-
-  // 전체 공개 소식 — 게이지 숫자 비공개 설계를 지키기 위해 km·버프 수치는 싣지 않는다
-  // (상세 결과는 참가자 전용 결과 화면에서만). boltId는 불인정 시 이 소식을 지우는 데 쓴다.
-  pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: participantIds.length, boltId });
-
-  return result;
+  return { ...data.result, card: data.card };
 }
 
 // ── 관리자 — 번개 인증 심사 ─────────────────────────────
@@ -1067,19 +987,6 @@ export async function useAbility(targetId) {
 
   notify();
   return result;
-}
-
-// ── 내부 헬퍼 ─────────────────────────────────────────────
-function opponentOf(team) {
-  return team === 'pacer' ? 'ghost' : 'pacer';
-}
-
-function isPenalized(player) {
-  return !!player.penalized;
-}
-
-function isAbilityStripped(player) {
-  return !!player.abilityStripped;
 }
 
 // 상수 재노출 (화면이 store 하나만 import하면 되도록)

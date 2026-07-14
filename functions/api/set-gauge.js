@@ -4,14 +4,18 @@
 //
 // 두 가지 모드:
 //  - { pacer, ghost }            : 절대값 기록 (초기화·신규 게임 리셋용)
-//  - { pacerDelta, ghostDelta }  : 서버 원자 증감(increment) — 번개 완료 등 게임 진행 반영용.
-//    클라이언트가 로컬 값을 통째로 올려보내는 방식은 스냅샷 수신과 겹치면 서로 덮어쓰는
-//    경쟁이 생기므로(여러 방장이 동시에 완료해도 마찬가지), 증감은 반드시 이 모드를 쓴다.
+//  - { pacerDelta, ghostDelta }  : 원자 증감(increment) — 관리자 인증 심사 불인정 원복 등.
 //    증감 후 음수가 되면 0으로 클램프한다(게이지는 0 밑으로 안 내려가는 게임 규칙).
+//
+// ⚠️ 게이지는 승부 조건이라, 이 엔드포인트는 **관리자 인증**을 요구한다. 예전에 무인증이라
+//    콘솔 fetch 한 줄로 누구나 게이지를 조작할 수 있었음. 번개 완료·만료의 정상 게이지 변경은
+//    이제 /api/complete-bolt · /api/expire-bolt 가 서버 내부에서 처리한다(이 엔드포인트 안 씀).
 import { getAccessToken, firestoreUrl } from '../_lib/firebase-admin.js';
+import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 
 export async function onRequestPost(context) {
   try {
+    if (!(await verifyAdminAuth(context.request, context.env))) return unauthorized();
     const { pacer, ghost, pacerDelta, ghostDelta } = await context.request.json();
     const isDelta = typeof pacerDelta === 'number' || typeof ghostDelta === 'number';
 

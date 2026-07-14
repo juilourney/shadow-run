@@ -2,15 +2,8 @@ import { goToScreen } from '../utils/nav.js';
 import { getPendingBolt, completeBolt, setLastBoltResult } from '../store.js';
 import { openResultView, markBoltResultSeen } from './bolt-result.js';
 
-// ── 카드 풀 ───────────────────────────────────────────────
-const BUFF_CARDS = [
-  { name: '트리플 적립', icon: '×3', multiplier: 3,   color: '#fb923c', bg: 'rgba(251,146,60,.15)',  border: 'rgba(251,146,60,.35)',  desc: '달린 km ×3 적립 · 이번 번개 최고 버프!' },
-  { name: '더블 적립',  icon: '×2', multiplier: 2,   color: '#38bdf8', bg: 'rgba(56,189,248,.15)',  border: 'rgba(56,189,248,.35)',  desc: '달린 km ×2 적립 · 마일리지 두 배 획득' },
-  { name: '1.5배 적립', icon: '×1.5', multiplier: 1.5, color: '#a78bfa', bg: 'rgba(167,139,250,.12)', border: 'rgba(167,139,250,.3)',  desc: '달린 km ×1.5 적립 · 소소한 행운' },
-  { name: '기본 적립', icon: '×1', multiplier: 1,   color: '#71717a', bg: 'rgba(113,113,122,.12)', border: 'rgba(113,113,122,.25)', desc: '달린 km 그대로 적립 · 기본 마일리지' },
-];
-const PACER_SKILL = { name: '시너지 스킬', icon: '🔥', multiplier: 1, color: '#fb923c', bg: 'rgba(251,146,60,.18)', border: 'rgba(251,146,60,.4)', desc: '참가자 1명당 추가 km 적립 · 팀 인원이 많을수록 유리' };
-const GHOST_SKILL = { name: '게이지 스킬', icon: '⚔️', multiplier: 1, color: '#fb7185', bg: 'rgba(251,113,133,.15)', border: 'rgba(251,113,133,.35)', desc: '달린 거리만큼 상대 게이지 직접 감소 · 전략형 스킬' };
+// 버프 카드는 서버가 draw한다(항상 ×3 우회 차단) — 완료 응답의 result.card로 리빌·결과 화면을 그린다.
+// 슬롯 스핀은 '?' 카드 배경만 쓰는 순수 연출이라 카드 풀이 필요 없다.
 
 const CARD_W    = 88;
 const CARD_H    = 124;
@@ -165,7 +158,7 @@ export function init() {
   ensureKeyframes();
 
   let drawnCard = null;
-  let pool      = BUFF_CARDS;
+  let completionPromise = null;   // 탭 시점에 시작한 서버 완료(=버프 draw) 결과
 
   // 모듈 스코프 DOM 참조 설정
   _track = document.getElementById('slot-track');
@@ -175,7 +168,7 @@ export function init() {
   // 첫 방문 시 슬롯 시작 (offsetWidth 확보 후)
   requestAnimationFrame(() => _startSpin());
 
-  // ── 탭: 슬롯 잠금 ────────────────────────────────────────
+  // ── 탭: 슬롯 잠금 → 서버가 버프 draw + 완료 처리 ──────────
   _outer.addEventListener('click', () => {
     if (_locked) return;
     _locked = true;
@@ -183,28 +176,16 @@ export function init() {
     cancelAnimationFrame(_raf);
     _raf = null;
     _lastTs = null;
-
-    // 탭 시점에 pendingBolt 읽기 (init 시점엔 아직 null)
-    const p = getPendingBolt();
-    const isSingle = p?.isSingleTeam ?? false;
-    pool = isSingle
-      ? (p?.team === 'pacer' ? [PACER_SKILL] : [GHOST_SKILL])
-      : BUFF_CARDS;
-
-    drawnCard = pool[Math.floor(Math.random() * pool.length)];
-
-    // 하이라이트 링 강조
-    const hl = document.getElementById('slot-highlight');
-    hl.style.opacity    = '1';
-    hl.style.borderColor = drawnCard.color;
-    hl.style.boxShadow  = `0 0 20px ${drawnCard.color}55`;
-
-    // 오브 색
-    document.getElementById('buff-orb-inner').style.background =
-      `radial-gradient(circle,${drawnCard.color.replace(')', ',.28)').replace('rgb', 'rgba')} 0%,transparent 70%)`;
-    document.getElementById('buff-orb-inner').style.opacity = '1';
-
     document.getElementById('slot-hint').textContent = '';
+    document.getElementById('slot-highlight').style.opacity = '1';   // 색은 카드 도착 시 확정
+
+    // 탭 시점에 완료 요청 시작(서버가 버프를 뽑아 결과로 돌려줌). 리빌은 이 결과로 그린다.
+    const p = getPendingBolt();
+    completionPromise = p
+      ? completeBolt(p.boltId, p.distanceKm, p.participantIds, null, null,
+          { certPhoto: p.certPhoto ?? null, certAt: p.certAt ?? null })
+          .then(result => { markBoltResultSeen(p.boltId); setLastBoltResult(result); return result; })
+      : Promise.reject(new Error('번개 정보를 찾을 수 없습니다'));
 
     runBuildup();
   });
@@ -220,7 +201,32 @@ export function init() {
     }, 760);
   }
 
-  function burst() {
+  async function burst() {
+    // 서버 완료 결과(=버프 카드) 대기 — 실패하면 다시 뽑을 수 있게 되돌린다.
+    let result;
+    try {
+      result = await completionPromise;
+    } catch (e) {
+      console.error('번개 완료 실패:', e);
+      shaker.style.animation = '';
+      const hint = document.getElementById('slot-hint');
+      hint.style.opacity = '1';
+      hint.textContent = e.message || '완료 처리 실패 — 다시 눌러주세요';
+      document.getElementById('slot-highlight').style.opacity = '0';
+      _locked = false;
+      _startSpin();
+      return;
+    }
+    drawnCard = result.card;
+
+    // 카드 색 확정 (하이라이트 링 · 오브)
+    const hl = document.getElementById('slot-highlight');
+    hl.style.borderColor = drawnCard.color;
+    hl.style.boxShadow   = `0 0 20px ${drawnCard.color}55`;
+    const orb = document.getElementById('buff-orb-inner');
+    orb.style.background = `radial-gradient(circle,${drawnCard.color.replace(')', ',.28)').replace('rgb', 'rgba')} 0%,transparent 70%)`;
+    orb.style.opacity = '1';
+
     spawnParticles(drawnCard.color);
 
     // 슬롯 트랙만 사라짐 (outer는 유지 — buff-revealed가 안에 있음)
@@ -291,22 +297,8 @@ export function init() {
   }
 
   // ── 확인 버튼 ─────────────────────────────────────────────
-  document.getElementById('buff-confirm-btn').addEventListener('click', async () => {
-    const pending = getPendingBolt(); // 클릭 시점에 fresh하게 읽기
-    if (pending) {
-      try {
-        // card를 함께 넘겨 결과가 번개 문서에 저장되게 한다(참가자 전원 결과 공유)
-        const result = await completeBolt(
-          pending.boltId, pending.distanceKm, pending.participantIds,
-          drawnCard?.multiplier ?? 1, drawnCard,
-          { certPhoto: pending.certPhoto ?? null, certAt: pending.certAt ?? null }
-        );
-        markBoltResultSeen(pending.boltId);   // 방장은 지금 직접 보므로 자동 재표시 대상에서 제외
-        setLastBoltResult(result);
-      } catch (e) {
-        console.error('completeBolt 실패:', e);
-      }
-    }
+  // 완료는 이미 탭 시점에 서버에서 처리됨 — 여기서는 결과 화면으로 넘어가기만 한다.
+  document.getElementById('buff-confirm-btn').addEventListener('click', () => {
     openResultView();
     goToScreen('s-bolt-result');
   });

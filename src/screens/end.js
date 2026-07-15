@@ -11,10 +11,13 @@ export function render() {
   return `
 <div class="screen" id="s-end" style="overflow:hidden;">
 
-  <div style="position:absolute;inset:0;pointer-events:none;">
-    <div id="end-orb" style="position:absolute;top:-10%;left:50%;transform:translateX(-50%);
-      width:90%;aspect-ratio:1;border-radius:50%;filter:blur(70px);opacity:0;
-      transition:opacity .8s;"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;">
+    <div id="end-orb" style="position:absolute;top:-14%;left:50%;transform:translateX(-50%);
+      width:130%;aspect-ratio:1;border-radius:50%;filter:blur(64px);opacity:0;
+      transition:opacity 1s;"></div>
+    <div id="end-orb-2" style="position:absolute;bottom:-18%;left:50%;transform:translateX(-50%);
+      width:150%;aspect-ratio:1;border-radius:50%;filter:blur(90px);opacity:0;
+      transition:opacity 1s;"></div>
   </div>
 
   <div class="scroll-body" style="position:relative;z-index:2;
@@ -77,8 +80,11 @@ export function openEndView() {
     winnerEl.textContent = `${w.label} 승리`;
     winnerEl.style.color = w.color;
     diffEl.textContent = `최종 격차 +${fmt(Math.abs(g.diff))} km`;
+    // 우승팀 색 배경 — 상단(진한 코어) + 하단(넓은 앰비언트)로 화면 전체에 팀 컬러가 확실히 감돌게
     document.getElementById('end-orb').style.cssText +=
-      `;opacity:.45;background:radial-gradient(circle, ${w.color}33 0%, transparent 70%);`;
+      `;opacity:.85;background:radial-gradient(circle, ${w.color}70 0%, ${w.color}22 45%, transparent 72%);`;
+    document.getElementById('end-orb-2').style.cssText +=
+      `;opacity:.6;background:radial-gradient(circle, ${w.color}44 0%, transparent 70%);`;
   } else {
     winnerEl.textContent = '무승부';
     winnerEl.style.color = '#fafafa';

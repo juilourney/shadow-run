@@ -1,4 +1,3 @@
-import { goToScreen } from '../utils/nav.js';
 import { getGauge, getPlayers, getMe, ROLES } from '../store.js';
 
 const TEAM = {
@@ -19,7 +18,7 @@ export function render() {
   </div>
 
   <div class="scroll-body" style="position:relative;z-index:2;
-    padding:calc(var(--safe-top) + 20px) 22px 96px;">
+    padding:calc(var(--safe-top) + 20px) 22px calc(var(--safe-bottom) + 28px);">
 
     <!-- ① 우승 발표 -->
     <div class="anim-up" style="text-align:center;margin-bottom:18px;">
@@ -61,10 +60,6 @@ export function render() {
       </div>
     </div>
 
-  </div>
-
-  <div style="position:absolute;left:18px;right:18px;bottom:16px;z-index:30;">
-    <button class="btn btn-primary" style="width:100%;height:56px;" id="end-close-btn">홈으로</button>
   </div>
 </div>`;
 }
@@ -131,8 +126,5 @@ function rankRow(p, i) {
   </div>`;
 }
 
-export function init() {
-  document.getElementById('end-close-btn').addEventListener('click', () => {
-    goToScreen('gs-dash');
-  });
-}
+// 종료 후 고정 화면 — 나가기 버튼이 없다(새 시즌 시작 시 부팅 라우팅이 이름 입력부터 다시 시작).
+export function init() {}

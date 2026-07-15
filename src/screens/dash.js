@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getAssignment, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
 import { openEndView } from './end.js';
 import { openHostView } from './bolt-detail.js';
 import { openBoltProgress } from './bolt-progress.js';
@@ -252,21 +252,13 @@ const TIMELINE_EMPTY = `
     <p style="font-size:13px; color:#52525b;">아직 새로운 소식이 없어요</p>
   </div>`;
 
-// 게임 종료 시(설정 종료일 경과) 결과 화면을 자동으로 한 번 띄운다.
-// 기기당 시즌 1회만(sr_end_seen = 그 시즌의 assignedAt) — 이후엔 대시보드 '결과 보기'로 재열람.
-const END_SEEN_KEY = 'sr_end_seen';
-let _endAutoShown = false;   // 이 세션에서 이미 자동 표시했는지(중복 팝업 방지)
-function maybeAutoShowEnd() {
-  if (_endAutoShown) return;
+// 게임 종료(설정 종료일 경과) 후에는 결과 화면을 고정으로 보여준다 — 더 진행할 게 없으므로
+// 대시보드 대신 결과 화면에 머문다. 새 시즌이 시작되면 부팅 라우팅이 이름 입력부터 다시 시작.
+// 결과 화면(s-end)엔 나가기 버튼이 없어, 한번 뜨면 종료 상태 동안 계속 표시된다.
+function ensureEndShown() {
   if (!getCalendar().ended) return;
   if (!getMe().team) return;   // 배정된 참가자에게만(이름 화면 등엔 안 뜸)
   if (!document.getElementById('s-game')?.classList.contains('active')) return;
-
-  const seasonKey = String(getAssignment().assignedAt ?? '');
-  _endAutoShown = true;
-  if (localStorage.getItem(END_SEEN_KEY) === seasonKey) return;   // 이 시즌 결과를 이미 봄
-  try { localStorage.setItem(END_SEEN_KEY, seasonKey); } catch {}
-
   openEndView();
   goToScreen('s-end');
 }
@@ -318,8 +310,8 @@ function renderFromStore() {
   // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
   document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';
 
-  // 종료 시 결과 화면 자동 표시(기기당 시즌 1회) — 나머지는 위 '결과 보기' 버튼으로 재열람
-  maybeAutoShowEnd();
+  // 종료 후에는 결과 화면을 고정 표시(더 진행할 게 없음)
+  ensureEndShown();
 
   // 나의 번개 일정 — 룰상 참여 중인 번개는 항상 1개뿐 (없으면 0개)
   const myBolt = getBolts().find(b => b.joined);

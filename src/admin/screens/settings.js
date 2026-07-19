@@ -3,7 +3,15 @@ import { getGameSettings, updateGameSettings, createNewGame } from '../../store.
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
 const fmtDate = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 
-// 시작일·기간(주) 입력값으로 종료일 계산 (아직 저장 전인 "신규 게임" 미리보기용)
+// 저장된 end는 "게임이 끝나는 순간"(마지막 날 자정 직후) = 경계값이라 하루 뒤 날짜다.
+// 화면에는 실제 마지막 플레이 날(= end - 1일)을 보여줘야 "3주 = 21일"과 맞는다.
+const fmtLastDay = end => {
+  const d = new Date(end);
+  d.setDate(d.getDate() - 1);
+  return fmtDate(d);
+};
+
+// 시작일·기간(주) 입력값으로 종료 경계 계산 (아직 저장 전인 "신규 게임" 미리보기용)
 function computeRange(startDateStr, weeks) {
   if (!startDateStr || !weeks) return null;
   const [y, m, d] = startDateStr.split('-').map(Number);
@@ -68,7 +76,7 @@ function loadCurrent() {
   document.getElementById('cur-startDate').value = gs.startDate;
   document.getElementById('cur-weeks').value = gs.weeks;
   document.getElementById('cur-status').textContent =
-    `${fmtDate(gs.start)} ~ ${fmtDate(gs.end)} (${gs.weeks}주) · 상태: ${STATUS_LABEL[gs.status]}`;
+    `${fmtDate(gs.start)} ~ ${fmtLastDay(gs.end)} (${gs.weeks}주 · ${gs.weeks * 7}일) · 상태: ${STATUS_LABEL[gs.status]}`;
 }
 
 function refreshNewRange() {
@@ -77,7 +85,7 @@ function refreshNewRange() {
     document.getElementById('new-weeks').value
   );
   document.getElementById('new-range').textContent =
-    range ? `${fmtDate(range.start)} ~ ${fmtDate(range.end)}` : '';
+    range ? `${fmtDate(range.start)} ~ ${fmtLastDay(range.end)} (${Number(document.getElementById('new-weeks').value) * 7}일)` : '';
 }
 
 export function init(goTo) {

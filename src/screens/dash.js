@@ -1,5 +1,6 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getPhase, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
+import { initPhase } from '../utils/phase.js';
 import { openEndView } from './end.js';
 import { openHostView } from './bolt-detail.js';
 import { openBoltProgress } from './bolt-progress.js';
@@ -127,12 +128,16 @@ export function init() {
   renderFromStore();
   subscribe(renderFromStore);
 
-  // 수치 공개 여부는 시각으로만 바뀌어(투표 18시 진입 등) store 이벤트가 없으므로,
-  // 상태가 실제로 뒤집힐 때만 다시 그린다.
+  // 수치 공개 여부·단계(탐색전↔줄다리기)는 시각으로만 바뀌어(투표 18시 진입, 수→목 자정 등)
+  // store 이벤트가 없으므로 주기적으로 확인하고, 실제로 뒤집힐 때만 다시 그린다.
   let wasPublic = isGaugeNumbersPublic();
+  let wasPhase  = getPhase().phase;
   setInterval(() => {
     const nowPublic = isGaugeNumbersPublic();
     if (nowPublic !== wasPublic) { wasPublic = nowPublic; renderFromStore(); }
+
+    const nowPhase = getPhase().phase;
+    if (nowPhase !== wasPhase) { wasPhase = nowPhase; initPhase(); }
   }, 30 * 1000);
 
   document.getElementById('dash-end-btn').addEventListener('click', () => {

@@ -28,8 +28,9 @@ export const CONFIG = {
   eliteMultiplier: 2,           // 엘리트 마일리지 배수
   votePenalty: 0.5,             // 투표 적발 시 마일리지 감소율
   roleRevealThreshold: 0.6,     // 역할 공개·능력 박탈: 지목 인원 중 동일 역할 비율 기준
-  pacerSynergyPerHead: 50,      // 페이서 시너지: 인원 × 50km
-  ghostGaugeShift: 100,         // 고스트 게이지 스킬: 100km 즉시 이동
+  voteMinRatio: 0.3,            // 페널티 최소 기준: 전체 표의 30% 이상 + 단독 1위여야 적발
+  // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일 — 실제 계산은 서버 game-rules.js)
+  skillPerHeadKm: 5,
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
   boltMaxHeads: 4,              // 번개 최대 인원
   abilityWeeklyLimit: 2,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
@@ -883,7 +884,9 @@ export async function castVote(targetId, roleGuess = null) {
   return getVote();
 }
 
-// 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정
+// 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정.
+// 표가 흩어지면 2~3표짜리 최다 득표자가 영구 페널티를 받는 사고가 나므로,
+// ① 전체 표의 CONFIG.voteMinRatio 이상을 받아야 하고 ② 동점이면 아무도 처벌하지 않는다.
 export async function tallyVote() {
   const ballots = state.vote.ballots;
   if (ballots.length === 0) return null;
@@ -892,6 +895,20 @@ export async function tallyVote() {
   for (const b of ballots) teamCount[b.targetId] = (teamCount[b.targetId] || 0) + 1;
   const maxCount = Math.max(...Object.values(teamCount));
   const topIds = Object.keys(teamCount).filter(id => teamCount[id] === maxCount);
+
+  const threshold = Math.ceil(ballots.length * CONFIG.voteMinRatio);
+  const tie = topIds.length > 1;
+  const belowThreshold = maxCount < threshold;
+
+  // 미달·동점이면 적발 없이 종료 — 표만 초기화하고 '적중 실패'로 알린다
+  if (tie || belowThreshold) {
+    pushTimelineEvent({ kind: 'fail' });
+    addDoc(collection(db, 'voteHistory'), { at: Date.now(), ballotCount: ballots.length, caught: [] })
+      .catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
+    Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
+      .catch(err => console.warn('투표 초기화 실패:', err.message));
+    return { tie, belowThreshold, threshold, maxCount, caught: [] };
+  }
 
   const caught = [];
   const playerWrites = [];

@@ -97,7 +97,7 @@ export function openResultView() {
   // 버프/스킬 섹션
   const buffEl = document.getElementById('result-buff-section');
   if (singleTeam && card) {
-    const skillDesc = buildSkillEffect(boltTeam, participantCount);
+    const skillDesc = buildSkillEffect(boltTeam, participantCount, distanceKm);
     buffEl.innerHTML = singleTeamBlock(card, skillDesc);
   } else if (!singleTeam && card) {
     buffEl.innerHTML = buffCardBlock(card, distanceKm);
@@ -158,21 +158,24 @@ function singleTeamBlock(card, skillDesc) {
   </div>`;
 }
 
-function buildSkillEffect(team, count) {
-  if (team === 'pacer') {
-    const bonus = count * CONFIG.pacerSynergyPerHead;
-    return `팀 게이지 +${bonus}km 추가`;
-  }
-  return `상대 −${CONFIG.ghostGaugeShift}km 이동`;
+// 팀 스킬 총 효과 = 인원 × 거리 × 5km (양 팀 동일). 고스트는 그 절반씩 상대에서 당겨온다.
+function skillTotal(distanceKm, count) {
+  return count * distanceKm * CONFIG.skillPerHeadKm;
+}
+
+function buildSkillEffect(team, count, distanceKm) {
+  const total = skillTotal(distanceKm, count);
+  if (team === 'pacer') return `팀 게이지 +${total.toFixed(0)}km 추가`;
+  return `상대 −${(total / 2).toFixed(0)} / 우리 +${(total / 2).toFixed(0)}km`;
 }
 
 function calcTotal(singleTeam, team, distanceKm, buffMultiplier, count) {
   if (singleTeam) {
+    const skill = skillTotal(distanceKm, count);
     if (team === 'pacer') {
-      const skill = count * CONFIG.pacerSynergyPerHead;
-      return { km: distanceKm + skill, desc: `기본 ${distanceKm.toFixed(1)} + 스킬 ${skill}` };
+      return { km: distanceKm + skill, desc: `기본 ${distanceKm.toFixed(1)} + 시너지 ${skill.toFixed(0)}` };
     }
-    return { km: distanceKm, desc: `기본 ${distanceKm.toFixed(1)} + 게이지 스킬 발동` };
+    return { km: distanceKm + skill, desc: `기본 ${distanceKm.toFixed(1)} + 당겨오기 ${skill.toFixed(0)}` };
   }
   const multiplier = buffMultiplier ?? 1;
   const buffed = distanceKm * multiplier;

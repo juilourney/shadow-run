@@ -5,8 +5,11 @@
 export const RULES = {
   eliteMultiplier: 2,
   votePenalty: 0.5,
-  pacerSynergyPerHead: 50,
-  ghostGaugeShift: 100,
+  // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일).
+  //   페이서 시너지 : 전부 우리 게이지에 적립
+  //   고스트 게이지 : 절반을 상대에서 깎고 절반을 우리에게 더함(당겨오기) → 총 스윙 동일
+  // 거리를 곱하므로 멀리 뛸수록 보너스도 커진다(4명×10km면 200km로 종전과 동일).
+  skillPerHeadKm: 5,
   singleTeamMin: 3,
   expiredPenalty: 0.5,
   fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
@@ -87,11 +90,12 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
   if (singleTeam) {
     boltTeam = playerMap[bolt.participants[0]]?.team ?? null;
     const heads = participantIds.length;
+    const skill = heads * distanceKm * RULES.skillPerHeadKm;   // 총 효과(양 팀 동일)
     if (boltTeam === 'pacer') {
-      delta.pacer += heads * RULES.pacerSynergyPerHead;
+      delta.pacer += skill;                 // 시너지 — 전부 우리 쪽에 적립
     } else {
-      delta.pacer -= distanceKm;
-      delta.ghost += RULES.ghostGaugeShift;
+      delta.pacer -= skill / 2;             // 게이지 — 절반씩 당겨온다(상대 −, 우리 +)
+      delta.ghost += skill / 2;
     }
   }
 

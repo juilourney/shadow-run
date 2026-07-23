@@ -414,8 +414,24 @@ async function castVote(playerId, playerName, roleGuess) {
 // 집계 결과로 결과 오버레이 채우기
 function showVoteResult(r) {
   const caught = r.caught ?? [r];   // 하위호환 (단일 객체도 허용)
-  document.getElementById('vote-result-subtitle').textContent =
-    caught.length > 1 ? `최다 득표 동점 · ${caught.length}명 적발` : '이번 투표의 최다 득표자';
+
+  // 표가 흩어졌거나(기준 미달) 동점이면 아무도 적발되지 않는다
+  if (caught.length === 0) {
+    const reason = r.tie
+      ? '최다 득표가 동점이라 이번 투표는 무효입니다'
+      : `최다 득표가 기준(전체 표의 30%)에 못 미쳤습니다 · ${r.maxCount}/${r.threshold}표`;
+    document.getElementById('vote-result-subtitle').textContent = '이번 투표는 적중하지 못했습니다';
+    document.getElementById('vote-result-list').innerHTML = `
+      <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);
+        border-radius:18px; padding:22px 18px; text-align:center;">
+        <p style="font-size:30px; margin-bottom:10px;">🕵️</p>
+        <p style="font-size:14px; color:#e4e4e7; line-height:1.6;">아무도 적발되지 않았습니다</p>
+        <p style="font-size:12px; color:#52525b; margin-top:6px; line-height:1.6;">${reason}</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('vote-result-subtitle').textContent = '이번 투표의 최다 득표자';
   document.getElementById('vote-result-list').innerHTML = caught.map(personCard).join('');
 }
 

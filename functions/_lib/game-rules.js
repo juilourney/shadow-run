@@ -10,6 +10,7 @@ export const RULES = {
   //   고스트 게이지 : 절반을 상대에서 깎고 절반을 우리에게 더함(당겨오기) → 총 스윙 동일
   // 거리를 곱하므로 멀리 뛸수록 보너스도 커진다(4명×10km면 200km로 종전과 동일).
   skillPerHeadKm: 5,
+  anchorTugMultiplier: 2,   // 앵커: 줄다리기 기간엔 상대 삭감량 2배 중첩
   singleTeamMin: 3,
   expiredPenalty: 0.5,
   fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
@@ -77,8 +78,10 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
     if (p.penalized) km *= RULES.votePenalty;
 
     if (p.role === 'anchor' && !stripped) {
+      // 앵커 — 내 팀에 더하면서 상대에게서도 깎는다(양방향).
+      // 줄다리기 기간에는 상대에서 깎는 양이 2배로 중첩돼 이 시기에 가장 강하다.
       delta[p.team] += km;
-      delta[opponentOf(p.team)] -= km;
+      delta[opponentOf(p.team)] -= km * (isTug ? RULES.anchorTugMultiplier : 1);
     } else if (isTug) {
       delta[opponentOf(p.team)] -= km;
     } else {

@@ -151,11 +151,17 @@ function nearestSectionIndex() {
 }
 
 let swipeStartIndex = null;
+let swipeClearTimer = null;
 document.getElementById('s-game').addEventListener('touchstart', () => {
+  clearTimeout(swipeClearTimer);
   swipeStartIndex = nearestSectionIndex();
 }, { passive: true });
 document.getElementById('s-game').addEventListener('touchend', () => {
-  swipeStartIndex = null;
+  // 손가락을 뗀 직후에도 관성 스크롤이 한동안 이어지므로, 여기서 바로 감시를 끄면
+  // 정작 지켜야 할 관성 구간 내내 안전장치가 꺼진 채로 있게 된다 — 관성이 끝날
+  // 시간만큼 유예를 두고서 끈다.
+  clearTimeout(swipeClearTimer);
+  swipeClearTimer = setTimeout(() => { swipeStartIndex = null; }, 700);
 }, { passive: true });
 
 window.addEventListener('scroll', () => {

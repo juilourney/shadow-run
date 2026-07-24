@@ -76,12 +76,10 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
     if (p.role === 'elite' && !stripped) km *= RULES.eliteMultiplier;
     if (p.penalized) km *= RULES.votePenalty;
 
-    if (p.role === 'anchor' && !stripped) {
-      // 앵커 — 요일과 무관하게 항상 양방향(내 팀에 더하면서 상대에게서도 깎는다).
-      // 양방향 자체가 이미 러너의 2배(엘리트급)라 별도 기간 보너스는 두지 않는다.
+    if (isTug || (p.role === 'anchor' && !stripped)) {
+      // 줄다리기 기간엔 "게이지 줄다리기"라는 이름 그대로 전원이 양방향(내 팀 +, 상대 −)으로 움직인다.
+      // 앵커는 탐색 기간에도 항상 양방향이라, 탐색 기간에만 일반 러너 대비 차별점을 갖는다.
       delta[p.team] += km;
-      delta[opponentOf(p.team)] -= km;
-    } else if (isTug) {
       delta[opponentOf(p.team)] -= km;
     } else {
       delta[p.team] += km;
@@ -111,8 +109,12 @@ export function computeExpiry({ bolt, playerMap, isTug }) {
   for (const pid of bolt.participants || []) {
     const p = playerMap[pid];
     if (!p) continue;
-    if (isTug) delta[opponentOf(p.team)] -= km;
-    else delta[p.team] += km;
+    if (isTug) {
+      delta[p.team] += km;
+      delta[opponentOf(p.team)] -= km;
+    } else {
+      delta[p.team] += km;
+    }
   }
   return { gaugeDelta: delta, perPlayerKmInc: km };
 }

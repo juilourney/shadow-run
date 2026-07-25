@@ -95,7 +95,7 @@ export function createFeedBar(mount) {
     'position:fixed',
     'bottom:env(safe-area-inset-bottom, 28px)',
     'left:0', 'right:0',
-    'max-width:430px', 'margin:0 auto',
+    'max-width:768px', 'margin:0 auto',
     'height:36px',
     'background:linear-gradient(to bottom, transparent, rgba(5,5,7,.82))',
     'pointer-events:none',
@@ -108,7 +108,7 @@ export function createFeedBar(mount) {
   bar.style.cssText = [
     'position:fixed',
     'bottom:0', 'left:0', 'right:0',
-    'max-width:430px', 'margin:0 auto',
+    'max-width:768px', 'margin:0 auto',
     'height:env(safe-area-inset-bottom, 28px)',
     'min-height:28px',
     'background:rgba(5,5,7,.92)',
@@ -140,7 +140,7 @@ export function createFeedBar(mount) {
       style="position:absolute;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);"></div>
     <div id="feed-sheet"
       style="position:relative;z-index:1;
-        width:100%;max-width:430px;margin:0 auto;
+        width:100%;max-width:768px;margin:0 auto;
         background:#111113;border-radius:28px 28px 0 0;
         max-height:82vh;overflow-y:auto;
         transform:translateY(100%);transition:transform .45s var(--spring);

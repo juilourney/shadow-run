@@ -28,8 +28,11 @@ body {
 /* ═══════════════════════════════════════
    APP SHELL
 ═══════════════════════════════════════ */
+/* 430px는 웬만한 폰보다 좁아 일부 기기에서 좌우가 남았다 — 실제 폰 폭은
+   다 채우고, 태블릿·데스크톱처럼 진짜 넓은 화면에서만 폰 모양 카드로 보이게
+   768px(태블릿 기준)로 올린다. */
 #app {
-  max-width: 430px;
+  max-width: 768px;
   margin: 0 auto;
   min-height: 100dvh;
   background: inherit;
@@ -41,7 +44,7 @@ body {
 .screen {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  max-width: 430px;
+  max-width: 768px;
   margin: 0 auto;
   display: flex; flex-direction: column;
   overflow: hidden;
@@ -66,7 +69,7 @@ body {
 .scroll-body::-webkit-scrollbar { display: none; }
 
 /* ── 고정 배경 (팀 컬러 orb — 스크롤해도 제자리) ── */
-/* fixed는 뷰포트 기준이라 inset:0을 쓰면 #app의 max-width:430px를 무시하고
+/* fixed는 뷰포트 기준이라 inset:0을 쓰면 #app의 max-width:768px를 무시하고
    데스크톱/넓은 화면에서 앱 바깥 좌우 여백까지 orb가 번져 보인다 — tabbar와
    같은 --app-right로 #app와 동일한 폭에 맞춘다. */
 #game-bg {

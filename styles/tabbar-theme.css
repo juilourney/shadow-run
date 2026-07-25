@@ -9,8 +9,8 @@
   --tb-blur:        32px;
   --tb-saturate:    200%;
   --tb-brightness:  1.08;
-  /* #app max-width 430px 기준 right 오프셋 — 데스크톱 프리뷰에서도 정확히 정렬 */
-  --app-right:      max(0px, calc((100vw - 430px) / 2));
+  /* #app max-width 768px 기준 right 오프셋 — 데스크톱 프리뷰에서도 정확히 정렬 */
+  --app-right:      max(0px, calc((100vw - 768px) / 2));
 }
 
 .tabbar {

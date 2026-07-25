@@ -66,9 +66,14 @@ body {
 .scroll-body::-webkit-scrollbar { display: none; }
 
 /* ── 고정 배경 (팀 컬러 orb — 스크롤해도 제자리) ── */
+/* fixed는 뷰포트 기준이라 inset:0을 쓰면 #app의 max-width:430px를 무시하고
+   데스크톱/넓은 화면에서 앱 바깥 좌우 여백까지 orb가 번져 보인다 — tabbar와
+   같은 --app-right로 #app와 동일한 폭에 맞춘다. */
 #game-bg {
   position: fixed;
-  inset: 0;
+  top: 0; bottom: 0;
+  left: var(--app-right);
+  right: var(--app-right);
   z-index: 0;
   pointer-events: none;
   overflow: hidden;

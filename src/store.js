@@ -887,7 +887,17 @@ export async function castVote(targetId, roleGuess = null) {
 // 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정.
 // 표가 흩어지면 2~3표짜리 최다 득표자가 영구 페널티를 받는 사고가 나므로,
 // ① 전체 표의 CONFIG.voteMinRatio 이상을 받아야 하고 ② 동점이면 아무도 처벌하지 않는다.
+// 투표 탭이 "미집계 표가 남아있으면 집계"를 매 틱 시도하므로(마감 순간을 아무도
+// 목격 못 해도 따라잡기 위함), 표 삭제가 끝나기 전에 다시 불려 페널티가 두 번
+// 적용되지 않도록 진행 중 재진입을 막고 삭제 완료까지 기다린 뒤 반환한다.
+let _tallyInFlight = null;
 export async function tallyVote() {
+  if (_tallyInFlight) return _tallyInFlight;
+  _tallyInFlight = _tallyVote().finally(() => { _tallyInFlight = null; });
+  return _tallyInFlight;
+}
+
+async function _tallyVote() {
   const ballots = state.vote.ballots;
   if (ballots.length === 0) return null;
 
@@ -903,9 +913,9 @@ export async function tallyVote() {
   // 미달·동점이면 적발 없이 종료 — 표만 초기화하고 '적중 실패'로 알린다
   if (tie || belowThreshold) {
     pushTimelineEvent({ kind: 'fail' });
-    addDoc(collection(db, 'voteHistory'), { at: Date.now(), ballotCount: ballots.length, caught: [] })
+    addDoc(collection(db, 'voteHistory'), { at: Date.now(), ballotCount: ballots.length, caught: [], tie, maxCount, threshold })
       .catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
-    Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
+    await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
       .catch(err => console.warn('투표 초기화 실패:', err.message));
     return { tie, belowThreshold, threshold, maxCount, caught: [] };
   }
@@ -957,7 +967,13 @@ export async function tallyVote() {
     });
   }
 
-  if (caught.length === 0) return null;
+  // 최다 득표자가 명단에서 사라진 경우(관리자 삭제 등) — 표를 지우지 않으면
+  // 미집계 표가 영원히 남아 집계 스윕이 매 틱 재시도하므로 여기서도 정리한다.
+  if (caught.length === 0) {
+    await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
+      .catch(err => console.warn('투표 초기화 실패:', err.message));
+    return null;
+  }
   const result = { tie: caught.length > 1, caught };
 
   let anyReveal = false;
@@ -972,11 +988,11 @@ export async function tallyVote() {
   addDoc(collection(db, 'voteHistory'), {
     at: Date.now(),
     ballotCount: ballots.length,
-    caught: caught.map(c => ({ name: c.name, teamCaught: c.teamCaught, team: c.team, roleRevealed: c.roleRevealed, revealedRole: c.revealedRole })),
+    caught: caught.map(c => ({ name: c.name, teamCaught: c.teamCaught, team: c.team, roleRevealed: c.roleRevealed, revealedRole: c.revealedRole, guessFailed: c.guessFailed })),
   }).catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
 
   // 라운드 종료 — 다음 회차를 위해 표 초기화(적발 결과는 players에 영구 반영되어 유지됨)
-  Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
+  await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
     .catch(err => console.warn('투표 초기화 실패:', err.message));
 
   return result;

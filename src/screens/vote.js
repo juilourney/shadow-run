@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, isVoteWindowNow, ROLES } from '../store.js';
+import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, isVoteWindowNow, getVoteHistory, ROLES } from '../store.js';
 
 const TEAM_META = {
   pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.1)',  border: 'rgba(56,189,248,.25)' },
@@ -251,7 +251,6 @@ export function init() {
   // 실제 투표 기간(월·목 18~22시) 기준 타이머 — 활성/비활성 전환과 종료 시 자동 집계도 여기서 처리
   const timerEl = document.getElementById('vote-timer');
   const inactiveOverlay = document.getElementById('vote-inactive-overlay');
-  let wasVotingNow = getVoteStatus().isVotingNow;
   let tallying = false;
 
   function tick() {
@@ -264,19 +263,15 @@ export function init() {
       const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
       const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
       timerEl.textContent = `${h}:${m}:${s}`;
+    } else if (!tallying) {
+      // 투표 기간이 아니면 매 틱마다 미집계 표가 남아있는지 확인해 집계한다 — "방금 마감
+      // 전환을 목격"이 아니라 "미집계 표 존재"가 기준이라, 마감 순간 아무도 앱을 안 켜놨어도
+      // 나중에 누군가 열었을 때 자연스럽게 따라잡는다(표 없으면 tallyVote 내부에서 즉시 반환).
+      tallying = true;
+      tallyVote().catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
     }
 
-    // 투표 기간이 방금 종료됨 — 자동 집계 (getBolts의 만료 스윕과 같은 lazy 패턴)
-    if (wasVotingNow && !status.isVotingNow && !tallying) {
-      tallying = true;
-      tallyVote().then(result => {
-        if (result) {
-          showVoteResult(result);
-          document.getElementById('vote-result-overlay').style.display = 'flex';
-        }
-      }).catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
-    }
-    wasVotingNow = status.isVotingNow;
+    maybeShowNewVoteResult();
   }
   tick();
   setInterval(tick, 1000);
@@ -370,9 +365,12 @@ export function init() {
     else showStep(currentStep - 1);
   });
 
-  // 결과 오버레이 닫기
+  // 결과 오버레이 닫기 — 이때 비로소 '봤음'으로 기록해 다음 회차부터 다시 뜨게 한다
   document.getElementById('vote-result-close').addEventListener('click', () => {
     document.getElementById('vote-result-overlay').style.display = 'none';
+    if (shownVoteAt) {
+      try { localStorage.setItem(VOTE_SEEN_KEY, String(shownVoteAt)); } catch {}
+    }
   });
 
 }
@@ -409,6 +407,28 @@ async function castVote(playerId, playerName, roleGuess) {
     // 더블 — 표가 남았으면 한 번 더 지목하도록 안내
     showTooltip(`한 표 남았어요 · 한 번 더 지목하세요 (${v.total - v.left}/${v.total})`);
   }
+}
+
+const VOTE_SEEN_KEY = 'sr_vote_seen';
+let shownVoteAt = null;   // 지금 결과 오버레이에 띄워둔 회차(중복 렌더 방지)
+
+function lastSeenVoteAt() {
+  try { return Number(localStorage.getItem(VOTE_SEEN_KEY) || 0); } catch { return 0; }
+}
+
+// voteHistory는 모든 기기에 실시간 동기화되므로, "내가 직접 집계를 실행했는지"가
+// 아니라 "이 기기가 아직 못 본 새 기록이 있는지"로 결과 팝업을 띄운다 — 그래야
+// 마감 순간 앱을 안 보고 있던 사람도 나중에 투표 탭을 열면 결과를 볼 수 있다.
+// '봤음' 표시는 실제로 확인 버튼을 눌렀을 때만 한다 — 오버레이는 투표 섹션 안에
+// 들어 있어(absolute) 다른 탭에 있는 동안엔 보이지 않으므로, 띄우는 시점에
+// 표시해버리면 투표 탭에 오지 않은 사람은 결과를 영영 못 보게 된다.
+function maybeShowNewVoteResult() {
+  const latest = getVoteHistory()[0];   // at 내림차순 — 맨 앞이 최신
+  if (!latest || latest.at <= lastSeenVoteAt()) return;
+  if (shownVoteAt === latest.at) return;   // 이미 띄워둔 회차 — 1초마다 다시 그리지 않게
+  shownVoteAt = latest.at;
+  showVoteResult(latest);
+  document.getElementById('vote-result-overlay').style.display = 'flex';
 }
 
 // 집계 결과로 결과 오버레이 채우기

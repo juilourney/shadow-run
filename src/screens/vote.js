@@ -433,7 +433,7 @@ function maybeShowNewVoteResult() {
 
 // 집계 결과로 결과 오버레이 채우기
 function showVoteResult(r) {
-  const caught = r.caught ?? [r];   // 하위호환 (단일 객체도 허용)
+  const caught = r.caught ?? [];   // voteHistory 기록은 항상 caught 배열을 갖는다
 
   // 표가 흩어졌거나(기준 미달) 동점이면 아무도 적발되지 않는다
   if (caught.length === 0) {
@@ -456,14 +456,11 @@ function showVoteResult(r) {
 }
 
 function personCard(c) {
-  const caughtOk = c.teamCaught !== false;   // 하위호환: 필드 없으면 기존(적발) 취급
-  const t = caughtOk ? TEAM_META[c.team] : null;
-  const teamContent = caughtOk
-    ? `<span style="font-size:12px; font-weight:700; border-radius:8px; padding:3px 12px; white-space:nowrap;
+  // 적발자는 규칙상 항상 팀이 공개된다(동점·기준미달은 caught가 비어 여기 안 옴).
+  const t = TEAM_META[c.team];
+  const teamContent = `<span style="font-size:12px; font-weight:700; border-radius:8px; padding:3px 12px; white-space:nowrap;
         color:${t.color}; background:${t.bg}; border:1px solid ${t.border};">${t.label}</span>
-      <span style="font-size:12px; color:#fb7185; margin-left:10px;">마일리지 −50%</span>`
-    : `<span style="font-size:14px; margin-right:8px;">❌</span>
-      <p style="font-size:13px; color:#e4e4e7; line-height:1.5;">적발 실패 — 정체는 공개되지 않습니다</p>`;
+      <span style="font-size:12px; color:#fb7185; margin-left:10px;">마일리지 −50%</span>`;
   return `
   <div style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);
     border-radius:18px; padding:16px 18px; text-align:left;">

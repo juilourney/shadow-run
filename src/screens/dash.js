@@ -68,6 +68,15 @@ export function render() {
       <p id="phase-days" style="font-size:10px; opacity:.5; flex-shrink:0; text-align:right; line-height:1.5;"></p>
     </div>
 
+    <!-- ③ 게임 진행률 — 전체 일수 중 오늘까지 (요일별 단계 색으로 주간 리듬도 함께) -->
+    <div id="progress-block" class="anim-up-2" style="margin-top:12px; padding:0 4px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px;">
+        <span style="font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#52525b;">진행 상황</span>
+        <span id="progress-caption" class="num" style="font-size:11px; font-weight:600; color:#71717a;"></span>
+      </div>
+      <div id="progress-bar" style="display:flex; gap:8px;"></div>
+    </div>
+
     <p class="eyebrow anim-up-3" style="color:#3f3f46; margin:16px 0 10px;">나의 활동</p>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="anim-up-3">
       <div class="bezel" style="padding:16px; border-radius:20px;">
@@ -132,12 +141,18 @@ export function init() {
   // store 이벤트가 없으므로 주기적으로 확인하고, 실제로 뒤집힐 때만 다시 그린다.
   let wasPublic = isGaugeNumbersPublic();
   let wasPhase  = getPhase().phase;
+  let wasDay    = getCalendar().dayIndex;
   setInterval(() => {
     const nowPublic = isGaugeNumbersPublic();
     if (nowPublic !== wasPublic) { wasPublic = nowPublic; renderFromStore(); }
 
     const nowPhase = getPhase().phase;
     if (nowPhase !== wasPhase) { wasPhase = nowPhase; initPhase(); }
+
+    // 자정을 넘겨 날짜가 바뀌면 D-day·진행률 바가 하루 나아가야 한다
+    // (같은 단계 안에서 넘어가면 위 두 조건만으론 안 걸린다)
+    const nowDay = getCalendar().dayIndex;
+    if (nowDay !== wasDay) { wasDay = nowDay; renderFromStore(); }
   }, 30 * 1000);
 
   document.getElementById('dash-end-btn').addEventListener('click', () => {
@@ -268,6 +283,40 @@ function ensureEndShown() {
   goToScreen('s-end');
 }
 
+// 게임 진행률 바 — 전체 일수를 주(7일) 단위로 묶고, 지나간 날은 그날의 단계 색
+// (탐색전=에메랄드 / 줄다리기=로즈)으로 채운다. 완주한 한 주는 4칸 초록 + 3칸
+// 빨강이 되어 주간 리듬까지 한눈에 보인다. 오늘 칸은 은은한 글로우로 강조.
+const PROGRESS_COLOR = { scout: '#34d399', tug: '#fb7185' };
+
+function renderProgress(cal = getCalendar()) {
+  const bar = document.getElementById('progress-bar');
+  const cap = document.getElementById('progress-caption');
+  if (!bar || !cap) return;
+
+  const { dayIndex, totalDays, weeks, week, started, ended } = cal;
+
+  if (!started)   cap.textContent = '시작 전';
+  else if (ended) cap.textContent = '게임 종료';
+  else            cap.textContent = `${week}주차 · ${dayIndex + 1}/${totalDays}일`;
+
+  let html = '';
+  for (let w = 0; w < weeks; w++) {
+    let cells = '';
+    for (let d = 0; d < 7; d++) {
+      const di      = w * 7 + d;
+      const phase   = d < 4 ? 'scout' : 'tug';   // 일~수 탐색 / 목~토 줄다리기
+      const done    = started && di <= dayIndex;
+      const isToday = started && !ended && di === dayIndex;
+      const color   = PROGRESS_COLOR[phase];
+      const bg      = done ? color : 'rgba(255,255,255,.08)';
+      const glow    = isToday ? `box-shadow:0 0 7px ${color};` : '';
+      cells += `<span style="flex:1; height:6px; border-radius:2px; background:${bg}; ${glow}"></span>`;
+    }
+    html += `<div style="flex:1; display:flex; gap:3px;">${cells}</div>`;
+  }
+  bar.innerHTML = html;
+}
+
 function renderFromStore() {
   const g  = getGauge();
   const me = getMe();
@@ -275,6 +324,7 @@ function renderFromStore() {
   // 부팅 시 박제된 라벨 갱신 — 관리자가 게임 기간을 바꾸거나 자정을 넘겨도 반영되게
   const cal = getCalendar();
   document.getElementById('dash-dday').textContent = `${cal.monthLabel} · D-${cal.dday}`;
+  renderProgress(cal);
 
   if (me.team) {
     const isPacer = me.team === 'pacer';

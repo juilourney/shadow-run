@@ -228,7 +228,9 @@ const TIMELINE_TEAM_COLOR = { pacer: '#38bdf8', ghost: '#a78bfa' };
 const TIMELINE_TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
 
 function timelineRow(e) {
-  const time = new Date(e.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(e.at);
+  const date = `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`;
+  const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
   let icon, tint, textColor, body;
   if (e.kind === 'team') {
@@ -263,7 +265,10 @@ function timelineRow(e) {
   <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};">
     <span style="font-size:18px; flex-shrink:0;">${icon}</span>
     <p style="flex:1; min-width:0; font-size:13px; color:${textColor}; line-height:1.5;">${body}</p>
-    <span style="font-size:11px; color:#52525b; flex-shrink:0;">${time}</span>
+    <div style="flex-shrink:0; text-align:right; line-height:1.35;">
+      <div class="num" style="font-size:10px; color:#52525b;">${date}</div>
+      <div class="num" style="font-size:11px; color:#71717a;">${time}</div>
+    </div>
   </div>`;
 }
 

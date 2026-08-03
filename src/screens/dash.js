@@ -125,6 +125,8 @@ export function render() {
         </div>
         <h3 style="font-size:17px; font-weight:700;">최근 소식</h3>
       </div>
+      <div id="timeline-filters" style="display:flex; gap:8px; padding:12px 18px; overflow-x:auto;
+        background:#0e0e10; border-bottom:1px solid rgba(255,255,255,.06);">${timelineFilterChips()}</div>
       <div id="timeline-list" style="flex:1; overflow-y:auto; padding:16px 18px 30px;
         display:flex; flex-direction:column; gap:8px;"></div>
     </div>
@@ -162,6 +164,16 @@ export function init() {
 
   document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
   document.getElementById('timeline-backdrop').addEventListener('click', closeTimelineOverlay);
+
+  // 분류 필터 칩 — 누르면 그 분류만 남기고 다시 그린다(시간순 유지)
+  document.querySelectorAll('#timeline-filters .tl-chip').forEach(b => {
+    b.addEventListener('click', () => {
+      timelineFilter = b.dataset.filter;
+      paintTimelineChips();
+      renderTimelineList();
+    });
+  });
+
   initTimelineDrag();
 }
 
@@ -170,6 +182,9 @@ const TIMELINE_TRANSITION = 'transform .4s var(--spring)';
 function openTimelineOverlay() {
   const overlay = document.getElementById('timeline-overlay');
   const sheet   = document.getElementById('timeline-sheet');
+  timelineFilter = 'all';   // 열 때마다 전체부터 — 예측 가능하게
+  paintTimelineChips();
+  renderTimelineList();
   sheet.style.transition = 'none';
   sheet.style.transform  = 'translateY(100%)';   // 닫힌 위치로 확실히 리셋
   overlay.style.display  = 'block';
@@ -226,6 +241,55 @@ function initTimelineDrag() {
 
 const TIMELINE_TEAM_COLOR = { pacer: '#38bdf8', ghost: '#a78bfa' };
 const TIMELINE_TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
+
+// 소식 분류 — 기록 종류를 게임 도메인 3개로 묶어 필터링한다(순서는 시간순 유지).
+const TIMELINE_CATEGORY = {
+  bolt: 'bolt', reject: 'bolt',     // 번개 — 활동
+  team: 'vote', role: 'vote', fail: 'vote',   // 투표 — 정체 공개
+  ability: 'spy',                   // 첩보 — 탐정·밀정
+};
+const TIMELINE_FILTERS = [
+  { key: 'all',  label: '전체' },
+  { key: 'bolt', label: '⚡ 번개' },
+  { key: 'vote', label: '🗳️ 투표' },
+  { key: 'spy',  label: '🔍 첩보' },
+];
+let timelineFilter = 'all';
+
+function timelineFilterChips() {
+  return TIMELINE_FILTERS.map(f => `
+    <button class="tl-chip" data-filter="${f.key}"
+      style="flex-shrink:0; padding:7px 14px; border-radius:99px; font-size:12px; font-weight:600;
+        cursor:pointer; white-space:nowrap; border:1px solid rgba(255,255,255,.08);
+        background:rgba(255,255,255,.03); color:#a1a1aa;">${f.label}</button>`).join('');
+}
+
+function paintTimelineChips() {
+  document.querySelectorAll('#timeline-filters .tl-chip').forEach(b => {
+    const on = b.dataset.filter === timelineFilter;
+    b.style.background  = on ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.03)';
+    b.style.borderColor = on ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.08)';
+    b.style.color       = on ? '#fafafa' : '#a1a1aa';
+  });
+}
+
+// 전체 타임라인 목록 렌더 — 현재 필터를 적용하되 시간순(getTimeline: 최신순)은 유지.
+function renderTimelineList(timeline = getTimeline()) {
+  const el = document.getElementById('timeline-list');
+  if (!el) return;
+  const rows = timelineFilter === 'all'
+    ? timeline
+    : timeline.filter(e => TIMELINE_CATEGORY[e.kind] === timelineFilter);
+  if (rows.length) {
+    el.innerHTML = rows.map(timelineRow).join('');
+  } else {
+    const msg = timelineFilter === 'all' ? '아직 새로운 소식이 없어요' : '이 분류의 소식이 아직 없어요';
+    el.innerHTML = `
+      <div class="bezel" style="padding:18px 16px; border-radius:20px; text-align:center;">
+        <p style="font-size:13px; color:#52525b;">${msg}</p>
+      </div>`;
+  }
+}
 
 function timelineRow(e) {
   const d = new Date(e.at);
@@ -399,10 +463,9 @@ function renderFromStore() {
     });
   }
 
-  // 최근 소식 — 홈엔 최신 1~2개 미리보기, 탭하면 전체 목록
+  // 최근 소식 — 홈엔 최신 1~2개 미리보기(분류 없이 전체), 탭하면 분류 필터가 있는 전체 목록
   const timeline = getTimeline();
   document.getElementById('dash-timeline-preview').innerHTML =
     timeline.length ? timeline.slice(0, 2).map(timelineRow).join('') : TIMELINE_EMPTY;
-  document.getElementById('timeline-list').innerHTML =
-    timeline.length ? timeline.map(timelineRow).join('') : TIMELINE_EMPTY;
+  renderTimelineList(timeline);
 }

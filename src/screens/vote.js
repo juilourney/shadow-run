@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, isVoteWindowNow, getVoteHistory, ROLES } from '../store.js';
+import { subscribe, getPlayers, getMe, getVote, castVote as storeCastVote, tallyVote, isVoteWindowNow, getVoteHistory, getCalendar, ROLES } from '../store.js';
 
 const TEAM_META = {
   pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.1)',  border: 'rgba(56,189,248,.25)' },
@@ -48,7 +48,33 @@ function getVoteStatus() {
   const closeDate = new Date(now);
   closeDate.setHours(22, 0, 0, 0);
 
-  return { isVotingNow, nextLabel, closeDate };
+  return { isVotingNow, nextLabel, nextRound: voteRoundOf(nextDate, getCalendar(now)), closeDate };
+}
+
+// 투표 회차 계산 — 게임 시작(일요일) 기준 경과일로 몇 번째 월/목 투표인지 센다.
+// 한 주에 2번(월=그 주 1번째, 목=2번째), 총 weeks×2번. 게임 밖(시작 전·마지막
+// 투표 이후)이면 null → "예정된 투표 없음"으로 처리.
+// 비활성 오버레이의 "다가올 투표 회차·일시"를 status에 맞춰 갱신
+function updateNextVoteInfo(status) {
+  const roundEl = document.getElementById('vote-next-round');
+  const labelEl = document.getElementById('vote-next-label');
+  if (roundEl) {
+    roundEl.style.display = status.nextRound ? 'block' : 'none';
+    roundEl.textContent = status.nextRound ? `전체 ${status.nextRound.total}번 중 ${status.nextRound.round}번째 투표` : '';
+  }
+  if (labelEl) labelEl.textContent = status.nextRound ? status.nextLabel : '예정된 투표가 없습니다';
+}
+
+function voteRoundOf(voteDate, cal) {
+  if (!cal.start) return null;
+  const start0 = Date.UTC(cal.start.getFullYear(), cal.start.getMonth(), cal.start.getDate());
+  const v0     = Date.UTC(voteDate.getFullYear(), voteDate.getMonth(), voteDate.getDate());
+  const days = Math.round((v0 - start0) / 86400000);
+  if (days < 0) return null;
+  const round = Math.floor(days / 7) * 2 + (voteDate.getDay() === 1 ? 1 : 2);  // 월=1 / 목=2
+  const total = cal.weeks * 2;
+  if (round < 1 || round > total) return null;
+  return { round, total };
 }
 
 // 참가자 1명의 지목 카드 — v(getVote() 결과)의 castCount/left를 반영해 지목 상태를 그린다.
@@ -90,7 +116,7 @@ function playerRowHtml(p, i, v) {
 }
 
 export function render() {
-  const { nextLabel, isVotingNow } = getVoteStatus();
+  const { nextLabel, nextRound, isVotingNow } = getVoteStatus();
   const v = getVote();
   const me = getMe();
   const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
@@ -153,10 +179,12 @@ export function render() {
       display:${isVotingNow ? 'none' : 'flex'}; flex-direction:column; align-items:center; justify-content:center;
       padding:32px; text-align:center;">
     <div style="font-size:40px; margin-bottom:16px;">🗳️</div>
-    <p style="font-size:22px; font-weight:800; letter-spacing:-.02em; margin-bottom:8px;">투표 기간이 아닙니다</p>
+    <p style="font-size:22px; font-weight:800; letter-spacing:-.02em; margin-bottom:10px;">투표 기간이 아닙니다</p>
+    <p id="vote-next-round" style="font-size:14px; font-weight:700; color:#fb7185; margin-bottom:8px;
+      display:${nextRound ? 'block' : 'none'};">${nextRound ? `전체 ${nextRound.total}번 중 ${nextRound.round}번째 투표` : ''}</p>
     <p style="font-size:13px; color:#52525b; line-height:1.7; margin-bottom:28px;">
       다음 투표<br/>
-      <span style="color:#a1a1aa; font-weight:600;">${nextLabel}</span>
+      <span id="vote-next-label" style="color:#a1a1aa; font-weight:600;">${nextRound ? nextLabel : '예정된 투표가 없습니다'}</span>
     </p>
   </div>
 
@@ -263,12 +291,16 @@ export function init() {
       const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
       const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
       timerEl.textContent = `${h}:${m}:${s}`;
-    } else if (!tallying) {
-      // 투표 기간이 아니면 매 틱마다 미집계 표가 남아있는지 확인해 집계한다 — "방금 마감
-      // 전환을 목격"이 아니라 "미집계 표 존재"가 기준이라, 마감 순간 아무도 앱을 안 켜놨어도
-      // 나중에 누군가 열었을 때 자연스럽게 따라잡는다(표 없으면 tallyVote 내부에서 즉시 반환).
-      tallying = true;
-      tallyVote().catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
+    } else {
+      // 다음 투표 회차·일시 갱신 (앱을 켜둔 채 투표가 지나가도 최신으로)
+      updateNextVoteInfo(status);
+      if (!tallying) {
+        // 투표 기간이 아니면 매 틱마다 미집계 표가 남아있는지 확인해 집계한다 — "방금 마감
+        // 전환을 목격"이 아니라 "미집계 표 존재"가 기준이라, 마감 순간 아무도 앱을 안 켜놨어도
+        // 나중에 누군가 열었을 때 자연스럽게 따라잡는다(표 없으면 tallyVote 내부에서 즉시 반환).
+        tallying = true;
+        tallyVote().catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
+      }
     }
 
     maybeShowNewVoteResult();

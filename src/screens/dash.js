@@ -325,14 +325,20 @@ function timelineRow(e) {
     body = '이번 투표는 적중하지 못했습니다';
   }
 
+  // 투표 결과(팀·역할 공개·적중 실패)는 항상 마감 시각(22시) 직후 집계라 시간이
+  // 무의미하고, 저장값이 '집계된 순간'이라 오히려 오해를 부른다 → 날짜만 표시.
+  // 번개·첩보는 시각이 실제 정보(새벽런 vs 야간런 등)라 날짜+시간 유지.
+  const isVote = TIMELINE_CATEGORY[e.kind] === 'vote';
+  const meta = isVote
+    ? `<div class="num" style="font-size:11px; color:#71717a;">${date}</div>`
+    : `<div class="num" style="font-size:10px; color:#52525b;">${date}</div>
+       <div class="num" style="font-size:11px; color:#71717a;">${time}</div>`;
+
   return `
   <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};">
     <span style="font-size:18px; flex-shrink:0;">${icon}</span>
     <p style="flex:1; min-width:0; font-size:13px; color:${textColor}; line-height:1.5;">${body}</p>
-    <div style="flex-shrink:0; text-align:right; line-height:1.35;">
-      <div class="num" style="font-size:10px; color:#52525b;">${date}</div>
-      <div class="num" style="font-size:11px; color:#71717a;">${time}</div>
-    </div>
+    <div style="flex-shrink:0; text-align:right; line-height:1.35;">${meta}</div>
   </div>`;
 }
 

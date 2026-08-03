@@ -48,12 +48,26 @@ function getVoteStatus() {
   const closeDate = new Date(now);
   closeDate.setHours(22, 0, 0, 0);
 
-  return { isVotingNow, nextLabel, nextRound: voteRoundOf(nextDate, getCalendar(now)), closeDate };
+  const cal = getCalendar(now);
+  // 진행 중이면 '오늘 투표'의 회차, 아니면 다음 투표의 회차
+  const todayVote = new Date(now); todayVote.setHours(18, 0, 0, 0);
+  const currentRound = isVotingNow ? voteRoundOf(todayVote, cal) : null;
+
+  return { isVotingNow, nextLabel, nextRound: voteRoundOf(nextDate, cal), currentRound, closeDate };
 }
 
 // 투표 회차 계산 — 게임 시작(일요일) 기준 경과일로 몇 번째 월/목 투표인지 센다.
 // 한 주에 2번(월=그 주 1번째, 목=2번째), 총 weeks×2번. 게임 밖(시작 전·마지막
 // 투표 이후)이면 null → "예정된 투표 없음"으로 처리.
+// 진행 중인 투표 제목 아래 "현재 N번째 투표" 회차 갱신 (진행 중일 때만 표시)
+function updateCurrentVoteInfo(status) {
+  const el = document.getElementById('vote-current-round');
+  if (!el) return;
+  el.style.display = status.currentRound ? 'block' : 'none';
+  el.textContent = status.currentRound
+    ? `전체 ${status.currentRound.total}번 중 ${status.currentRound.round}번째 투표` : '';
+}
+
 // 비활성 오버레이의 "다가올 투표 회차·일시"를 status에 맞춰 갱신
 function updateNextVoteInfo(status) {
   const roundEl = document.getElementById('vote-next-round');
@@ -116,7 +130,7 @@ function playerRowHtml(p, i, v) {
 }
 
 export function render() {
-  const { nextLabel, nextRound, isVotingNow } = getVoteStatus();
+  const { nextLabel, nextRound, currentRound, isVotingNow } = getVoteStatus();
   const v = getVote();
   const me = getMe();
   const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
@@ -129,6 +143,8 @@ export function render() {
     <!-- 상단 정보 카드 -->
     <div class="anim-up" style="padding-top:4px; margin-bottom:16px">
       <h2 style="font-size:22px; font-weight:700; letter-spacing:-.02em">투표</h2>
+      <p id="vote-current-round" style="font-size:13px; font-weight:700; color:#fb7185; margin-top:4px;
+        display:${currentRound ? 'block' : 'none'};">${currentRound ? `전체 ${currentRound.total}번 중 ${currentRound.round}번째 투표` : ''}</p>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
@@ -284,6 +300,7 @@ export function init() {
   function tick() {
     const status = getVoteStatus();
     inactiveOverlay.style.display = status.isVotingNow ? 'none' : 'flex';
+    updateCurrentVoteInfo(status);
 
     if (status.isVotingNow) {
       const diff = Math.max(0, status.closeDate - new Date());

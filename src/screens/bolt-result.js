@@ -200,6 +200,7 @@ export function init() {
     const seen = loadSeenResults();
     const done = getBolts().find(b =>
       b.status === 'done' && b.result && b.reviewStatus !== 'rejected' &&
+      b.resultPublished === true &&   // 방장이 '결과 확인하기'를 눌러 공개한 뒤에만 다 같이 이동
       b.result.participantIds?.includes(myId) && !seen.includes(b.id));
     if (!done) return;
 

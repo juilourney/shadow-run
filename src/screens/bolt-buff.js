@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { getPendingBolt, completeBolt, setLastBoltResult } from '../store.js';
+import { getPendingBolt, completeBolt, setLastBoltResult, publishBoltResult } from '../store.js';
 import { openResultView, markBoltResultSeen } from './bolt-result.js';
 
 // 버프 카드는 서버가 draw한다(항상 ×3 우회 차단) — 완료 응답의 result.card로 리빌·결과 화면을 그린다.
@@ -159,6 +159,7 @@ export function init() {
 
   let drawnCard = null;
   let completionPromise = null;   // 탭 시점에 시작한 서버 완료(=버프 draw) 결과
+  let publishBoltId = null;       // '결과 확인하기' 때 참가자에게 공개할 번개 id
 
   // 모듈 스코프 DOM 참조 설정
   _track = document.getElementById('slot-track');
@@ -181,6 +182,7 @@ export function init() {
 
     // 탭 시점에 완료 요청 시작(서버가 버프를 뽑아 결과로 돌려줌). 리빌은 이 결과로 그린다.
     const p = getPendingBolt();
+    publishBoltId = p ? p.boltId : null;
     // 이 기기는 버프 리빌을 거쳐 직접 결과로 넘어가므로, 완료가 Firestore로 동기화될 때
     // bolt-result의 '자동 결과화면' 구독이 리빌을 가로채지 않도록 '봤음'을 미리 기록한다.
     // (.then에서 표시하면 onSnapshot이 먼저 도착해 결과화면으로 튕기는 경쟁이 있었음)
@@ -301,8 +303,10 @@ export function init() {
   }
 
   // ── 확인 버튼 ─────────────────────────────────────────────
-  // 완료는 이미 탭 시점에 서버에서 처리됨 — 여기서는 결과 화면으로 넘어가기만 한다.
+  // 완료는 이미 탭 시점에 서버에서 처리됨. 여기서 결과를 '공개'하면 참가자들도
+  // 같은 순간 자동으로 결과 화면으로 넘어온다(방장 확인 시점에 다 같이 이동).
   document.getElementById('buff-confirm-btn').addEventListener('click', () => {
+    if (publishBoltId) publishBoltResult(publishBoltId);
     openResultView();
     goToScreen('s-bolt-result');
   });

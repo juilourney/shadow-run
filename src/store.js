@@ -805,6 +805,17 @@ export async function completeBolt(boltId, distanceKm, participantIds, _ignoredB
   return { ...data.result, card: data.card };
 }
 
+// 방장이 버프 리빌을 확인하고 결과화면으로 넘어가는 순간에 세우는 공개 플래그.
+// 완료(status=done)는 버프 카드를 그리려 탭 시점에 이미 서버로 기록되지만, 참가자
+// 자동 결과화면은 이 플래그를 봐야 뜨므로 방장 확인 시점에 다 같이 넘어간다.
+export async function publishBoltResult(boltId) {
+  try {
+    await updateDoc(doc(db, 'bolts', boltId), { resultPublished: true });
+  } catch (err) {
+    console.warn('결과 공개 실패:', err.message);
+  }
+}
+
 // ── 관리자 — 번개 인증 심사 ─────────────────────────────
 // 완료된 번개 목록(최신순) + 심사에 필요한 정보. 자동 만료(expired)는 사진이 없어 제외.
 export function getCertReviews() {

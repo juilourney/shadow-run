@@ -181,10 +181,14 @@ export function init() {
 
     // 탭 시점에 완료 요청 시작(서버가 버프를 뽑아 결과로 돌려줌). 리빌은 이 결과로 그린다.
     const p = getPendingBolt();
+    // 이 기기는 버프 리빌을 거쳐 직접 결과로 넘어가므로, 완료가 Firestore로 동기화될 때
+    // bolt-result의 '자동 결과화면' 구독이 리빌을 가로채지 않도록 '봤음'을 미리 기록한다.
+    // (.then에서 표시하면 onSnapshot이 먼저 도착해 결과화면으로 튕기는 경쟁이 있었음)
+    if (p) markBoltResultSeen(p.boltId);
     completionPromise = p
       ? completeBolt(p.boltId, p.distanceKm, p.participantIds, null, null,
           { certPhoto: p.certPhoto ?? null, certAt: p.certAt ?? null })
-          .then(result => { markBoltResultSeen(p.boltId); setLastBoltResult(result); return result; })
+          .then(result => { setLastBoltResult(result); return result; })
       : Promise.reject(new Error('번개 정보를 찾을 수 없습니다'));
 
     runBuildup();

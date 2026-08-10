@@ -61,6 +61,13 @@ export function render() {
       <p id="result-total-desc" style="font-size:12px;color:#52525b;margin-top:5px;"></p>
     </div>
 
+    <!-- 개인 페널티 안내 — 이 화면을 보는 당사자 본인이 적발된 상태일 때만 노출(남에겐 안 보임) -->
+    <div id="result-penalty-note" class="anim-up-3" style="display:none;margin-bottom:8px;
+      background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.22);border-radius:16px;padding:12px 16px;">
+      <p style="font-size:12px;font-weight:700;color:#fb7185;margin-bottom:4px;">🔓 정체가 공개된 상태</p>
+      <p id="result-penalty-desc" style="font-size:12px;color:#a1a1aa;line-height:1.6;"></p>
+    </div>
+
     <!-- 참가자 -->
     <div class="bezel anim-up-4" style="padding:14px 16px;border-radius:20px;">
       <p style="font-size:11px;color:#52525b;margin-bottom:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">완주한 참가자</p>
@@ -121,6 +128,23 @@ export function openResultView() {
       <p style="font-size:10px;color:#71717a;margin-top:4px;">${name}</p>
     </div>`;
   }).join('');
+
+  // 개인 페널티 안내 — 이 기기의 참가자 본인이 적발됐고 이번 번개에 참여했을 때만.
+  // (게이지에만 적용되는 효과라, 위 '총 적립'·대시보드 거리와 별개로 개인에게만 알린다)
+  const me = getMe();
+  const noteEl = document.getElementById('result-penalty-note');
+  const iJoined = participantIds.includes(me.id);
+  if (iJoined && (me.penalized || me.abilityStripped)) {
+    let desc = '';
+    if (me.penalized) desc += '정체가 공개돼 <b style="color:#e4e4e7;">내 기여는 게이지에 절반(−50%)만</b> 반영됐어요.';
+    if (me.abilityStripped && me.role === 'elite')  desc += ' 역할까지 밝혀져 2배 효과도 빠진 상태예요.';
+    if (me.abilityStripped && me.role === 'anchor') desc += ' 역할까지 밝혀져 양방향 효과도 빠진 상태예요.';
+    desc += '<br/><span style="color:#52525b;">달린 거리(순수 기여)는 그대로 기록돼요.</span>';
+    document.getElementById('result-penalty-desc').innerHTML = desc;
+    noteEl.style.display = 'block';
+  } else {
+    noteEl.style.display = 'none';
+  }
 }
 
 function buffCardBlock(card, distanceKm) {

@@ -95,6 +95,13 @@ export function render() {
       </div>
     </div>
 
+    <!-- 개인 페널티 배지 — 적발된 본인에게만 노출(기기별 본인 상태로만 판단, 남에겐 안 보임) -->
+    <div id="dash-penalty-badge" class="anim-up-3" style="display:none; margin-top:10px;
+      background:rgba(251,113,133,.08); border:1px solid rgba(251,113,133,.22); border-radius:14px; padding:11px 14px;">
+      <p style="font-size:12px; font-weight:700; color:#fb7185; line-height:1.5;">🔓 정체가 공개돼 게이지 기여 −50% 적용 중</p>
+      <p style="font-size:11px; color:#52525b; margin-top:2px; line-height:1.4;">달린 거리(순수 기여)는 그대로 기록돼요</p>
+    </div>
+
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">나의 번개 일정</p>
     <div id="dash-my-bolt" class="anim-up-4"></div>
 
@@ -436,6 +443,9 @@ function renderFromStore() {
 
   document.getElementById('stat-pure-km').textContent = fmt(me.pureKm);
   document.getElementById('stat-bolts').textContent   = me.boltsCompleted;
+
+  // 적발(팀 공개)된 본인에게만 게이지 페널티 배지 노출 — 역할 공개는 팀 공개를 전제로 하므로 penalized로 판정
+  document.getElementById('dash-penalty-badge').style.display = me.penalized ? 'block' : 'none';
 
   // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
   document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';

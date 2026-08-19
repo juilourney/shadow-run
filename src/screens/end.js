@@ -1,4 +1,5 @@
-import { getGauge, getPlayers, getMe, ROLES } from '../store.js';
+import { getGauge, getPlayers, getMe, getCalendar, subscribe, ROLES } from '../store.js';
+import { goToScreen } from '../utils/nav.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8', tint: 'rgba(56,189,248,.12)' },
@@ -80,11 +81,14 @@ export function openEndView() {
     winnerEl.textContent = `${w.label} 승리`;
     winnerEl.style.color = w.color;
     diffEl.textContent = `최종 격차 +${fmt(Math.abs(g.diff))} km`;
-    // 우승팀 색 배경 — 상단(진한 코어) + 하단(넓은 앰비언트)로 화면 전체에 팀 컬러가 확실히 감돌게
-    document.getElementById('end-orb').style.cssText +=
-      `;opacity:.85;background:radial-gradient(circle, ${w.color}70 0%, ${w.color}22 45%, transparent 72%);`;
-    document.getElementById('end-orb-2').style.cssText +=
-      `;opacity:.6;background:radial-gradient(circle, ${w.color}44 0%, transparent 70%);`;
+    // 우승팀 색 배경 — 상단(진한 코어) + 하단(넓은 앰비언트)로 화면 전체에 팀 컬러가 확실히 감돌게.
+    // (데이터 로드에 따라 여러 번 호출될 수 있어 cssText += 대신 개별 속성으로 멱등하게 설정)
+    const orb = document.getElementById('end-orb');
+    orb.style.opacity = '.85';
+    orb.style.background = `radial-gradient(circle, ${w.color}70 0%, ${w.color}22 45%, transparent 72%)`;
+    const orb2 = document.getElementById('end-orb-2');
+    orb2.style.opacity = '.6';
+    orb2.style.background = `radial-gradient(circle, ${w.color}44 0%, transparent 70%)`;
   } else {
     winnerEl.textContent = '무승부';
     winnerEl.style.color = '#fafafa';
@@ -133,4 +137,14 @@ function rankRow(p, i) {
 }
 
 // 종료 후 고정 화면 — 나가기 버튼이 없다(새 시즌 시작 시 부팅 라우팅이 이름 입력부터 다시 시작).
-export function init() {}
+// 부팅 시 게이지·명단이 로드되기 전에 s-end로 바로 올 수 있으므로(대시보드 플래시 방지),
+// 화면이 떠 있는 동안 store 갱신마다 다시 채워 '—'/0에서 실제 결과로 자연히 메워지게 한다.
+export function init() {
+  subscribe(() => {
+    if (!document.getElementById('s-end')?.classList.contains('active')) return;
+    // 캐시된 캘린더로 종료라 판단해 들어왔는데 실제 설정이 로드되며 '아직 안 끝남'으로
+    // 밝혀지면(관리자가 기간을 늘렸거나 캐시가 낡음) 대시보드로 되돌린다.
+    if (!getCalendar().ended) { goToScreen('s-game'); return; }
+    openEndView();
+  });
+}

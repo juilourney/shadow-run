@@ -1,7 +1,8 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity, isNameRegistered, isRosterLoaded } from '../store.js';
+import { subscribe, getGameSettings, getRoster, getAssignment, triggerAssignment, hasConfirmedRole, clearSavedIdentity, isNameRegistered, isRosterLoaded, getCalendar } from '../store.js';
 import { prepareCard } from './card.js';
+import { openEndView } from './end.js';
 import { guideBody } from './guide.js';
 import { applyTeamTheme, resetTeamTheme } from '../utils/theme.js';
 import { initPhase } from '../utils/phase.js';
@@ -319,7 +320,9 @@ export function enterAssignedPlayer(me) {
     state.roleConfirmed = true;
     applyTeamTheme(state.team);
     initPhase();
-    goToScreen('s-game');
+    // 이미 종료된 게임이면 대시보드 대신 결과화면으로 바로 (플래시 방지)
+    if (getCalendar().ended) { openEndView(); goToScreen('s-end'); }
+    else goToScreen('s-game');
     return;
   }
 

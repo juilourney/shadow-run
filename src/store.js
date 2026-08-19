@@ -40,12 +40,25 @@ export const CONFIG = {
 };
 
 // ── 상태 (스냅샷) — Firestore와 실시간 동기화되는 로컬 캐시 ────
+// 마지막으로 받은 게임 설정(시작일·기간)을 기기에 캐시 — 부팅 시 settings onSnapshot이
+// 아직 안 왔어도 종료 여부(getCalendar().ended)를 올바로 판정해, 종료 상태면 대시보드를
+// 거치지 않고 결과화면으로 바로 라우팅하기 위함(대시보드 플래시 방지).
+const CAL_CACHE_KEY = 'sr_cal';
+function loadCachedCal() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CAL_CACHE_KEY) || 'null');
+    if (c && c.startDate && c.weeks) return c;
+  } catch {}
+  return null;
+}
+const _cachedCal = loadCachedCal();
+
 const state = {
   game: {
     gauge: { pacer: 0, ghost: 0 },
     name: CONFIG.name,
-    startDate: CONFIG.startDate,
-    weeks: CONFIG.weeks,
+    startDate: _cachedCal?.startDate ?? CONFIG.startDate,
+    weeks: _cachedCal?.weeks ?? CONFIG.weeks,
   },
 
   voteHistory: [],   // 투표 히스토리 — voteHistory 컬렉션과 동기화
@@ -157,6 +170,7 @@ onSnapshot(settingsDocRef, snap => {
   if (snap.exists()) {
     const { name, startDate, weeks } = snap.data();
     Object.assign(state.game, { name, startDate, weeks });
+    try { localStorage.setItem(CAL_CACHE_KEY, JSON.stringify({ startDate, weeks })); } catch {}
   } else {
     writeGameSettings();
   }

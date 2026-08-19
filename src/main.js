@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, subscribe, reconnectFirestore } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, subscribe, reconnectFirestore, getCalendar } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -279,7 +279,10 @@ if (confirmed && confirmed.team && confirmed.role) {
   state.roleConfirmed = true;
   applyTeamTheme(confirmed.team);
   initPhase();
-  goToScreen('s-game');
+  // 게임이 이미 종료된 상태면 대시보드를 거치지 않고 결과화면으로 바로 — 대시보드 플래시 방지.
+  // (캐시된 캘린더로 종료 여부를 부팅 시점에 판정. 결과 데이터는 로드되며 s-end가 스스로 갱신)
+  if (getCalendar().ended) { end.openEndView(); goToScreen('s-end'); }
+  else goToScreen('s-game');
 
   const unsub = subscribe(() => {
     // routeByAssignment가 배정과 명단을 모두 판정 근거로 쓰므로 둘 다 로드된 뒤에만

@@ -1,4 +1,4 @@
-import { getGameSettings, updateGameSettings, createNewGame } from '../../store.js';
+import { getGameSettings, createNewGame } from '../../store.js';
 
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
 const fmtDate = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
@@ -29,22 +29,13 @@ export function render() {
       <h2 style="font-size:22px; font-weight:700;">게임 기간 설정</h2>
     </div>
 
-    <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">현재 게임 관리</p>
-    <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:12px;">
-      <div class="admin-field">
-        <label>게임명</label>
-        <input class="input" id="cur-name" />
+    <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">현재 게임</p>
+    <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+        <p id="cur-name-display" style="font-size:17px; font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</p>
+        <span id="cur-status-badge" class="admin-badge" style="flex-shrink:0;">—</span>
       </div>
-      <div class="admin-field">
-        <label>시작일</label>
-        <input class="input" type="date" id="cur-startDate" />
-      </div>
-      <div class="admin-field">
-        <label>기간(주)</label>
-        <input class="input" type="number" min="1" id="cur-weeks" />
-      </div>
-      <p id="cur-status" style="font-size:12px; color:#71717a; margin-bottom:12px;"></p>
-      <button class="btn btn-primary" id="cur-save-btn" style="width:100%; height:48px;">현재 게임 수정 저장</button>
+      <p id="cur-period" style="font-size:13px; color:#a1a1aa; line-height:1.6;">—</p>
     </div>
 
     <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">신규 게임 생성</p>
@@ -72,11 +63,14 @@ export function render() {
 
 function loadCurrent() {
   const gs = getGameSettings();
-  document.getElementById('cur-name').value = gs.name;
-  document.getElementById('cur-startDate').value = gs.startDate;
-  document.getElementById('cur-weeks').value = gs.weeks;
-  document.getElementById('cur-status').textContent =
-    `${fmtDate(gs.start)} ~ ${fmtLastDay(gs.end)} (${gs.weeks}주 · ${gs.weeks * 7}일) · 상태: ${STATUS_LABEL[gs.status]}`;
+  document.getElementById('cur-name-display').textContent = gs.name;
+  const badge = document.getElementById('cur-status-badge');
+  badge.textContent = STATUS_LABEL[gs.status];
+  badge.className = `admin-badge ${gs.status}`;
+  const extra = gs.status === 'ongoing' ? ` · D-${gs.dday} · ${gs.week}주차`
+    : gs.status === 'scheduled' ? ' · 시작 예정' : '';
+  document.getElementById('cur-period').textContent =
+    `${fmtDate(gs.start)} ~ ${fmtLastDay(gs.end)}  (${gs.weeks}주 · ${gs.weeks * 7}일)${extra}`;
 }
 
 function refreshNewRange() {
@@ -89,17 +83,6 @@ function refreshNewRange() {
 }
 
 export function init(goTo) {
-  document.getElementById('cur-save-btn').addEventListener('click', async () => {
-    try {
-      await updateGameSettings({
-        name: document.getElementById('cur-name').value.trim(),
-        startDate: document.getElementById('cur-startDate').value,
-        weeks: document.getElementById('cur-weeks').value,
-      });
-      loadCurrent();
-    } catch (e) { alert(e.message); goTo('login'); }
-  });
-
   document.getElementById('new-startDate').addEventListener('input', refreshNewRange);
   document.getElementById('new-weeks').addEventListener('input', refreshNewRange);
   refreshNewRange();

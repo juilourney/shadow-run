@@ -8,7 +8,7 @@
 //  certPhoto: 관리자 심사용, certPhotos 컬렉션에 별도 저장(참가자 기기는 안 받음)
 //  certAt: 사진 속 기록 시각(ms) — result에 저장, 관리자 심사에서 일정 대조에 사용
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
-import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
+import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -57,11 +57,14 @@ export async function onRequestPost(context) {
     const settings = settingsRes.ok ? fromFirestoreFields((await settingsRes.json()).fields) : {};
     const isTug = computeIsTug(settings.startDate);
 
-    // 단일팀 여부 → 버프/스킬 카드. 혼합팀은 서버가 버프 draw(조작 차단), 단일팀은 팀 스킬.
+    // 카드 결정: 혼자(참가자 1명) → 버프 없음(×1) / 단일팀(같은 팀 3~4명) → 팀 스킬 /
+    // 그 외(혼합·2명) → 랜덤 버프(서버 draw로 ×3 우회 차단).
     const teams = boltParticipants.map(id => playerMap[id]?.team);
     const singleTeam = boltParticipants.length >= RULES.singleTeamMin && teams.every(t => t && t === teams[0]);
     let card;
-    if (singleTeam) {
+    if (boltParticipants.length <= 1) {
+      card = SOLO_CARD;                                  // 혼자 달림 → 버프 미적용
+    } else if (singleTeam) {
       card = teams[0] === 'pacer' ? PACER_SKILL : GHOST_SKILL;
     } else {
       card = BUFF_CARDS[Math.floor(Math.random() * BUFF_CARDS.length)];

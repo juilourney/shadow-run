@@ -26,6 +26,8 @@ export const BUFF_CARDS = [
 ];
 export const PACER_SKILL = { name: '시너지 스킬', icon: '🔥', multiplier: 1, color: '#fb923c', bg: 'rgba(251,146,60,.18)', border: 'rgba(251,146,60,.4)',  desc: '참가자 1명당 추가 km 적립 · 팀 인원이 많을수록 유리' };
 export const GHOST_SKILL = { name: '게이지 스킬', icon: '⚔️', multiplier: 1, color: '#fb7185', bg: 'rgba(251,113,133,.15)', border: 'rgba(251,113,133,.35)', desc: '달린 거리만큼 상대 게이지 직접 감소 · 전략형 스킬' };
+// 혼자 달린 번개(참가자 1명) — 버프 미적용, 실제 거리만 ×1 적립.
+export const SOLO_CARD = { name: '혼자 달림', icon: '×1', multiplier: 1, color: '#71717a', bg: 'rgba(113,113,122,.12)', border: 'rgba(113,113,122,.25)', desc: '혼자 달린 번개는 버프 없이 실제 거리만 적립됩니다' };
 
 const opponentOf = team => (team === 'pacer' ? 'ghost' : 'pacer');
 

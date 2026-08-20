@@ -93,7 +93,8 @@ export function openResultView() {
   document.getElementById('result-orb').style.opacity = '.5';
 
   // 서브타이틀
-  const typeLabel = singleTeam ? '단일팀 번개' : '혼합팀 번개';
+  const solo = participantCount === 1;
+  const typeLabel = solo ? '혼자 번개' : singleTeam ? '단일팀 번개' : '혼합팀 번개';
   document.getElementById('result-subtitle').textContent = `${boltTitle ?? '번개'} · ${typeLabel}`;
 
   // 거리
@@ -103,7 +104,9 @@ export function openResultView() {
 
   // 버프/스킬 섹션
   const buffEl = document.getElementById('result-buff-section');
-  if (singleTeam && card) {
+  if (solo) {
+    buffEl.innerHTML = soloBlock(distanceKm);          // 혼자 달림 — 버프 없음(×1)
+  } else if (singleTeam && card) {
     const skillDesc = buildSkillEffect(boltTeam, participantCount, distanceKm);
     buffEl.innerHTML = singleTeamBlock(card, skillDesc);
   } else if (!singleTeam && card) {
@@ -145,6 +148,18 @@ export function openResultView() {
   } else {
     noteEl.style.display = 'none';
   }
+}
+
+// 혼자 달린 번개 — 버프/스킬 없이 실제 거리만(×1). 버프 카드 UI 대신 담백하게 표시.
+function soloBlock(distanceKm) {
+  return `
+  <div style="background:rgba(113,113,122,.1); border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:14px 18px;">
+    <p style="font-size:12px; color:#52525b; font-weight:600; letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px;">혼자 달림 · 버프 없음</p>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <p style="font-size:12px; color:#71717a;">실제 거리 그대로 적립</p>
+      <p class="num" style="font-size:18px; font-weight:700; color:#e4e4e7;">+${distanceKm.toFixed(1)} km</p>
+    </div>
+  </div>`;
 }
 
 function buffCardBlock(card, distanceKm) {

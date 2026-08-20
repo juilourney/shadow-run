@@ -2,7 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, subscribe, reconnectFirestore, getCalendar } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -279,10 +279,23 @@ if (confirmed && confirmed.team && confirmed.role) {
   state.roleConfirmed = true;
   applyTeamTheme(confirmed.team);
   initPhase();
-  // 게임이 이미 종료된 상태면 대시보드를 거치지 않고 결과화면으로 바로 — 대시보드 플래시 방지.
-  // (캐시된 캘린더로 종료 여부를 부팅 시점에 판정. 결과 데이터는 로드되며 s-end가 스스로 갱신)
-  if (getCalendar().ended) { end.openEndView(); goToScreen('s-end'); }
-  else goToScreen('s-game');
+  // 대시보드 플래시 방지 — 종료 여부는 실제 settings(startDate·weeks)에 달렸는데 캐시는
+  // 낡을 수 있어(끝났는데 '안 끝남'으로 오판 → 대시보드 보였다가 s-end로 튐), 실제 settings가
+  // 로드된 뒤에 진입 화면을 정한다. 그 사이엔 부팅 게이트(검은 화면)가 덮고 있어 아무것도 안 비침.
+  // settings가 안 오는 경우(오프라인 등)엔 폴백으로 캐시 기준 진입.
+  let entered = false;
+  const enterFromConfirmed = () => {
+    if (entered) return;
+    entered = true;
+    if (getCalendar().ended) { end.openEndView(); goToScreen('s-end'); }
+    else goToScreen('s-game');
+  };
+  if (isSettingsLoaded()) {
+    enterFromConfirmed();
+  } else {
+    const unsubEnter = subscribe(() => { if (isSettingsLoaded()) { unsubEnter(); enterFromConfirmed(); } });
+    setTimeout(enterFromConfirmed, 1500);   // 오프라인 폴백
+  }
 
   const unsub = subscribe(() => {
     // routeByAssignment가 배정과 명단을 모두 판정 근거로 쓰므로 둘 다 로드된 뒤에만
@@ -307,10 +320,10 @@ if (confirmed && confirmed.team && confirmed.role) {
     resolved = true;
     if (unsub) unsub();
   };
-  // 배정·명단 문서가 아직 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
-  // 하지 않고 계속 기다린다. 둘 다 로드된 뒤에만 라우팅한다.
+  // 배정·명단·설정 문서가 아직 로드되지 않았으면(=Firestore 연결/동기화 전) 화면 판정을
+  // 하지 않고 계속 기다린다. 셋 다 로드된 뒤에만 라우팅한다(설정=종료 여부 확정 → s-end 직행 판정).
   const decide = () => {
-    if (resolved || !isAssignmentLoaded() || !isRosterLoaded()) return;
+    if (resolved || !isAssignmentLoaded() || !isRosterLoaded() || !isSettingsLoaded()) return;
     finish();
     routeByAssignment(rememberedName);
   };

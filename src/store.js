@@ -66,6 +66,7 @@ const state = {
   rosterLoaded: false,   // roster onSnapshot이 최초 1회라도 도착했는지 (강퇴 판정용)
   assignment: { assigned: false, players: [] },  // 팀·역할 배정 결과 — game/assignment와 동기화
   assignmentLoaded: false,   // game/assignment onSnapshot이 최초 1회라도 도착했는지 (부팅 라우팅 판정용)
+  settingsLoaded: false,     // game/settings onSnapshot이 최초 1회라도 도착했는지 (종료 여부 확정용)
 
   // 나 — 신원은 players[내 이름과 일치하는 항목]이 단일 출처. 여기엔 사적 정보만.
   // abilityLog/revealed는 의도적으로 로컬 전용(동기화 안 함) — 탐정/밀정 조사 결과가
@@ -174,6 +175,7 @@ onSnapshot(settingsDocRef, snap => {
   } else {
     writeGameSettings();
   }
+  state.settingsLoaded = true;
   notify();
 }, err => console.warn('게임 설정 실시간 동기화 실패:', err.message));
 
@@ -550,6 +552,12 @@ export function getAssignment() {
 // 판정하기 전에, Firestore가 실제로 응답했는지 확인하는 용도.
 export function isAssignmentLoaded() {
   return state.assignmentLoaded;
+}
+
+// game/settings onSnapshot이 최초 1회라도 도착했는지 — 종료 여부(getCalendar().ended)를
+// 캐시가 아닌 실제 값으로 확정할 수 있는지 판정(부팅 라우팅에서 결과화면 직행 결정에 사용).
+export function isSettingsLoaded() {
+  return state.settingsLoaded;
 }
 
 // 이 기기에서 카드·역할 확인(뒤집기)을 이미 마쳤는지 — localStorage에 저장.

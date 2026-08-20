@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -16,6 +16,23 @@ const fmtDate = ts => new Date(ts).toLocaleString('ko-KR', { month: 'short', day
 
 let activeTab = 'votes';
 
+// 최종 순위 한 줄 — 전원 정체 공개(관리자용). km 내림차순.
+function rankRowAdmin(p, i) {
+  const t = TEAM[p.team] ?? { label: p.team, color: '#a1a1aa' };
+  const roleName = ROLES[p.role]?.name ?? p.role;
+  const isFirst = i === 0;
+  return `
+  <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:11px;
+    background:${isFirst ? 'rgba(250,204,21,.1)' : 'rgba(255,255,255,.02)'};">
+    <span style="width:20px; text-align:center; font-size:${isFirst ? '15px' : '12px'}; color:#71717a;">${isFirst ? '👑' : i + 1}</span>
+    <div style="flex:1; min-width:0;">
+      <p style="font-size:13px; font-weight:600; line-height:1.2;">${p.name}</p>
+      <p style="font-size:11px; color:${t.color}; margin-top:2px; line-height:1.2;">${t.label} · ${roleName}</p>
+    </div>
+    <span class="num" style="font-size:13px; font-weight:700; white-space:nowrap;">${fmt(p.km)} <span style="font-size:10px; color:#52525b;">km</span></span>
+  </div>`;
+}
+
 export function render() {
   return `
 <div class="admin-screen" id="admin-dashboard">
@@ -29,6 +46,19 @@ export function render() {
         </div>
       </div>
       <span id="admin-certs-pending" style="font-size:12px; color:#fbbf24; font-weight:700; flex-shrink:0;"></span>
+    </div>
+
+    <!-- 게임 종료 시에만 노출되는 결과 배너 (누가 이겼는지 + 펼치면 최종 순위) -->
+    <div id="admin-result" style="display:none; padding:16px 18px; border-radius:20px; margin-bottom:20px;
+      background:linear-gradient(135deg, rgba(250,204,21,.09), rgba(255,255,255,.02)); border:1px solid rgba(250,204,21,.22);">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="min-width:0;">
+          <p id="admin-result-winner" style="font-size:17px; font-weight:800; line-height:1.3;">—</p>
+          <p id="admin-result-diff" style="font-size:12px; color:#71717a; margin-top:3px;"></p>
+        </div>
+        <button class="btn btn-secondary" id="admin-result-toggle" style="height:36px; padding:0 14px; font-size:12px; flex-shrink:0;">결과 화면 보기</button>
+      </div>
+      <div id="admin-result-ranking" style="display:none; flex-direction:column; gap:6px; margin-top:14px;"></div>
     </div>
 
     <div class="bezel" style="padding:16px 18px; border-radius:20px; margin-bottom:20px;">
@@ -111,6 +141,27 @@ function refresh() {
     gs.status === 'ongoing' ? `D-${gs.dday} · ${gs.week}주차` : gs.status === 'scheduled' ? `시작 ${gs.start.toLocaleDateString('ko-KR')}` : '';
 
   const g = getGauge();
+
+  // 게임 종료 시 결과 배너 — 누가 이겼는지 + (펼치면) 최종 순위
+  const resultEl = document.getElementById('admin-result');
+  if (gs.status === 'ended') {
+    resultEl.style.display = 'block';
+    const winnerEl = document.getElementById('admin-result-winner');
+    const diffEl = document.getElementById('admin-result-diff');
+    if (g.leader) {
+      const w = TEAM[g.leader];
+      winnerEl.innerHTML = `🏁 <span style="color:${w.color};">${w.label}</span> 승리로 종료`;
+      diffEl.textContent = `최종 격차 +${fmt(Math.abs(g.diff))} km · 고스트 ${fmt(g.ghost)} / 페이서 ${fmt(g.pacer)}`;
+    } else {
+      winnerEl.textContent = '🏁 무승부로 종료';
+      diffEl.textContent = '양 팀 게이지 동점';
+    }
+    const ranked = [...getPlayers()].sort((a, b) => b.km - a.km);
+    document.getElementById('admin-result-ranking').innerHTML = ranked.map(rankRowAdmin).join('');
+  } else {
+    resultEl.style.display = 'none';
+  }
+
   const total = g.pacer + g.ghost || 1;
   document.getElementById('admin-bar-pacer').style.width = `${(g.pacer / total * 100).toFixed(1)}%`;
   document.getElementById('admin-bar-ghost').style.width = `${(g.ghost / total * 100).toFixed(1)}%`;
@@ -146,6 +197,14 @@ export function init(goTo) {
     if (!tab) return;
     activeTab = tab.dataset.tab;
     renderTabBody();
+  });
+  // 결과 배너 '결과 화면 보기' — 최종 순위 펼치기/접기
+  document.getElementById('admin-result-toggle').addEventListener('click', () => {
+    const rk = document.getElementById('admin-result-ranking');
+    const btn = document.getElementById('admin-result-toggle');
+    const showing = rk.style.display !== 'none';
+    rk.style.display = showing ? 'none' : 'flex';
+    btn.textContent = showing ? '결과 화면 보기' : '접기';
   });
   subscribe(refresh);
   refresh();

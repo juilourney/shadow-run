@@ -1,5 +1,5 @@
 // Cloudflare Pages Function — 게임 설정(game/settings 문서)을 서버 권한으로만 Firestore에 기록.
-// 관리자 화면(A-03)의 updateGameSettings/createNewGame이 호출.
+// 관리자 신규 게임 생성(createNewGame → writeGameSettings)이 호출.
 import { getAccessToken, firestoreUrl, toFirestoreValue } from '../_lib/firebase-admin.js';
 import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 

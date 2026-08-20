@@ -682,17 +682,6 @@ function playerById(id) {
 //  ACTIONS — 상태를 바꾸는 유일한 방법 (모두 async)
 // ═══════════════════════════════════════════════════════════
 
-// 관리자 — 진행 중인 게임의 이름/기간 수정 (A-03 "현재 게임 관리")
-export async function updateGameSettings({ name, startDate, weeks }) {
-  if (!isAdminTokenValid()) { clearAdminToken(); throw new Error(ADMIN_EXPIRED_MSG); }
-  if (name) state.game.name = name;
-  if (startDate) state.game.startDate = startDate;
-  if (weeks) state.game.weeks = Number(weeks);
-  writeGameSettings();
-  notify();
-  return getGameSettings();
-}
-
 // 관리자 — 신규 게임 생성. 이전 게임의 게이지·배정·번개·투표·타임라인·참가자 명단을 전부 삭제하고 새로 시작.
 export async function createNewGame({ name, startDate, weeks }) {
   // 토큰이 만료됐으면 아래 서버 쓰기들이 전부 401로 조용히 실패해 "리셋했는데 그대로"가 된다.

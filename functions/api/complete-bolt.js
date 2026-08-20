@@ -43,13 +43,22 @@ export async function onRequestPost(context) {
     const checkedIds = participantIds.filter(id => boltParticipants.includes(id));
     if (checkedIds.length === 0) return json({ error: '유효한 참가자가 없습니다' }, 400);
 
-    // players 읽어 역할/팀 맵 구성(서버 신뢰 기준)
+    // 역할·팀은 조작 불가능한 game/assignment(서버 전용 쓰기)에서 읽는다.
+    // players 컬렉션은 클라이언트가 쓸 수 있어, 거기서 role을 믿으면 '내 역할을 elite로
+    // 위조해 ×2' 같은 승부 조작이 가능해진다. 게이지에 직접 곱해지는 role/team은 배정 기준만 신뢰.
+    const asgRes = await fetch(firestoreUrl(env, 'game/assignment'), { headers: authHeaders });
+    const assignment = asgRes.ok ? fromFirestoreFields((await asgRes.json()).fields) : {};
+    // 페널티·능력박탈은 게임 중 바뀌는 동적 상태라 players에서 읽는다(투표 집계가 씀).
     const playersRes = await fetch(firestoreUrl(env, 'players'), { headers: authHeaders });
     const playersData = await playersRes.json();
-    const playerMap = {};
+    const penMap = {};
     for (const d of playersData.documents || []) {
-      const id = d.name.split('/').pop();
-      playerMap[id] = fromFirestoreFields(d.fields);
+      const pf = fromFirestoreFields(d.fields);
+      penMap[d.name.split('/').pop()] = { penalized: !!pf.penalized, abilityStripped: !!pf.abilityStripped };
+    }
+    const playerMap = {};
+    for (const p of assignment.players || []) {
+      playerMap[p.id] = { team: p.team, role: p.role, penalized: penMap[p.id]?.penalized || false, abilityStripped: penMap[p.id]?.abilityStripped || false };
     }
 
     // settings에서 줄다리기 단계 판정

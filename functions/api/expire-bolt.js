@@ -31,10 +31,12 @@ export async function onRequestPost(context) {
     if (!['open', 'running'].includes(bolt.status)) return json({ error: '이미 처리된 번개입니다', duplicate: true }, 409);
     if (Date.now() <= boltDeadline(bolt)) return json({ error: '아직 인증 마감 전입니다' }, 400);
 
-    const playersRes = await fetch(firestoreUrl(env, 'players'), { headers: authHeaders });
-    const playersData = await playersRes.json();
+    // 팀은 조작 불가능한 game/assignment(서버 전용 쓰기)에서 읽는다 — players는 클라가 쓸 수
+    // 있어 team 위조로 만료 페널티 방향을 뒤집을 수 있다. 만료 계산엔 team만 필요하다.
+    const asgRes = await fetch(firestoreUrl(env, 'game/assignment'), { headers: authHeaders });
+    const assignment = asgRes.ok ? fromFirestoreFields((await asgRes.json()).fields) : {};
     const playerMap = {};
-    for (const d of playersData.documents || []) playerMap[d.name.split('/').pop()] = fromFirestoreFields(d.fields);
+    for (const p of assignment.players || []) playerMap[p.id] = { team: p.team };
 
     const settingsRes = await fetch(firestoreUrl(env, 'game/settings'), { headers: authHeaders });
     const settings = settingsRes.ok ? fromFirestoreFields((await settingsRes.json()).fields) : {};

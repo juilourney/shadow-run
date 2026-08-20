@@ -698,7 +698,8 @@ export async function createNewGame({ name, startDate, weeks }) {
   // 토큰이 만료됐으면 아래 서버 쓰기들이 전부 401로 조용히 실패해 "리셋했는데 그대로"가 된다.
   // 먼저 막고 재로그인을 유도한다.
   if (!isAdminTokenValid()) { clearAdminToken(); throw new Error(ADMIN_EXPIRED_MSG); }
-  state.game.name = name;
+  // 게임명은 관리자 대시보드 제목에만 쓰이는 라벨 — 비우면 기본값으로.
+  state.game.name = (name || '').trim() || CONFIG.name;
   state.game.startDate = startDate;
   state.game.weeks = Number(weeks);
   state.game.gauge = { pacer: 0, ghost: 0 };

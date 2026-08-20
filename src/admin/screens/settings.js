@@ -51,8 +51,8 @@ export function render() {
     <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:12px;">
       <p style="font-size:12px; color:#fb7185; margin-bottom:14px;">⚠ 생성 시 현재 게이지·배정·번개·투표 기록과 참가자 명단까지 모두 삭제되고 복구할 수 없습니다. 새 시즌은 참가자가 이름을 직접 입력해 새로 모집됩니다.</p>
       <div class="admin-field">
-        <label>게임명</label>
-        <input class="input" id="new-name" placeholder="예: 2026년 7월 섀도우런 Vol.2" />
+        <label>게임명 <span style="color:#52525b; font-weight:400;">(선택 · 비우면 '섀도우 런')</span></label>
+        <input class="input" id="new-name" placeholder="관리자 화면 제목에만 표시 — 비워도 됨" />
       </div>
       <div class="admin-field">
         <label>시작일</label>
@@ -108,7 +108,7 @@ export function init(goTo) {
     const name = document.getElementById('new-name').value.trim();
     const startDate = document.getElementById('new-startDate').value;
     const weeks = document.getElementById('new-weeks').value;
-    if (!name || !startDate || !weeks) { alert('게임명·시작일·기간을 모두 입력하세요.'); return; }
+    if (!startDate || !weeks) { alert('시작일·기간을 입력하세요.'); return; }
     if (!confirm('현재 게임을 종료하고 새 게임을 생성할까요? 되돌릴 수 없습니다.')) return;
     const btn = document.getElementById('new-create-btn');
     btn.disabled = true;

@@ -90,12 +90,14 @@ function refreshNewRange() {
 
 export function init(goTo) {
   document.getElementById('cur-save-btn').addEventListener('click', async () => {
-    await updateGameSettings({
-      name: document.getElementById('cur-name').value.trim(),
-      startDate: document.getElementById('cur-startDate').value,
-      weeks: document.getElementById('cur-weeks').value,
-    });
-    loadCurrent();
+    try {
+      await updateGameSettings({
+        name: document.getElementById('cur-name').value.trim(),
+        startDate: document.getElementById('cur-startDate').value,
+        weeks: document.getElementById('cur-weeks').value,
+      });
+      loadCurrent();
+    } catch (e) { alert(e.message); goTo('login'); }
   });
 
   document.getElementById('new-startDate').addEventListener('input', refreshNewRange);
@@ -108,9 +110,16 @@ export function init(goTo) {
     const weeks = document.getElementById('new-weeks').value;
     if (!name || !startDate || !weeks) { alert('게임명·시작일·기간을 모두 입력하세요.'); return; }
     if (!confirm('현재 게임을 종료하고 새 게임을 생성할까요? 되돌릴 수 없습니다.')) return;
-    await createNewGame({ name, startDate, weeks });
-    loadCurrent();
-    goTo('dashboard');
+    const btn = document.getElementById('new-create-btn');
+    btn.disabled = true;
+    try {
+      await createNewGame({ name, startDate, weeks });
+      loadCurrent();
+      goTo('dashboard');
+    } catch (e) {
+      alert(e.message);
+      goTo('login');   // 대개 인증 만료 — 재로그인 후 다시 시도
+    } finally { btn.disabled = false; }
   });
 
   loadCurrent();

@@ -118,6 +118,22 @@ function adminAuthHeaders() {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
+// 토큰은 "${만료시각ms}.${서명}" 형식이라, 비밀키 없이도 만료 여부를 클라에서 읽을 수 있다.
+// 관리자 액션(리셋 등) 전에 검사해, 만료된 토큰으로 서버 호출이 조용히 401 나는 것을 막고
+// 재로그인을 유도한다.
+export function isAdminTokenValid() {
+  try {
+    const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) return false;
+    const expiry = Number(token.split('.')[0]);
+    return !!expiry && Date.now() < expiry;
+  } catch { return false; }
+}
+export function clearAdminToken() {
+  try { sessionStorage.removeItem(ADMIN_TOKEN_KEY); } catch {}
+}
+const ADMIN_EXPIRED_MSG = '관리자 인증이 만료됐어요. 다시 로그인해 주세요.';
+
 // "홈 화면에 추가"한 PWA(standalone)는 오래 백그라운드에 있다가 돌아오면 iOS가
 // 실제 네트워크 소켓까지 완전히 정지시켜, Firestore의 실시간 연결(WebChannel)이
 // 끊긴 채로 남아있는 경우가 있다 — SDK의 자체 재연결 로직이 뒤늦게 돌거나 아예
@@ -668,6 +684,7 @@ function playerById(id) {
 
 // 관리자 — 진행 중인 게임의 이름/기간 수정 (A-03 "현재 게임 관리")
 export async function updateGameSettings({ name, startDate, weeks }) {
+  if (!isAdminTokenValid()) { clearAdminToken(); throw new Error(ADMIN_EXPIRED_MSG); }
   if (name) state.game.name = name;
   if (startDate) state.game.startDate = startDate;
   if (weeks) state.game.weeks = Number(weeks);
@@ -678,6 +695,9 @@ export async function updateGameSettings({ name, startDate, weeks }) {
 
 // 관리자 — 신규 게임 생성. 이전 게임의 게이지·배정·번개·투표·타임라인·참가자 명단을 전부 삭제하고 새로 시작.
 export async function createNewGame({ name, startDate, weeks }) {
+  // 토큰이 만료됐으면 아래 서버 쓰기들이 전부 401로 조용히 실패해 "리셋했는데 그대로"가 된다.
+  // 먼저 막고 재로그인을 유도한다.
+  if (!isAdminTokenValid()) { clearAdminToken(); throw new Error(ADMIN_EXPIRED_MSG); }
   state.game.name = name;
   state.game.startDate = startDate;
   state.game.weeks = Number(weeks);

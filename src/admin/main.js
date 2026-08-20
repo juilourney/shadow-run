@@ -1,3 +1,4 @@
+import { isAdminTokenValid, clearAdminToken } from '../store.js';
 import * as login     from './screens/login.js';
 import * as dashboard from './screens/dashboard.js';
 import * as certs     from './screens/certs.js';
@@ -12,7 +13,6 @@ const PANELS = [
   { key: 'settings',  icon: '⚙️', label: '게임 설정',  mod: settings },
 ];
 
-const AUTH_KEY = 'sr_admin_auth';
 const app = document.getElementById('admin-app');
 
 app.innerHTML = `
@@ -133,4 +133,7 @@ export function goTo(name) {
 
 login.init(goTo);
 PANELS.forEach(p => p.mod.init(goTo));
-goTo(sessionStorage.getItem(AUTH_KEY) ? 'dashboard' : 'login');
+// 토큰이 '있는지'가 아니라 '유효(미만료)한지'로 판정 — 만료된 토큰으로 대시보드에
+// 들어가면 모든 관리자 액션이 조용히 401 나므로, 만료면 지우고 로그인부터 다시.
+if (!isAdminTokenValid()) clearAdminToken();
+goTo(isAdminTokenValid() ? 'dashboard' : 'login');

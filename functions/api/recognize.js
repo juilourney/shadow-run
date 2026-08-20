@@ -9,6 +9,20 @@ export async function onRequestPost(context) {
       });
     }
 
+    // 무인증 엔드포인트가 유료 비전 API를 호출하므로, 요청당 오남용 비용을 제한한다.
+    // (이미지 형식 화이트리스트 + 크기 상한. 대량 호출 차단은 Cloudflare 레이트리밋 규칙으로 보완)
+    const ALLOWED_MEDIA = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!ALLOWED_MEDIA.includes(mediaType)) {
+      return new Response(JSON.stringify({ error: 'unsupported media type' }), {
+        status: 400, headers: { 'content-type': 'application/json' }
+      });
+    }
+    if (typeof imageData !== 'string' || imageData.length > 4_000_000) {   // base64 ≈ 3MB 이미지
+      return new Response(JSON.stringify({ error: 'image too large' }), {
+        status: 400, headers: { 'content-type': 'application/json' }
+      });
+    }
+
     const apiKey = context.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'API key not configured' }), {

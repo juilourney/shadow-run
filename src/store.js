@@ -873,7 +873,7 @@ export function getCertReviews() {
 export async function fetchCertPhoto(boltId) {
   try {
     const res = await fetch('/api/cert-photo', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
       body: JSON.stringify({ boltId, get: true }),
     });
     if (!res.ok) return null;

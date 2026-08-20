@@ -11,6 +11,9 @@ export async function onRequestPost(context) {
     }
     const { password } = await context.request.json().catch(() => ({}));
     if (password !== context.env.ADMIN_PASSWORD) {
+      // 무차별 대입 완화 — 실패 시 지연을 둬 순차 시도 속도를 떨어뜨린다.
+      // (병렬 대량 시도까지 막으려면 Cloudflare 레이트리밋 규칙 병행 권장)
+      await new Promise(r => setTimeout(r, 800));
       return new Response(JSON.stringify({ error: '비밀번호가 올바르지 않습니다' }), {
         status: 401, headers: { 'content-type': 'application/json' }
       });

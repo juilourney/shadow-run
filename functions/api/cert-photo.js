@@ -5,6 +5,7 @@
 //  - { boltId, photo }  : 저장 (인증 제출하는 방장 기기 — bolts 쓰기와 같은 신뢰 수준)
 //  - { boltId, get: true } : 조회 (관리자 인증 관리 화면)
 import { getAccessToken, firestoreUrl, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
+import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -12,6 +13,11 @@ function json(body, status = 200) {
 
 export async function onRequestPost(context) {
   try {
+    // 인증 사진은 관리자만 다룬다 — 조회(관리자 심사 화면)·쓰기 모두 관리자 인증 필요.
+    // (사진에는 개인정보가 담길 수 있어 무인증 열람을 막는다. 참가자 앱은 이 엔드포인트를
+    //  호출하지 않으며, 완료 시 사진 저장은 complete-bolt가 서버에서 직접 처리한다.)
+    if (!(await verifyAdminAuth(context.request, context.env))) return unauthorized();
+
     const { boltId, photo, get } = await context.request.json();
     if (!boltId || typeof boltId !== 'string') return json({ error: 'boltId가 필요합니다' }, 400);
 

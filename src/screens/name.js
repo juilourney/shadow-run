@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
-import { joinRoster, getAssignment, saveName } from '../store.js';
+import { joinRoster, getAssignment, saveName, isNameRegistered } from '../store.js';
 
 const DEFAULT_HINT = '실명으로 입장하세요';
 const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
@@ -121,6 +121,20 @@ async function enterGame() {
     hint.textContent = '게임이 진행 중이라 새로 입장할 수 없어요. 다음 시즌에 만나요!';
     hint.style.color = '#fb7185';
     return;
+  }
+
+  // 모집 기간(배정 전)에 이미 있는 이름을 넣으면 — 본인 재입장일 수도, 다른 사람의 중복일 수도
+  // 있어(로그인이 없어 앱이 구분 못 함) 확인을 받는다. 다른 사람이면 구분자를 붙이도록 유도해
+  // '같은 이름 = 같은 신원' 충돌(팀·역할·마일리지 공유)을 막는다.
+  if (!assignment.assigned && isNameRegistered(name)) {
+    const ok = confirm(`이미 '${name}' 이름이 등록돼 있어요.\n\n· 본인 재입장이면 [확인]\n· 다른 사람이면 [취소] 후 이름을 구분되게 바꿔주세요 (예: ${name}2)`);
+    if (!ok) {
+      input.focus();
+      input.select?.();
+      hint.textContent = `이름을 구분되게 바꿔주세요 (예: ${name}2)`;
+      hint.style.color = '#fb7185';
+      return;
+    }
   }
 
   btn.disabled = true;

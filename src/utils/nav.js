@@ -72,6 +72,14 @@ export function goToScreen(id) {
   // 다른 섹션(투표 등)이 올라옴
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
+  // FAQ ? 버튼 — 게임/대기실에서만 노출. 화면을 벗어나면 열린 시트도 닫는다.
+  const faqFab = document.getElementById('faq-fab');
+  if (faqFab) {
+    const showFaq = (id === 's-game' || id === 's-waiting');
+    faqFab.style.display = showFaq ? 'flex' : 'none';
+    if (!showFaq) document.getElementById('faq-overlay')?.classList.remove('show');
+  }
+
   if (id === 's-game') {
     reengageScrollSnap();
     // iOS WebKit은 lock-scroll 해제와 같은 프레임의 재적용을 무시하는 경우가 있다

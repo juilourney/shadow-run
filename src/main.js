@@ -1,5 +1,6 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
+import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
 import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar } from './store.js';
@@ -56,6 +57,7 @@ OVERLAYS.forEach(s => {
 
 createTabbar(app);
 createEdgeBlur(app);
+createFaq(app);
 
 // 수동 스크롤 시 탭 동기화
 const SECTION_IDS = ['gs-dash', 'gs-bolt', 'gs-vote', 'gs-members', 'gs-guide'];

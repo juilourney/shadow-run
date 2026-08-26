@@ -46,10 +46,10 @@ function qa(q, a) {
 export function guideBody() {
   return `
     ${section('🎯', '게임 개요 및 승리 조건', `
-      ${para('<span style="color:#38bdf8; font-weight:700;">페이서팀</span>과 <span style="color:#c084fc; font-weight:700;">고스트팀</span>이 3주 동안 번개(달리기)를 통해 마일리지를 쌓으며 중앙의 게이지를 자기 쪽으로 당기는 줄다리기 게임입니다.')}
+      ${para('<span style="color:#38bdf8; font-weight:700;">페이서팀</span>과 <span style="color:#c084fc; font-weight:700;">고스트팀</span>이 3주 동안 번개(달리기)를 통해 마일리지를 쌓아 좌우로 나뉜 게이지(왼쪽 고스트·오른쪽 페이서)를 자기 쪽으로 채워가는 줄다리기 게임입니다.')}
       <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">
         <p style="font-size:13px; font-weight:600; color:#e4e4e7; margin-bottom:4px;">승리</p>
-        <p style="font-size:13px; color:#34d399; line-height:1.6;">3주 후 게이지가 더 기운 팀이 우승합니다</p>
+        <p style="font-size:13px; color:#34d399; line-height:1.6;">3주 후 게이지를 더 많이 차지한 팀이 우승합니다</p>
       </div>
     `)}
 

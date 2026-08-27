@@ -72,13 +72,8 @@ export function goToScreen(id) {
   // 다른 섹션(투표 등)이 올라옴
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
-  // FAQ ? 버튼 — 게임/대기실에서만 노출. 화면을 벗어나면 열린 시트도 닫는다.
-  const faqFab = document.getElementById('faq-fab');
-  if (faqFab) {
-    const showFaq = (id === 's-game' || id === 's-waiting');
-    faqFab.style.display = showFaq ? 'flex' : 'none';
-    if (!showFaq) document.getElementById('faq-overlay')?.classList.remove('show');
-  }
+  // 화면이 바뀌면 열려 있던 FAQ 시트는 닫는다.
+  document.getElementById('faq-overlay')?.classList.remove('show');
 
   if (id === 's-game') {
     reengageScrollSnap();

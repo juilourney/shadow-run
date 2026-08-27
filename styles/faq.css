@@ -3,19 +3,18 @@
    (게임/대기실 어디서든 규칙 Q&A. 가이드 본문은 안 건드림)
 ═══════════════════════════════════════ */
 
-.faq-fab {
-  position: fixed; z-index: 80;
-  right: calc(max(0px, (100vw - 768px) / 2) + 18px);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
-  width: 54px; height: 54px; border-radius: 50%;
-  border: none; cursor: pointer; display: none;
-  align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 700; color: #fff;
-  background: linear-gradient(135deg, #0ea5e9, #7c3aed);
-  box-shadow: 0 12px 26px -6px rgba(90,80,240,.55), inset 0 1px 0 rgba(255,255,255,.25);
-  transition: transform .18s var(--spring, cubic-bezier(.34,1.56,.4,1));
+/* 가이드('룰북') 상단 FAQ 진입 버튼 */
+.faq-entry {
+  width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left;
+  background: rgba(56,189,248,.06); border: 1px solid rgba(56,189,248,.18);
+  border-radius: 20px; padding: 16px 18px; margin-bottom: 14px; font-family: inherit;
+  transition: transform .15s, background .18s;
 }
-.faq-fab:active { transform: scale(.9); }
+.faq-entry:active { transform: scale(.985); background: rgba(56,189,248,.1); }
+.faq-entry .fe-emoji { font-size: 20px; line-height: 1; flex: 0 0 auto; }
+.faq-entry .fe-title { display: block; font-size: 14px; font-weight: 700; color: #e4e4e7; margin: 0 0 2px; }
+.faq-entry .fe-sub   { display: block; font-size: 12px; color: #71717a; margin: 0; line-height: 1.5; }
+.faq-entry .fe-arrow { font-size: 16px; color: #38bdf8; flex: 0 0 auto; }
 
 .faq-overlay {
   position: fixed; inset: 0; z-index: 10001;

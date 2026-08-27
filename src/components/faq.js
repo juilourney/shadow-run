@@ -45,14 +45,6 @@ const SHEET_MARKUP = `
 `;
 
 export function createFaq(mount) {
-  const fab = document.createElement('button');
-  fab.id = 'faq-fab';
-  fab.className = 'faq-fab';
-  fab.type = 'button';
-  fab.setAttribute('aria-label', '자주 묻는 질문 열기');
-  fab.textContent = '?';
-  mount.appendChild(fab);
-
   const overlay = document.createElement('div');
   overlay.id = 'faq-overlay';
   overlay.className = 'faq-overlay';
@@ -86,7 +78,8 @@ export function createFaq(mount) {
   const open  = () => overlay.classList.add('show');
   const close = () => overlay.classList.remove('show');
 
-  fab.addEventListener('click', open);
+  // 가이드('룰북') 상단의 진입 버튼([data-faq-open])을 누르면 시트가 열린다.
+  document.addEventListener('click', e => { if (e.target.closest('[data-faq-open]')) open(); });
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   sheet.querySelector('.faq-close').addEventListener('click', close);
   const grip = sheet.querySelector('.faq-grip');

@@ -37,6 +37,14 @@ function para(text) {
 // (대기실에 복사본을 두면 내용이 서로 어긋나므로 반드시 여기만 수정할 것)
 export function guideBody() {
   return `
+    <button class="faq-entry" data-faq-open type="button">
+      <span class="fe-emoji">❓</span>
+      <span style="flex:1;">
+        <span class="fe-title">자주 묻는 질문</span>
+        <span class="fe-sub">궁금한 규칙을 카테고리별로 빠르게 찾아보세요</span>
+      </span>
+      <span class="fe-arrow">→</span>
+    </button>
     ${section('🎯', '게임 개요 및 승리 조건', `
       ${para('<span style="color:#38bdf8; font-weight:700;">페이서팀</span>과 <span style="color:#c084fc; font-weight:700;">고스트팀</span>이 3주 동안 번개(달리기)를 통해 마일리지를 쌓아 좌우로 나뉜 게이지(왼쪽 고스트·오른쪽 페이서)를 자기 쪽으로 채워가는 줄다리기 게임입니다.')}
       <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">

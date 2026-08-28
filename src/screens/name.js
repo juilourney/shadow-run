@@ -3,7 +3,7 @@ import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
 import { joinRoster, getAssignment, saveName, isNameRegistered } from '../store.js';
 
-const DEFAULT_HINT = '실명으로 입장하세요';
+const DEFAULT_HINT = '등록된 이름으로 입장하세요';
 const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
 
 export function render() {
@@ -85,7 +85,7 @@ export function render() {
             →
           </button>
         </div>
-        <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">실명으로 입장하세요</p>
+        <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">등록된 이름으로 입장하세요</p>
       </div>
     </div>
   </div>
@@ -127,23 +127,18 @@ async function enterGame() {
     return;
   }
 
-  // 모집 기간(배정 전)에 이미 있는 이름을 넣으면 — 본인 재입장일 수도, 다른 사람의 중복일 수도
-  // 있어(로그인이 없어 앱이 구분 못 함) 확인을 받는다. 다른 사람이면 구분자를 붙이도록 유도해
-  // '같은 이름 = 같은 신원' 충돌(팀·역할·마일리지 공유)을 막는다.
-  if (!assignment.assigned && isNameRegistered(name)) {
-    const ok = confirm(`이미 '${name}' 이름이 등록돼 있어요.\n\n· 본인 재입장이면 [확인]\n· 다른 사람이면 [취소] 후 이름을 구분되게 바꿔주세요 (예: ${name}2)`);
-    if (!ok) {
-      input.focus();
-      input.select?.();
-      hint.textContent = `이름을 구분되게 바꿔주세요 (예: ${name}2)`;
-      hint.style.color = '#fb7185';
-      return;
-    }
+  // 모집 기간(배정 전): 관리자가 등록한 명단에 있는 이름만 입장 가능(닫힌 명단).
+  // 자유 등록을 막아 '실명 표기 난립'과 사칭을 방지한다 — 명단 등록은 관리자 화면에서만 한다.
+  if (!assignment.assigned && !isNameRegistered(name)) {
+    input.style.borderColor = 'rgba(251,113,133,.6)';
+    hint.textContent = '등록된 이름이 아니에요. 이름을 정확히 입력했는지 확인하거나 운영자에게 등록을 요청하세요.';
+    hint.style.color = '#fb7185';
+    return;
   }
 
   btn.disabled = true;
   try {
-    await joinRoster(name); // 명단에 없으면 자동 등록, 있으면 그대로 통과
+    await joinRoster(name); // 등록된 이름만 여기 도달 — 재확인(멱등)
   } catch (e) {
     input.style.borderColor = 'rgba(251,113,133,.6)';
     hint.textContent = REJECT_HINT;

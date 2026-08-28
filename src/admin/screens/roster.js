@@ -11,11 +11,12 @@ export function render() {
     <p style="font-size:12px; color:#71717a; margin-bottom:14px;">게임 시작 전 참여 가능한 실명 목록입니다. 참가자는 이 명단에 있는 이름으로만 입장할 수 있습니다.</p>
 
     <div class="bezel" style="padding:16px 18px; border-radius:20px; margin-bottom:16px;">
-      <div style="display:flex; gap:8px;">
-        <input class="input" id="roster-new-name" placeholder="추가할 이름" style="flex:1;" />
-        <button class="btn btn-primary" id="roster-add-btn" style="width:72px; height:52px; flex-shrink:0;">추가</button>
-      </div>
-      <p id="roster-error" style="font-size:12px; color:#fb7185; margin-top:8px; display:none;"></p>
+      <textarea class="input" id="roster-bulk" rows="5"
+        placeholder="이름을 한 줄에 하나씩 붙여넣기 (쉼표로 구분해도 됩니다)"
+        style="width:100%; height:auto; min-height:120px; resize:vertical; line-height:1.7; padding:12px 14px;"></textarea>
+      <button class="btn btn-primary" id="roster-add-btn" style="width:100%; height:48px; margin-top:10px;">일괄 등록</button>
+      <p style="font-size:11px; color:#52525b; margin-top:8px; line-height:1.5;">카톡 명단을 그대로 붙여넣어도 돼요. 중복·이미 등록된 이름은 자동으로 건너뜁니다.</p>
+      <p id="roster-error" style="font-size:12px; margin-top:6px; display:none;"></p>
     </div>
 
     <p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;" id="roster-count"></p>
@@ -43,24 +44,38 @@ function refresh() {
     : roster.map(rosterRow).join('');
 }
 
-function showError(msg) {
+function showMsg(msg, color) {
   const el = document.getElementById('roster-error');
   el.textContent = msg;
+  el.style.color = color;
   el.style.display = 'block';
 }
 
 export function init(goTo) {
-  const nameInput = document.getElementById('roster-new-name');
+  const bulkInput = document.getElementById('roster-bulk');
 
   document.getElementById('roster-add-btn').addEventListener('click', async () => {
-    try {
-      await addRosterMember(nameInput.value);
-      nameInput.value = '';
-      document.getElementById('roster-error').style.display = 'none';
-    } catch (e) { showError(e.message); }
-  });
-  nameInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('roster-add-btn').click();
+    // 줄바꿈·쉼표로 분리 → 트림 → 빈값·중복 제거
+    const names = [...new Set(bulkInput.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean))];
+    if (names.length === 0) { showMsg('이름을 입력하세요.', '#fb7185'); return; }
+
+    const existing = new Set(getRoster().map(r => r.name));
+    const toAdd = names.filter(n => !existing.has(n));
+    const skipped = names.length - toAdd.length;
+
+    const btn = document.getElementById('roster-add-btn');
+    btn.disabled = true; btn.textContent = '등록 중…';
+    const results = await Promise.allSettled(toAdd.map(n => addRosterMember(n)));
+    btn.disabled = false; btn.textContent = '일괄 등록';
+
+    const added  = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    bulkInput.value = '';
+
+    const parts = [`${added}명 등록`];
+    if (skipped) parts.push(`${skipped}명 이미 있음`);
+    if (failed)  parts.push(`${failed}명 실패`);
+    showMsg(parts.join(' · '), failed ? '#fb7185' : '#34d399');
   });
 
   document.getElementById('roster-body').addEventListener('click', async e => {

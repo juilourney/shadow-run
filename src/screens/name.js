@@ -29,7 +29,7 @@ export function render() {
 
   <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:calc(var(--safe-top) + 20px) 26px 0;">
 
-    <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding-top:12px; padding-bottom:28px; min-height:0;">
+    <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding-top:12px; padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 12dvh); min-height:0;">
 
       <!-- 상단: 브랜딩 -->
       <div>

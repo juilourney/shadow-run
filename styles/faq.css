@@ -3,6 +3,16 @@
    (게임/대기실 어디서든 규칙 Q&A. 가이드 본문은 안 건드림)
 ═══════════════════════════════════════ */
 
+/* 가이드 목차 점프 칩 — flex-wrap으로 1~2줄 자동 정렬(가로 스크롤 없음) */
+.guide-toc { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.gtoc-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 100px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #a1a1aa;
+  transition: background .15s, border-color .15s, color .15s, transform .12s; }
+.gtoc-chip:active { background: rgba(56,189,248,.12); border-color: rgba(56,189,248,.32); color: #e4e4e7; transform: scale(.96); }
+/* 목차 점프 시 섹션이 컨테이너 최상단에 딱 붙지 않게 약간 여백 */
+#gs-guide .bezel, #wpanel-guide .bezel { scroll-margin-top: 14px; }
+
 /* 가이드('룰북') 상단 FAQ 진입 버튼 */
 .faq-entry {
   width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left;

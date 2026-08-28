@@ -45,6 +45,15 @@ export function guideBody() {
       </span>
       <span class="fe-arrow">→</span>
     </button>
+    <div class="guide-toc">
+      <button class="gtoc-chip" data-goto="0" type="button">🎯 개요</button>
+      <button class="gtoc-chip" data-goto="1" type="button">🎭 역할</button>
+      <button class="gtoc-chip" data-goto="2" type="button">📅 운영</button>
+      <button class="gtoc-chip" data-goto="3" type="button">⚡ 번개</button>
+      <button class="gtoc-chip" data-goto="4" type="button">📊 게이지</button>
+      <button class="gtoc-chip" data-goto="5" type="button">🗳️ 투표</button>
+      <button class="gtoc-chip" data-goto="6" type="button">📱 화면</button>
+    </div>
     ${section('🎯', '게임 개요 및 승리 조건', `
       ${para('<span style="color:#38bdf8; font-weight:700;">페이서팀</span>과 <span style="color:#c084fc; font-weight:700;">고스트팀</span>이 3주 동안 번개(달리기)를 통해 마일리지를 쌓아 좌우로 나뉜 게이지(왼쪽 고스트·오른쪽 페이서)를 자기 쪽으로 채워가는 줄다리기 게임입니다.')}
       <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05);">
@@ -133,4 +142,14 @@ export function render() {
 </div>`;
 }
 
-export function init() {}
+export function init() {
+  // 목차 칩 클릭 → 같은 가이드 컨테이너(.scroll-body) 안의 해당 섹션(.bezel N번째)으로 스크롤.
+  // 게임 가이드 탭·대기실 가이드가 같은 guideBody를 쓰므로, 전역 위임 + 컨테이너 스코프로 처리.
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('.gtoc-chip');
+    if (!chip) return;
+    const scope = chip.closest('.scroll-body');
+    const target = scope?.querySelectorAll('.bezel')[Number(chip.dataset.goto)];
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}

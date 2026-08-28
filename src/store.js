@@ -33,7 +33,7 @@ export const CONFIG = {
   skillPerHeadKm: 5,
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
   boltMaxHeads: 4,              // 번개 최대 인원
-  abilityWeeklyLimit: 2,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
+  abilityWeeklyLimit: 3,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
   certBufferMin: 120,           // 인증 마감 버퍼(분) — 예상 완주시간 뒤 여유
   fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
   expiredPenalty: 0.5,          // 인증 마감 초과(자동 만료) 시 지급 마일리지 = 거리 × 이 값

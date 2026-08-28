@@ -29,44 +29,48 @@ export function render() {
 
   <div class="scroll-body" style="position:relative; z-index:2; display:flex; flex-direction:column; padding:calc(var(--safe-top) + 20px) 26px 0;">
 
-    <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-top:12px; padding-bottom:28px; min-height:0;">
+    <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding-top:12px; padding-bottom:28px; min-height:0;">
 
-      <div class="anim-up" style="margin-bottom:20px;">
-        <span style="font-size:11px; letter-spacing:.22em; font-weight:700; text-transform:uppercase;
-          background:linear-gradient(90deg, rgba(56,189,248,.5), rgba(192,132,252,.5));
-          -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
-          HNRC 2026 하반기 이벤트 런
-        </span>
+      <!-- 상단: 브랜딩 -->
+      <div>
+        <div class="anim-up" style="margin-bottom:20px;">
+          <span style="font-size:11px; letter-spacing:.22em; font-weight:700; text-transform:uppercase;
+            background:linear-gradient(90deg, rgba(56,189,248,.5), rgba(192,132,252,.5));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+            HNRC 2026 하반기 이벤트 런
+          </span>
+        </div>
+
+        <div class="anim-up-1">
+          <h1 style="font-family:'Space Grotesk', sans-serif; font-size:clamp(52px, 16vw, 68px); font-weight:700;
+            letter-spacing:-.04em; line-height:.95; margin-bottom:0;">
+            <span style="display:block;
+              background:linear-gradient(135deg, #7dd3fc 0%, #38bdf8 35%, #818cf8 65%, #c084fc 100%);
+              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+              background-clip:text;">SHADOW</span>
+            <span style="display:block; color:#fafafa; margin-top:2px;">RUN</span>
+          </h1>
+        </div>
+
+        <div class="anim-up-2" style="margin-top:24px; display:flex; align-items:center; gap:12px;">
+          <div style="flex:1; height:1px; background:linear-gradient(90deg, rgba(56,189,248,.4), rgba(192,132,252,.3));"></div>
+          <span style="font-size:11px; letter-spacing:.14em; font-weight:600; color:#52525b; text-transform:uppercase; white-space:nowrap;">vs</span>
+          <div style="flex:1; height:1px; background:linear-gradient(90deg, rgba(192,132,252,.3), rgba(56,189,248,.4));"></div>
+        </div>
+
+        <div class="anim-up-2" style="margin-top:16px; display:flex; justify-content:space-between; align-items:baseline;">
+          <p style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; letter-spacing:-.02em; color:#c084fc; line-height:1;">GHOST</p>
+          <p style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; letter-spacing:-.02em; color:#38bdf8; line-height:1;">PACER</p>
+        </div>
+
+        <p class="anim-up-3" style="font-size:14px; color:#71717a; margin-top:20px; line-height:1.75;">
+          정체를 숨기고 아군을 찾아라!<br/>
+          3주간의 치열한 실시간 줄다리기 레이스
+        </p>
       </div>
 
-      <div class="anim-up-1">
-        <h1 style="font-family:'Space Grotesk', sans-serif; font-size:clamp(52px, 16vw, 68px); font-weight:700;
-          letter-spacing:-.04em; line-height:.95; margin-bottom:0;">
-          <span style="display:block;
-            background:linear-gradient(135deg, #7dd3fc 0%, #38bdf8 35%, #818cf8 65%, #c084fc 100%);
-            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-            background-clip:text;">SHADOW</span>
-          <span style="display:block; color:#fafafa; margin-top:2px;">RUN</span>
-        </h1>
-      </div>
-
-      <div class="anim-up-2" style="margin-top:24px; display:flex; align-items:center; gap:12px;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg, rgba(56,189,248,.4), rgba(192,132,252,.3));"></div>
-        <span style="font-size:11px; letter-spacing:.14em; font-weight:600; color:#52525b; text-transform:uppercase; white-space:nowrap;">vs</span>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg, rgba(192,132,252,.3), rgba(56,189,248,.4));"></div>
-      </div>
-
-      <div class="anim-up-2" style="margin-top:16px; display:flex; justify-content:space-between; align-items:baseline;">
-        <p style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; letter-spacing:-.02em; color:#c084fc; line-height:1;">GHOST</p>
-        <p style="font-family:'Space Grotesk'; font-size:22px; font-weight:700; letter-spacing:-.02em; color:#38bdf8; line-height:1;">PACER</p>
-      </div>
-
-      <p class="anim-up-3" style="font-size:14px; color:#71717a; margin-top:20px; line-height:1.75;">
-        정체를 숨기고 아군을 찾아라!<br/>
-        3주간의 치열한 실시간 줄다리기 레이스
-      </p>
-
-      <div class="anim-up-3" style="margin-top:36px;">
+      <!-- 하단: 이름 입력 -->
+      <div class="anim-up-3">
         <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">이름</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <input class="input" type="text" id="name-input"

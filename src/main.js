@@ -3,7 +3,7 @@ import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -252,6 +252,7 @@ function routeByAssignment(name) {
   } else if (assigned) {
     goToScreen('s-name');
   } else if (isNameRegistered(name)) {
+    joinRoster(name).catch(() => {});   // 재접속(자동로그인)에도 '입장' 도장(enteredAt) 갱신 — 수정 전 입장자도 다음 접속 때 자동 반영
     goToScreen('s-waiting');
     prepareWaiting();
   } else {

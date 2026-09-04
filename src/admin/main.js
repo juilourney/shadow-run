@@ -46,6 +46,9 @@ let panelAnim = null;
 function showPanel(index, instant = false) {
   paintTabs(index);
   closeMenu();
+  // 도착할 패널은 항상 맨 위(첫 항목)부터 보이게 — 내부 스크롤을 리셋해 이전 스크롤 위치가 남지 않도록
+  const targetScreen = outer.querySelectorAll('.admin-section')[index]?.querySelector('.admin-screen');
+  if (targetScreen) targetScreen.scrollTop = 0;
   const endTop = index * outer.clientHeight;
   if (instant) { outer.scrollTop = endTop; return; }
   const startTop = outer.scrollTop;

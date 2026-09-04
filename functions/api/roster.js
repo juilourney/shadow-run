@@ -27,12 +27,20 @@ export async function onRequestPost(context) {
       const trimmed = name.trim();
       const listRes = await fetch(firestoreUrl(context.env, 'roster'), { headers: authHeaders });
       const listData = await listRes.json();
-      const exists = (listData.documents || []).some(d => fromFirestoreFields(d.fields).name === trimmed);
-      if (exists) return new Response(JSON.stringify({ ok: true, alreadyRegistered: true }), { headers: { 'content-type': 'application/json' } });
+      const existingDoc = (listData.documents || []).find(d => fromFirestoreFields(d.fields).name === trimmed);
+      if (existingDoc) {
+        // 이미 등록된 이름 — '실제 입장' 도장(enteredAt)을 찍는다(관리자 화면에서 입장 여부 확인용).
+        const docId = existingDoc.name.split('/').pop();
+        await fetch(`${firestoreUrl(context.env, 'roster/' + docId)}?updateMask.fieldPaths=enteredAt`, {
+          method: 'PATCH', headers: authHeaders,
+          body: JSON.stringify({ fields: { enteredAt: toFirestoreValue(Date.now()) } }),
+        }).catch(() => {});
+        return new Response(JSON.stringify({ ok: true, alreadyRegistered: true }), { headers: { 'content-type': 'application/json' } });
+      }
 
       const res = await fetch(firestoreUrl(context.env, 'roster'), {
         method: 'POST', headers: authHeaders,
-        body: JSON.stringify({ fields: { name: toFirestoreValue(trimmed) } }),
+        body: JSON.stringify({ fields: { name: toFirestoreValue(trimmed), enteredAt: toFirestoreValue(Date.now()) } }),
       });
       const data = await res.json();
       return new Response(JSON.stringify(data), { status: res.status, headers: { 'content-type': 'application/json' } });

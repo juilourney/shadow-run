@@ -26,9 +26,15 @@ export function render() {
 }
 
 function rosterRow(r) {
+  const badge = r.enteredAt
+    ? `<span style="font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.3); padding:2px 9px; border-radius:100px;">입장</span>`
+    : `<span style="font-size:11px; font-weight:600; color:#71717a; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); padding:2px 9px; border-radius:100px;">미입장</span>`;
   return `
     <div class="admin-row" data-id="${r.id}">
-      <span style="font-size:14px; font-weight:600;">${r.name}</span>
+      <span style="display:flex; align-items:center; gap:9px;">
+        <span style="font-size:14px; font-weight:600;">${r.name}</span>
+        ${badge}
+      </span>
       <div style="display:flex; gap:6px;">
         <button class="btn btn-secondary roster-edit-btn" style="height:32px; padding:0 12px; font-size:12px;">수정</button>
         <button class="btn btn-secondary roster-remove-btn" style="height:32px; padding:0 12px; font-size:12px; color:#fb7185;">삭제</button>
@@ -38,7 +44,9 @@ function rosterRow(r) {
 
 function refresh() {
   const roster = getRoster();
-  document.getElementById('roster-count').textContent = `등록 인원 ${roster.length}명`;
+  const entered = roster.filter(r => r.enteredAt).length;
+  document.getElementById('roster-count').textContent =
+    `등록 ${roster.length}명 · 입장 ${entered} · 미입장 ${roster.length - entered}`;
   document.getElementById('roster-body').innerHTML = roster.length === 0
     ? `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 참가자가 없습니다.</p>`
     : roster.map(rosterRow).join('');

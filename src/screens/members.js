@@ -17,6 +17,21 @@ const ROLE_META = {
 
 let sortMode  = 'name';
 let pendingId = null;
+let memoTargetId = null;
+
+// 나만 보는 메모 — localStorage(내 기기에만). 참가자 id별 한 줄 메모.
+const MEMO_KEY = 'sr_member_memos';
+function getMemos() { try { return JSON.parse(localStorage.getItem(MEMO_KEY)) || {}; } catch { return {}; } }
+function getMemo(id) { return getMemos()[id] || ''; }
+function setMemo(id, text) {
+  const m = getMemos();
+  const t = (text || '').trim();
+  if (t) m[id] = t; else delete m[id];
+  try { localStorage.setItem(MEMO_KEY, JSON.stringify(m)); } catch {}
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 export function render() {
   const ab = getAbility();
@@ -103,6 +118,30 @@ export function render() {
     </div>
   </div>
 
+  <!-- 메모 편집 팝업 (나만 보는 메모) -->
+  <div id="memo-overlay" style="position:absolute; inset:0; z-index:55; display:none; align-items:flex-end;">
+    <div style="position:absolute; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(4px);" id="memo-backdrop"></div>
+    <div id="memo-sheet"
+      style="position:relative; z-index:1; background:#111113; border-radius:28px 28px 0 0;
+        width:100%; transform:translateY(100%); transition:transform .4s var(--spring);
+        border-top:1px solid rgba(255,255,255,.08); padding:24px 20px; padding-bottom:24px;">
+      <div style="display:flex; justify-content:center; margin-bottom:18px;">
+        <div style="width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.15);"></div>
+      </div>
+      <p style="font-size:11px; color:#52525b; letter-spacing:.08em; text-transform:uppercase; font-weight:600; margin-bottom:8px;">나만 보는 메모</p>
+      <h3 id="memo-title" style="font-size:18px; font-weight:700; margin-bottom:14px;"></h3>
+      <input id="memo-input" class="input" maxlength="60" placeholder="예: 페이서 의심 / 번개서 봤음"
+        autocomplete="off" style="width:100%; font-size:15px;" />
+      <p style="font-size:11px; color:#52525b; margin-top:8px;">이 메모는 내 기기에만 저장돼요. 한 줄로 간단히!</p>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button id="memo-delete-btn" class="btn btn-secondary" style="flex:1; height:50px; color:#fb7185;">삭제</button>
+        <button id="memo-save-btn" class="btn" style="flex:2; height:50px;
+          background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1207;
+          box-shadow:0 8px 24px -6px rgba(251,191,36,.35);">저장</button>
+      </div>
+    </div>
+  </div>
+
 </div>`;
 }
 
@@ -126,6 +165,22 @@ export function init() {
   document.getElementById('result-ok-btn').addEventListener('click', () => {
     closeResult();
     renderList();
+  });
+
+  // 메모 팝업
+  document.getElementById('memo-backdrop').addEventListener('click', closeMemo);
+  document.getElementById('memo-save-btn').addEventListener('click', () => {
+    if (memoTargetId) setMemo(memoTargetId, document.getElementById('memo-input').value);
+    closeMemo();
+    renderList();
+  });
+  document.getElementById('memo-delete-btn').addEventListener('click', () => {
+    if (memoTargetId) setMemo(memoTargetId, '');
+    closeMemo();
+    renderList();
+  });
+  document.getElementById('memo-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('memo-save-btn').click(); }
   });
 
   renderList();
@@ -187,46 +242,64 @@ function renderList() {
       ? (revealed[m.id]?.team || m.publicTeam)
       : revealed[m.id]?.role;
 
-    const tappable = isSpecial && !m.isSelf && (canUse || knownForAbility);
+    const canTapAbility = isSpecial && !m.isSelf && (canUse || knownForAbility);
     const selfStyle = m.isSelf
       ? 'background:var(--accent-tint); border-color:var(--accent-border);' : '';
+    // 나만 보는 한 줄 메모 (길면 말줄임)
+    const memo = m.isSelf ? '' : getMemo(m.id);
+    const memoLine = memo
+      ? `<p style="font-size:12px; color:#8b8b93; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📝 ${escapeHtml(memo)}</p>`
+      : '';
+    // 우측 아이콘 — 📝 메모(본인 제외 모두) / 🔍 추리(탐정·밀정만)
+    const memoBtn = m.isSelf ? '' :
+      `<button class="mm-memo-btn" data-memo-id="${m.id}" data-memo-name="${escapeHtml(m.name)}"
+        style="width:34px; height:34px; flex-shrink:0; border-radius:11px; cursor:pointer;
+          border:1px solid ${memo ? 'rgba(251,191,36,.35)' : 'rgba(255,255,255,.08)'};
+          background:${memo ? 'rgba(251,191,36,.14)' : 'rgba(255,255,255,.05)'};
+          font-size:15px; display:flex; align-items:center; justify-content:center;">📝</button>`;
+    const abilityBtn = canTapAbility ?
+      `<button class="mm-ability-btn" data-member-id="${m.id}" data-member-name="${escapeHtml(m.name)}" data-revealed="${!!knownForAbility}"
+        style="width:34px; height:34px; flex-shrink:0; border-radius:11px; cursor:pointer;
+          border:1px solid rgba(96,165,250,.28); background:rgba(96,165,250,.12);
+          font-size:15px; display:flex; align-items:center; justify-content:center;">${ab.kind === 'team' ? '🔍' : '🕵️'}</button>` : '';
 
     return `
     <div class="bezel" id="member-card-${m.id}"
-      style="padding:14px 16px; border-radius:20px; display:flex; align-items:center; gap:12px;
-        ${selfStyle} ${tappable ? 'cursor:pointer;' : ''}"
-      ${tappable ? `data-member-id="${m.id}" data-member-name="${m.name}" data-revealed="${!!knownForAbility}"` : ''}>
+      style="padding:12px 14px; border-radius:20px; display:flex; align-items:center; gap:10px; ${selfStyle}">
       <span style="width:38px; height:38px; border-radius:50%;
         background:${m.isSelf ? 'var(--accent-tint)' : '#3f3f46'};
         ${m.isSelf ? 'border:1.5px solid var(--accent);' : ''}
         display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;">
         ${m.name[0]}
       </span>
-      <div style="flex:1; min-width:0; display:flex; align-items:center; flex-wrap:wrap; gap:4px 0;">
-        <span style="font-size:15px; font-weight:${m.isSelf ? '700' : '500'};
-          color:${m.isSelf ? 'var(--accent)' : '#e4e4e7'};">${m.name}${m.isSelf ? ' (나)' : ''}</span>
-        ${publicBadge}${privateBadge}
+      <div style="flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px 0;">
+          <span style="font-size:15px; font-weight:${m.isSelf ? '700' : '500'};
+            color:${m.isSelf ? 'var(--accent)' : '#e4e4e7'};">${m.name}${m.isSelf ? ' (나)' : ''}</span>
+          ${publicBadge}${privateBadge}
+        </div>
+        ${memoLine}
       </div>
-      <p class="num" style="font-size:13px; font-weight:600; color:#52525b; flex-shrink:0;">${m.km.toFixed(1)} km</p>
+      <p class="num" style="font-size:12px; font-weight:600; color:#52525b; flex-shrink:0;">${m.km.toFixed(1)}km</p>
+      ${memoBtn}${abilityBtn}
     </div>`;
   }).join('');
 
   document.getElementById('member-list').innerHTML = html;
 
-  // 탭 이벤트 (탐정/밀정에게만)
-  if (isSpecial) {
-    document.querySelectorAll('[data-member-id]').forEach(el => {
-      el.addEventListener('click', () => {
-        const id = el.dataset.memberId;
-        if (el.dataset.revealed === 'true') {
-          showAlreadyRevealedPopup(id);
-        } else if (canUse) {
-          pendingId = id;
-          openConfirm(id, el.dataset.memberName);
-        }
-      });
+  // 📝 메모 아이콘 → 메모 편집 (본인 제외 모두)
+  document.querySelectorAll('.mm-memo-btn').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); openMemo(el.dataset.memoId, el.dataset.memoName); });
+  });
+  // 🔍 추리 아이콘 → 능력 발동/확인 (탐정·밀정)
+  document.querySelectorAll('.mm-ability-btn').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = el.dataset.memberId;
+      if (el.dataset.revealed === 'true') showAlreadyRevealedPopup(id);
+      else if (canUse) { pendingId = id; openConfirm(id, el.dataset.memberName); }
     });
-  }
+  });
 }
 
 function showAlreadyRevealedPopup(id) {
@@ -347,4 +420,23 @@ function closeResult() {
   sheet.style.transform = 'translateY(100%)';
   setScrollLock(false);
   setTimeout(() => { document.getElementById('ability-result-overlay').style.display = 'none'; }, 380);
+}
+
+function openMemo(id, name) {
+  memoTargetId = id;
+  document.getElementById('memo-title').textContent = name;
+  document.getElementById('memo-input').value = getMemo(id);
+  const overlay = document.getElementById('memo-overlay');
+  const sheet   = document.getElementById('memo-sheet');
+  overlay.style.display = 'flex';
+  setScrollLock(true);
+  requestAnimationFrame(() => requestAnimationFrame(() => { sheet.style.transform = 'translateY(0)'; }));
+  setTimeout(() => document.getElementById('memo-input').focus(), 220);
+}
+
+function closeMemo() {
+  const sheet = document.getElementById('memo-sheet');
+  sheet.style.transform = 'translateY(100%)';
+  setScrollLock(false);
+  setTimeout(() => { document.getElementById('memo-overlay').style.display = 'none'; }, 380);
 }

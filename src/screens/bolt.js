@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getBolts, getJoinedBoltId,
+import { subscribe, getBolts, getJoinedBoltId, getCalendar,
          createBolt as storeCreateBolt, joinBolt as storeJoinBolt, leaveBolt } from '../store.js';
 import { openHostView } from './bolt-detail.js';
 
@@ -101,8 +101,7 @@ export function render() {
 
         <div>
           <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; font-weight:600; letter-spacing:.04em;">날짜 · 시간 *</label>
-          <input class="input" type="datetime-local" id="create-datetime" style="color-scheme:dark;"
-            min="2026-06-27T00:00" max="2026-07-17T23:59" />
+          <input class="input" type="datetime-local" id="create-datetime" style="color-scheme:dark;" />
         </div>
 
         <button class="btn btn-primary" id="create-submit-btn"
@@ -296,6 +295,12 @@ function closePacePicker() {
   setTimeout(() => { document.getElementById('pace-picker-overlay').style.display = 'none'; }, 380);
 }
 
+// Date → datetime-local 입력값('YYYY-MM-DDTHH:MM', 로컬 시각)
+function toLocalDatetimeValue(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function openCreateOverlay() {
   const overlay = document.getElementById('bolt-create-overlay');
   const sheet   = document.getElementById('bolt-create-sheet');
@@ -306,6 +311,20 @@ function openCreateOverlay() {
   distanceInput.value = '';
   distanceInput.style.borderColor = '';
   document.getElementById('create-pace').value     = '';
+
+  // 날짜 선택 범위를 현재 게임 기간에 맞춘다 — 예전엔 값이 하드코딩돼(6/27~7/17)
+  // 관리자가 기간을 바꾸면 해당 월을 아예 못 고르는 버그가 있었다.
+  const cal = getCalendar();
+  const now = new Date();
+  const minDate = now > cal.start ? now : cal.start;   // 과거·게임 시작 전은 선택 불가
+  const lastDay = new Date(cal.end);
+  lastDay.setDate(cal.end.getDate() - 1);              // end는 마지막 날의 다음날(제외 경계)
+  lastDay.setHours(23, 59, 0, 0);
+  const dt = document.getElementById('create-datetime');
+  dt.min = toLocalDatetimeValue(minDate);
+  dt.max = toLocalDatetimeValue(lastDay);
+  dt.value = '';
+
   overlay.style.display = 'block';
   // setScrollLock — overflow만 인라인으로 잠그면 scroll-snap이 살아 있어, iOS에서
   // 키보드가 올라온 동안 overflow:hidden이 무시될 때 배경 섹션이 스냅 스크롤로 흘러다닌다

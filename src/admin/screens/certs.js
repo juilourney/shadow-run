@@ -1,4 +1,4 @@
-import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto } from '../../store.js';
+import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto, CERT_EARLY_GRACE_MS } from '../../store.js';
 
 // 인증 사진은 별도 컬렉션에서 개별 로드(참가자 기기 부담 방지) — 한 번 받은 건 캐시
 const photoCache = new Map();   // boltId → dataURL | null(없음)
@@ -36,9 +36,9 @@ function certCard(c) {
   const status = STATUS_META[c.reviewStatus] ?? { label: '심사 도입 전', color: '#71717a', bg: 'rgba(113,113,122,.12)' };
   const r = c.result;
 
-  // 사진 속 기록 시각이 번개 일정(시작 30분 전 ~ 인증 마감)을 벗어나면 어긋남 표시
+  // 사진 속 기록 시각이 번개 일정(시작 10분 전 ~ 인증 마감)을 벗어나면 어긋남 표시
   const stale = r?.certAt && c.startAt
-    && (r.certAt < c.startAt - 30 * 60 * 1000 || (c.deadline !== Infinity && r.certAt > c.deadline));
+    && (r.certAt < c.startAt - CERT_EARLY_GRACE_MS || (c.deadline !== Infinity && r.certAt > c.deadline));
 
   const infoRows = [
     ['참가자', c.participantNames.join(', ') || '—'],

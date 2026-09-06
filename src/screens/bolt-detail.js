@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt } from '../store.js';
+import { subscribe, getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt, CERT_EARLY_GRACE_MS } from '../store.js';
 import { openBuffView } from './bolt-buff.js';
 import { openBoltProgress } from './bolt-progress.js';
 
@@ -301,7 +301,7 @@ function showResult(km) {
   if (certAt) {
     const bolt = getBolts().find(b => b.id === activeBoltId);
     const stale = bolt?.startAt
-      && (certAt < bolt.startAt - 30 * 60 * 1000 || (bolt.deadline !== Infinity && certAt > bolt.deadline));
+      && (certAt < bolt.startAt - CERT_EARLY_GRACE_MS || (bolt.deadline !== Infinity && certAt > bolt.deadline));
     const label = new Date(certAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     certLine = `
       <p style="font-size:12px; margin-top:8px; color:${stale ? '#fbbf24' : '#52525b'};">

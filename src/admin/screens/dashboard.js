@@ -71,14 +71,18 @@ export function render() {
     </div>
 
     <div class="bezel" style="padding:16px 18px; border-radius:20px; margin-bottom:20px;">
-      <p style="font-size:11px; color:#52525b; margin-bottom:8px; letter-spacing:.04em;">실시간 게이지</p>
-      <div style="display:flex; height:14px; border-radius:7px; overflow:hidden;">
-        <div id="admin-bar-ghost" style="background:#a78bfa;"></div>
-        <div id="admin-bar-pacer" style="background:#38bdf8;"></div>
+      <p style="font-size:11px; color:#52525b; margin-bottom:10px; letter-spacing:.04em;">실시간 게이지</p>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;">
+        <span style="font-size:12px; color:#a78bfa;">고스트 <b class="num" id="admin-km-ghost">—</b> km</span>
+        <span class="num" id="admin-gauge-diff" style="font-size:12px; font-weight:700; color:#71717a;">—</span>
+        <span style="font-size:12px; color:#38bdf8;">페이서 <b class="num" id="admin-km-pacer">—</b> km</span>
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
-        <span style="color:#a78bfa;">고스트 <span id="admin-km-ghost" class="num">—</span> km</span>
-        <span style="color:#38bdf8;">페이서 <span id="admin-km-pacer" class="num">—</span> km</span>
+      <div class="gauge-wrap">
+        <div class="gauge-center"></div>
+        <div id="admin-bar-pacer" style="position:absolute; left:50%; top:0; bottom:0; border-radius:0 99px 99px 0; width:0%;
+          background:linear-gradient(90deg,#0ea5e9,#38bdf8); box-shadow:0 0 14px rgba(56,189,248,.5); transition:width .6s var(--spring);"></div>
+        <div id="admin-bar-ghost" style="position:absolute; right:50%; top:0; bottom:0; border-radius:99px 0 0 99px; width:0%;
+          background:linear-gradient(270deg,#a855f7,#7c3aed); box-shadow:0 0 12px rgba(168,85,247,.45); transition:width .6s var(--spring);"></div>
       </div>
     </div>
 
@@ -199,11 +203,14 @@ function refresh() {
     resultEl.style.display = 'none';
   }
 
-  const total = g.pacer + g.ghost || 1;
-  document.getElementById('admin-bar-pacer').style.width = `${(g.pacer / total * 100).toFixed(1)}%`;
-  document.getElementById('admin-bar-ghost').style.width = `${(g.ghost / total * 100).toFixed(1)}%`;
+  // 게임 홈과 동일한 중앙→양옆 게이지 (점유율 × 50%씩 바깥으로)
+  document.getElementById('admin-bar-pacer').style.width = `${(g.pacerRatio * 50).toFixed(1)}%`;
+  document.getElementById('admin-bar-ghost').style.width = `${(g.ghostRatio * 50).toFixed(1)}%`;
   document.getElementById('admin-km-pacer').textContent = fmt(g.pacer);
   document.getElementById('admin-km-ghost').textContent = fmt(g.ghost);
+  const gd = document.getElementById('admin-gauge-diff');
+  gd.textContent = g.leader ? `${g.diff >= 0 ? '+' : '−'}${fmt(Math.abs(g.diff))} km` : '동점';
+  gd.style.color = g.leader === 'ghost' ? '#a78bfa' : g.leader === 'pacer' ? '#38bdf8' : '#71717a';
 
   const assignment = getAssignment();
   const assignBtn = document.getElementById('admin-assign-btn');

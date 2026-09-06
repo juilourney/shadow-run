@@ -9,7 +9,7 @@ const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFr
 
 // 게이지 바(줄다리기 비율)를 이 개수만큼 번개가 완료되기 전엔 잠근다 — 초반(특히 솔로
 // 번개) 완료 직후 바 방향으로 참가자 팀이 역추적되는 것을 막기 위해.
-const GAUGE_REVEAL_BOLTS = 3;
+const GAUGE_REVEAL_BOLTS = 5;
 
 export function render() {
   const cal = getCalendar();

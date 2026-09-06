@@ -912,7 +912,36 @@ export async function rejectBoltCert(boltId) {
   const d = r.gaugeDelta ?? { pacer: 0, ghost: 0 };
   applyGaugeDelta({ pacer: -d.pacer, ghost: -d.ghost });
 
-  pushTimelineEvent({ kind: 'reject', title: bolt.title });
+  pushTimelineEvent({ kind: 'reject', title: bolt.title, boltId });
+}
+
+// 재인정 — 불인정으로 되돌린 걸 다시 반영(확인 결과 맞는 인증일 때). reject의 정확한 역연산.
+export async function reapproveBoltCert(boltId) {
+  const bolt = state.bolts.find(b => b.id === boltId);
+  if (!bolt || bolt.status !== 'done') throw new Error('완료된 번개가 아닙니다');
+  if (bolt.reviewStatus !== 'rejected') return;   // 불인정 상태만 되돌린다
+  const r = bolt.result;
+  if (!r) throw new Error('결과 기록이 없어 되돌릴 수 없습니다(구버전 완료분)');
+
+  const writes = [updateDoc(doc(db, 'bolts', boltId), { reviewStatus: 'approved' })];
+  for (const pid of r.participantIds ?? []) {
+    if (!playerById(pid)) continue;
+    writes.push(updateDoc(doc(db, 'players', pid), {
+      km: increment(r.distanceKm), boltsCompleted: increment(1),
+    }));
+  }
+  // 불인정 때 남긴 '취소' 소식 삭제 (boltId 없는 구버전 취소 소식은 제목으로 보조 매칭)
+  for (const e of state.timeline) {
+    if (e.kind === 'reject' && (e.boltId === boltId || (!e.boltId && e.title === bolt.title))) {
+      writes.push(deleteDoc(doc(db, 'timeline', e.id)));
+    }
+  }
+  await Promise.all(writes);
+
+  const d = r.gaugeDelta ?? { pacer: 0, ghost: 0 };
+  applyGaugeDelta({ pacer: d.pacer, ghost: d.ghost });
+
+  pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: r.participantCount, boltId });
 }
 
 // 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)

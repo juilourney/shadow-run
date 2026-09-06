@@ -1,4 +1,4 @@
-import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, fetchCertPhoto } from '../../store.js';
+import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto } from '../../store.js';
 
 // 인증 사진은 별도 컬렉션에서 개별 로드(참가자 기기 부담 방지) — 한 번 받은 건 캐시
 const photoCache = new Map();   // boltId → dataURL | null(없음)
@@ -60,6 +60,12 @@ function certCard(c) {
           style="flex:1; height:44px; font-size:13px; color:#34d399;">✓ 인정</button>
         <button class="btn btn-secondary cert-reject-btn" data-id="${c.id}"
           style="flex:1; height:44px; font-size:13px; color:#fb7185;">✕ 불인정</button>
+      </div>`
+    : c.reviewStatus === 'rejected'
+    ? `<div style="margin-top:14px;">
+        <button class="btn btn-secondary cert-reapprove-btn" data-id="${c.id}"
+          style="width:100%; height:44px; font-size:13px; color:#34d399;">↩︎ 다시 인정 (되돌리기)</button>
+        <p style="font-size:11px; color:#52525b; margin-top:6px; text-align:center;">맞는 인증이면 되돌렸던 게이지·마일리지가 다시 반영됩니다.</p>
       </div>`
     : '';
 
@@ -152,14 +158,18 @@ export function init(goTo) {
   document.getElementById('certs-list').addEventListener('click', async e => {
     const photo = e.target.closest('.cert-photo-img');
     if (photo && photo.src) { lightboxImg.src = photo.src; lightbox.style.display = 'flex'; return; }
-    const approve = e.target.closest('.cert-approve-btn');
-    const reject  = e.target.closest('.cert-reject-btn');
+    const approve   = e.target.closest('.cert-approve-btn');
+    const reject    = e.target.closest('.cert-reject-btn');
+    const reapprove = e.target.closest('.cert-reapprove-btn');
     try {
       if (approve) {
         await approveBoltCert(approve.dataset.id);
       } else if (reject) {
         if (!confirm('이 번개를 불인정할까요?\n반영됐던 게이지·마일리지가 원복되고 타임라인에 공지됩니다.')) return;
         await rejectBoltCert(reject.dataset.id);
+      } else if (reapprove) {
+        if (!confirm('이 번개를 다시 인정할까요?\n되돌렸던 게이지·마일리지가 다시 반영됩니다.')) return;
+        await reapproveBoltCert(reapprove.dataset.id);
       }
     } catch (err) {
       alert(err.message);

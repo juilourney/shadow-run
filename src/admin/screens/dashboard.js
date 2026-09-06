@@ -24,6 +24,7 @@ const fmtDate = ts => new Date(ts).toLocaleString('ko-KR', { month: 'short', day
 
 let activeTab = 'bolts';
 let expandedBoltId = null;   // 번개 목록에서 펼쳐진 번개 (참석자 표시)
+let showEnded = false;       // '지난 번개'(완료·만료) 섹션 펼침 여부
 
 // 최종 순위 한 줄 — 전원 정체 공개(관리자용). km 내림차순.
 function rankRowAdmin(p, i) {
@@ -135,21 +136,16 @@ function participantChips(bolt) {
   }).join('');
 }
 
-function boltsBody() {
-  // 모집 중·진행 중·완료·만료 전부 — 진행 중인 것부터 위로, 같은 상태끼린 일정순
-  const bolts = getBolts().slice().sort((a, b) =>
-    (BOLT_RANK[a.status] ?? 9) - (BOLT_RANK[b.status] ?? 9) || (a.startAt || 0) - (b.startAt || 0));
-  if (bolts.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 번개가 없습니다.</p>`;
-  return bolts.map(b => {
-    const s = BOLT_STATUS[b.status] ?? { label: b.status, color: '#a1a1aa' };
-    const when = b.startAt ? fmtDate(b.startAt) : (b.time || '시간 미정');
-    const open = b.id === expandedBoltId;
-    const detail = open ? `
+function boltRow(b) {
+  const s = BOLT_STATUS[b.status] ?? { label: b.status, color: '#a1a1aa' };
+  const when = b.startAt ? fmtDate(b.startAt) : (b.time || '시간 미정');
+  const open = b.id === expandedBoltId;
+  const detail = open ? `
       <div style="width:100%; margin-top:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06);">
         <p style="font-size:11px; color:#52525b; margin-bottom:7px; letter-spacing:.04em;">참석자 ${b.count}명</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">${participantChips(b)}</div>
       </div>` : '';
-    return `
+  return `
     <div class="admin-row bolt-row" data-bolt-id="${b.id}" style="align-items:flex-start; flex-direction:column; gap:4px; cursor:pointer;">
       <div style="display:flex; justify-content:space-between; width:100%; gap:8px;">
         <span style="font-size:14px; font-weight:600;">${b.locked ? '🔒 ' : ''}${b.title}
@@ -160,7 +156,33 @@ function boltsBody() {
       <p style="font-size:12px; color:#52525b;">참여 ${b.count}/${b.max}명 · 방장 ${b.hostName}</p>
       ${detail}
     </div>`;
-  }).join('');
+}
+
+function boltsBody() {
+  const all = getBolts();
+  if (all.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 번개가 없습니다.</p>`;
+
+  const isActive = b => b.status === 'open' || b.status === 'running';
+  // 활성: 모집 중 → 진행 중, 같은 상태끼린 일정순 / 지난 번개: 최근(완료·만료) 것부터
+  const active = all.filter(isActive).sort((a, b) => (BOLT_RANK[a.status] ?? 9) - (BOLT_RANK[b.status] ?? 9) || (a.startAt || 0) - (b.startAt || 0));
+  const ended  = all.filter(b => !isActive(b)).sort((a, b) => (b.startAt || 0) - (a.startAt || 0));
+
+  const activeHtml = active.length
+    ? active.map(boltRow).join('')
+    : `<p style="padding:20px 16px; text-align:center; color:#52525b; font-size:13px;">진행 중인 번개가 없습니다.</p>`;
+
+  let endedHtml = '';
+  if (ended.length) {
+    endedHtml = `
+      <div class="ended-toggle" style="display:flex; align-items:center; justify-content:space-between;
+        padding:13px 16px; cursor:pointer; border-top:1px solid rgba(255,255,255,.06);">
+        <span style="font-size:13px; font-weight:600; color:#a1a1aa;">지난 번개 ${ended.length}개
+          <span style="color:#52525b; font-weight:400;">· 완료·만료</span></span>
+        <span style="font-size:12px; color:#52525b;">${showEnded ? '접기 ▲' : '보기 ▾'}</span>
+      </div>
+      ${showEnded ? ended.map(boltRow).join('') : ''}`;
+  }
+  return activeHtml + endedHtml;
 }
 
 const BODY_RENDERERS = { votes: votesBody, bolts: boltsBody };
@@ -249,9 +271,14 @@ export function init(goTo) {
     activeTab = tab.dataset.tab;
     renderTabBody();
   });
-  // 번개 행 탭 — 참석자 명단 펼치기/접기 (본문은 매번 새로 그려지므로 위임)
+  // 번개 목록 상호작용 (본문은 매번 새로 그려지므로 위임)
   document.getElementById('admin-tab-body').addEventListener('click', e => {
-    const row = e.target.closest('.bolt-row');
+    if (e.target.closest('.ended-toggle')) {   // '지난 번개' 섹션 펼치기/접기
+      showEnded = !showEnded;
+      renderTabBody();
+      return;
+    }
+    const row = e.target.closest('.bolt-row');   // 번개 행 탭 — 참석자 펼치기/접기
     if (!row) return;
     expandedBoltId = expandedBoltId === row.dataset.boltId ? null : row.dataset.boltId;
     renderTabBody();

@@ -296,6 +296,8 @@ export function init(goTo) {
     const tab = e.target.closest('.admin-tab');
     if (!tab) return;
     activeTab = tab.dataset.tab;
+    expandedBoltId = null;   // 탭 이동 시 펼쳐둔 참석자·지난 번개는 다시 접는다
+    showEnded = false;
     renderTabBody();
   });
   // 번개 목록 상호작용 (본문은 매번 새로 그려지므로 위임)

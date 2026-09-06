@@ -102,6 +102,33 @@ function loadMissingPhotos(list) {
   }
 }
 
+// ts → 날짜 그룹 키·라벨 (오늘/어제/M월 D일 (요일))
+function dateGroupKey(ts) {
+  if (!ts) return { key: 'unknown', label: '시간 미정' };
+  const d = new Date(ts);
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((t0 - d0) / 86400000);
+  const label = diff === 0 ? '오늘' : diff === 1 ? '어제'
+    : d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+  return { key: String(d0.getTime()), label };
+}
+
+// 날짜 헤더로 묶어 렌더 (list는 날짜 내림차순 정렬 전제)
+function groupedByDate(list, rowFn) {
+  let html = '', lastKey = null;
+  for (const item of list) {
+    const g = dateGroupKey(item.startAt);
+    if (g.key !== lastKey) {
+      html += `<div style="font-size:12px; font-weight:700; color:#71717a; letter-spacing:.04em; margin:18px 2px 10px;">${g.label}</div>`;
+      lastKey = g.key;
+    }
+    html += rowFn(item);
+  }
+  return html;
+}
+
 function refresh() {
   const list = getCertReviews();
   const pending = list.filter(c => c.reviewStatus === 'pending').length;
@@ -109,7 +136,7 @@ function refresh() {
     ? `<div class="bezel" style="padding:24px; border-radius:20px; text-align:center;">
         <p style="font-size:13px; color:#52525b;">완료된 번개가 아직 없습니다.</p></div>`
     : `<p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">완료 ${list.length}건 · 심사 대기 ${pending}건</p>`
-      + list.map(certCard).join('');
+      + groupedByDate(list, certCard);
   loadMissingPhotos(list);
 }
 

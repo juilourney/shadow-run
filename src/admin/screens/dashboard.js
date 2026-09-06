@@ -158,6 +158,33 @@ function boltRow(b) {
     </div>`;
 }
 
+// ts → 날짜 그룹 키·라벨 (오늘/어제/M월 D일 (요일))
+function dateGroupKey(ts) {
+  if (!ts) return { key: 'unknown', label: '시간 미정' };
+  const d = new Date(ts);
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((t0 - d0) / 86400000);
+  const label = diff === 0 ? '오늘' : diff === 1 ? '어제'
+    : d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+  return { key: String(d0.getTime()), label };
+}
+
+// 지난 번개를 날짜 헤더로 묶어 렌더 (list는 날짜 내림차순 전제)
+function groupedEndedByDate(list) {
+  let html = '', lastKey = null;
+  for (const b of list) {
+    const g = dateGroupKey(b.startAt);
+    if (g.key !== lastKey) {
+      html += `<div style="padding:11px 16px 6px; font-size:11px; font-weight:700; color:#52525b; letter-spacing:.05em; background:rgba(255,255,255,.02);">${g.label}</div>`;
+      lastKey = g.key;
+    }
+    html += boltRow(b);
+  }
+  return html;
+}
+
 function boltsBody() {
   const all = getBolts();
   if (all.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 번개가 없습니다.</p>`;
@@ -180,7 +207,7 @@ function boltsBody() {
           <span style="color:#52525b; font-weight:400;">· 완료·만료</span></span>
         <span style="font-size:12px; color:#52525b;">${showEnded ? '접기 ▲' : '보기 ▾'}</span>
       </div>
-      ${showEnded ? ended.map(boltRow).join('') : ''}`;
+      ${showEnded ? groupedEndedByDate(ended) : ''}`;
   }
   return activeHtml + endedHtml;
 }

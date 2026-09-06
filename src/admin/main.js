@@ -91,6 +91,59 @@ outer.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
+// 홈(대시보드) 패널 — 맨 위에서 아래로 당기면 새로고침(페이지 리로드)
+function initPullToRefresh(screen) {
+  const ind = document.createElement('div');
+  ind.textContent = '↓ 당겨서 새로고침';
+  ind.style.cssText = `position:fixed; top:0; left:50%; z-index:200;
+    transform:translate(-50%,-40px); opacity:0; pointer-events:none;
+    padding:8px 16px; border-radius:0 0 14px 14px; font-size:12px; font-weight:600;
+    color:#a1a1aa; background:rgba(20,20,22,.96); border:1px solid rgba(255,255,255,.1);
+    border-top:none; box-shadow:0 6px 20px rgba(0,0,0,.4);
+    transition:transform .25s ease, opacity .2s;`;
+  document.body.appendChild(ind);
+
+  const THRESHOLD = 60, MAX = 80;   // 당긴 거리(저항 반영)가 THRESHOLD 넘으면 새로고침
+  let startY = 0, pulling = false, dist = 0;
+
+  screen.addEventListener('touchstart', e => {
+    pulling = screen.scrollTop <= 0;
+    if (pulling) { startY = e.touches[0].clientY; dist = 0; }
+  }, { passive: true });
+
+  screen.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) {                    // 위로 올리면 일반 스크롤로 넘김
+      ind.style.transition = 'transform .25s ease, opacity .2s';
+      ind.style.transform = 'translate(-50%,-40px)'; ind.style.opacity = '0';
+      pulling = false;
+      return;
+    }
+    dist = Math.min(MAX, dy * 0.5);   // 고무줄 저항감
+    e.preventDefault();               // 네이티브 오버스크롤 방지
+    ind.style.transition = 'none';
+    ind.style.opacity = '1';
+    ind.style.transform = `translate(-50%, ${dist - 8}px)`;
+    ind.textContent = dist >= THRESHOLD ? '↑ 놓으면 새로고침' : '↓ 당겨서 새로고침';
+  }, { passive: false });
+
+  const finish = () => {
+    if (!pulling) return;
+    pulling = false;
+    ind.style.transition = 'transform .25s ease, opacity .2s';
+    if (dist >= THRESHOLD) {
+      ind.textContent = '새로고침 중…';
+      ind.style.transform = 'translate(-50%, 16px)'; ind.style.opacity = '1';
+      setTimeout(() => location.reload(), 250);
+    } else {
+      ind.style.transform = 'translate(-50%,-40px)'; ind.style.opacity = '0';
+    }
+  };
+  screen.addEventListener('touchend', finish, { passive: true });
+  screen.addEventListener('touchcancel', finish, { passive: true });
+}
+
 // 내부 스크롤이 경계에 닿으면 이전/다음 패널로 이어지게 — 본게임과 같은 iOS 보완
 outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
   let startY = 0;
@@ -113,6 +166,8 @@ outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
       showPanel(idx + 1);
     }
   }, { passive: true });
+
+  if (idx === 0) initPullToRefresh(body);   // 홈(대시보드) 탭만 당겨서 새로고침
 });
 
 export function goTo(name) {

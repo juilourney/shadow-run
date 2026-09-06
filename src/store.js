@@ -402,6 +402,23 @@ export function boltDeadline(bolt) {
 // 마감 지난 진행 중(open/running) 번개를 만료 처리 — 인증을 안 했으므로 적립 없음(게이지·마일리지 0).
 // 만료 판정·상태 전환은 서버(/api/expire-bolt)가 updateTime 선점으로 정확히 1회 처리한다.
 // 로컬은 즉시 expired로 표시해 이 기기의 반복 호출만 막는다.
+// 예정 시각(startAt)이 지난 '모집 중' 번개를 자동으로 '진행 중'으로 전환한다.
+// startAt은 그대로 둬(예정 시각 유지) 인증 마감·유효 시간대가 예정 기준으로 계산되게 한다.
+// 앱을 연 아무 기기나 감지해 반영(만료 스윕과 동일 패턴). 마감 지난 건은 만료 스윕이 처리.
+const _autoStartRequested = new Set();
+function sweepAutoStartBolts() {
+  const now = Date.now();
+  for (const b of state.bolts) {
+    if (b.status === 'open' && b.startAt && now >= b.startAt && now <= boltDeadline(b)) {
+      b.status = 'running';   // 로컬 즉시 반영
+      if (_autoStartRequested.has(b.id)) continue;
+      _autoStartRequested.add(b.id);
+      updateDoc(doc(db, 'bolts', b.id), { status: 'running' })   // startAt은 건드리지 않음
+        .catch(err => console.warn('자동 시작 실패:', err.message));
+    }
+  }
+}
+
 const _expireRequested = new Set();
 function sweepExpiredBolts() {
   const now = Date.now();
@@ -420,6 +437,7 @@ function sweepExpiredBolts() {
 
 
 export function getBolts() {
+  sweepAutoStartBolts();
   sweepExpiredBolts();
   const myId = myPlayer().id;
   return state.bolts.map(b => ({
@@ -439,13 +457,15 @@ export function getJoinedBoltId() {
   return state.bolts.find(b => ACTIVE_BOLT_STATUSES.includes(b.status) && b.participants.includes(myId))?.id ?? null;
 }
 
-// 방장 — 번개 시작. 예정 시각과 무관하게 지금을 실제 시작 시각으로 기록한다.
+// 방장 — 번개 시작. 일찍 누르면 그 시각이 실제 시작이 되고, 예정 시각을 넘겨 누르면
+// 예정 시각을 유지한다(늦게 눌러 startAt이 뒤로 밀려 기록이 '너무 이르다'고 잘못 걸리는 것 방지).
 export async function startBolt(boltId) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
   if (bolt.hostId !== myPlayer().id) throw new Error('방장만 번개를 시작할 수 있습니다');
   if (bolt.status !== 'open') throw new Error('이미 시작됐거나 종료된 번개입니다');
-  await updateDoc(doc(db, 'bolts', boltId), { status: 'running', startAt: Date.now() });
+  const startAt = bolt.startAt ? Math.min(Date.now(), bolt.startAt) : Date.now();
+  await updateDoc(doc(db, 'bolts', boltId), { status: 'running', startAt });
 }
 
 export function getVote() {

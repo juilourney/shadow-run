@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -45,7 +45,7 @@ function rankRowAdmin(p, i) {
 export function render() {
   return `
 <div class="admin-screen" id="admin-dashboard">
-  <div class="admin-shell">
+  <div class="admin-shell" id="dash-shell" style="opacity:0; transition:opacity .3s ease;">
     <div class="admin-header">
       <div>
         <h2 id="admin-game-name" style="font-size:22px; font-weight:700;">—</h2>
@@ -218,6 +218,13 @@ function refresh() {
     pendingCerts ? `인증 대기 ${pendingCerts}건` : '';
 
   renderTabBody();
+
+  // 첫 데이터가 도착하면 대시보드를 드러낸다 — 빈 값(—·0·없음)이 잠깐 보였다
+  // 실제 값으로 바뀌는 새로고침 플래시를 막기 위해 그 전까지는 숨겨둔다.
+  if (isSettingsLoaded()) {
+    const shell = document.getElementById('dash-shell');
+    if (shell) shell.style.opacity = '1';
+  }
 }
 
 export function init(goTo) {
@@ -252,4 +259,6 @@ export function init(goTo) {
   });
   subscribe(refresh);
   refresh();
+  // 오프라인 등으로 데이터가 끝내 안 와도 2초 뒤엔 화면을 드러낸다(영구 빈 화면 방지).
+  setTimeout(() => { const s = document.getElementById('dash-shell'); if (s) s.style.opacity = '1'; }, 2000);
 }

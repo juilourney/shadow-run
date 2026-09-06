@@ -5,10 +5,18 @@ const TEAM = {
   ghost: { label: '고스트', color: '#a78bfa' },
 };
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행 중', ended: '종료' };
-// 참여자 목록은 별도 '참가자 명단' 메뉴로 분리 — 대시보드는 히스토리만
+// 번개 상태 배지 — 예전엔 완료·만료만 보였으나 모집 중/진행 중까지 목록에 노출
+const BOLT_STATUS = {
+  open:    { label: '모집 중', color: '#34d399' },
+  running: { label: '진행 중', color: '#38bdf8' },
+  done:    { label: '완료',    color: '#71717a' },
+  expired: { label: '만료',    color: '#fb7185' },
+};
+const BOLT_RANK = { open: 0, running: 1, done: 2, expired: 3 };  // 진행 중인 것부터 위로
+// 참여자 목록은 별도 '참가자 명단' 메뉴로 분리 — 대시보드는 히스토리·목록만
 const TABS = [
   { key: 'votes',   label: '투표 히스토리' },
-  { key: 'bolts',   label: '번개 히스토리' },
+  { key: 'bolts',   label: '번개 목록' },
 ];
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -110,16 +118,23 @@ function votesBody() {
 }
 
 function boltsBody() {
-  const done = getBolts().filter(b => b.status === 'done' || b.status === 'expired');
-  if (done.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">완료된 번개가 없습니다.</p>`;
-  return done.map(b => `
+  // 모집 중·진행 중·완료·만료 전부 — 진행 중인 것부터 위로, 같은 상태끼린 일정순
+  const bolts = getBolts().slice().sort((a, b) =>
+    (BOLT_RANK[a.status] ?? 9) - (BOLT_RANK[b.status] ?? 9) || (a.startAt || 0) - (b.startAt || 0));
+  if (bolts.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 번개가 없습니다.</p>`;
+  return bolts.map(b => {
+    const s = BOLT_STATUS[b.status] ?? { label: b.status, color: '#a1a1aa' };
+    const when = b.startAt ? fmtDate(b.startAt) : (b.time || '시간 미정');
+    return `
     <div class="admin-row" style="align-items:flex-start; flex-direction:column; gap:4px;">
-      <div style="display:flex; justify-content:space-between; width:100%;">
-        <span style="font-size:14px; font-weight:600;">${b.title}</span>
-        <span style="font-size:11px; color:${b.status === 'expired' ? '#fb7185' : '#71717a'};">${b.status === 'expired' ? '인증 마감 만료' : '완료'}</span>
+      <div style="display:flex; justify-content:space-between; width:100%; gap:8px;">
+        <span style="font-size:14px; font-weight:600;">${b.locked ? '🔒 ' : ''}${b.title}</span>
+        <span style="font-size:11px; font-weight:700; color:${s.color}; flex-shrink:0;">${s.label}</span>
       </div>
-      <p style="font-size:12px; color:#71717a;">${b.place} · ${b.distance}km · 참여 ${b.count}명 · 방장 ${b.hostName}</p>
-    </div>`).join('');
+      <p style="font-size:12px; color:#71717a;">${when} · ${b.place || '장소 미정'} · ${b.distance}km · ${b.pace}</p>
+      <p style="font-size:12px; color:#52525b;">참여 ${b.count}/${b.max}명 · 방장 ${b.hostName}</p>
+    </div>`;
+  }).join('');
 }
 
 const BODY_RENDERERS = { votes: votesBody, bolts: boltsBody };

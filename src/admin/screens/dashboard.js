@@ -15,14 +15,15 @@ const BOLT_STATUS = {
 const BOLT_RANK = { open: 0, running: 1, done: 2, expired: 3 };  // 진행 중인 것부터 위로
 // 참여자 목록은 별도 '참가자 명단' 메뉴로 분리 — 대시보드는 히스토리·목록만
 const TABS = [
-  { key: 'votes',   label: '투표 히스토리' },
   { key: 'bolts',   label: '번개 목록' },
+  { key: 'votes',   label: '투표 히스토리' },
 ];
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fmtDate = ts => new Date(ts).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-let activeTab = 'votes';
+let activeTab = 'bolts';
+let expandedBoltId = null;   // 번개 목록에서 펼쳐진 번개 (참석자 표시)
 
 // 최종 순위 한 줄 — 전원 정체 공개(관리자용). km 내림차순.
 function rankRowAdmin(p, i) {
@@ -117,6 +118,19 @@ function votesBody() {
     </div>`).join('');
 }
 
+function participantChips(bolt) {
+  const byId = new Map(getPlayers().map(p => [p.id, p.name]));
+  const ids = bolt.participants || [];
+  if (ids.length === 0) return `<span style="font-size:12px; color:#52525b;">아직 참석자가 없습니다.</span>`;
+  return ids.map(pid => {
+    const name = byId.get(pid) || '?';
+    const isHost = pid === bolt.hostId;
+    return `<span style="font-size:12px; font-weight:600; padding:4px 10px; border-radius:99px;
+      background:${isHost ? 'rgba(250,204,21,.1)' : 'rgba(255,255,255,.05)'};
+      border:1px solid ${isHost ? 'rgba(250,204,21,.25)' : 'rgba(255,255,255,.08)'};">${isHost ? '👑 ' : ''}${name}</span>`;
+  }).join('');
+}
+
 function boltsBody() {
   // 모집 중·진행 중·완료·만료 전부 — 진행 중인 것부터 위로, 같은 상태끼린 일정순
   const bolts = getBolts().slice().sort((a, b) =>
@@ -125,14 +139,22 @@ function boltsBody() {
   return bolts.map(b => {
     const s = BOLT_STATUS[b.status] ?? { label: b.status, color: '#a1a1aa' };
     const when = b.startAt ? fmtDate(b.startAt) : (b.time || '시간 미정');
+    const open = b.id === expandedBoltId;
+    const detail = open ? `
+      <div style="width:100%; margin-top:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06);">
+        <p style="font-size:11px; color:#52525b; margin-bottom:7px; letter-spacing:.04em;">참석자 ${b.count}명</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${participantChips(b)}</div>
+      </div>` : '';
     return `
-    <div class="admin-row" style="align-items:flex-start; flex-direction:column; gap:4px;">
+    <div class="admin-row bolt-row" data-bolt-id="${b.id}" style="align-items:flex-start; flex-direction:column; gap:4px; cursor:pointer;">
       <div style="display:flex; justify-content:space-between; width:100%; gap:8px;">
-        <span style="font-size:14px; font-weight:600;">${b.locked ? '🔒 ' : ''}${b.title}</span>
+        <span style="font-size:14px; font-weight:600;">${b.locked ? '🔒 ' : ''}${b.title}
+          <span style="color:#3f3f46; font-size:11px; margin-left:2px;">${open ? '▲' : '▼'}</span></span>
         <span style="font-size:11px; font-weight:700; color:${s.color}; flex-shrink:0;">${s.label}</span>
       </div>
       <p style="font-size:12px; color:#71717a;">${when} · ${b.place || '장소 미정'} · ${b.distance}km · ${b.pace}</p>
       <p style="font-size:12px; color:#52525b;">참여 ${b.count}/${b.max}명 · 방장 ${b.hostName}</p>
+      ${detail}
     </div>`;
   }).join('');
 }
@@ -211,6 +233,13 @@ export function init(goTo) {
     const tab = e.target.closest('.admin-tab');
     if (!tab) return;
     activeTab = tab.dataset.tab;
+    renderTabBody();
+  });
+  // 번개 행 탭 — 참석자 명단 펼치기/접기 (본문은 매번 새로 그려지므로 위임)
+  document.getElementById('admin-tab-body').addEventListener('click', e => {
+    const row = e.target.closest('.bolt-row');
+    if (!row) return;
+    expandedBoltId = expandedBoltId === row.dataset.boltId ? null : row.dataset.boltId;
     renderTabBody();
   });
   // 결과 배너 '결과 화면 보기' — 최종 순위 펼치기/접기

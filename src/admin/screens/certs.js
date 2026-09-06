@@ -79,8 +79,8 @@ function certCard(c) {
 function photoSlotHtml(id) {
   const photo = photoCache.get(id);
   if (photo) {
-    return `<img src="${photo}" alt="인증 사진" style="width:100%; max-height:340px; object-fit:contain;
-      background:rgba(0,0,0,.3); border-radius:14px;" />`;
+    return `<img src="${photo}" alt="인증 사진" class="cert-photo-img" style="width:100%; max-height:340px; object-fit:contain;
+      background:rgba(0,0,0,.3); border-radius:14px; cursor:zoom-in;" />`;
   }
   const label = photoCache.has(id)
     ? '저장된 인증 사진이 없습니다 (수동 입력 또는 구버전 완료분)'
@@ -114,7 +114,17 @@ function refresh() {
 }
 
 export function init(goTo) {
+  // 인증 사진 확대 보기 — 사진을 누르면 전체 화면으로 크게, 아무 데나 누르면 닫힘
+  const lightbox = document.createElement('div');
+  lightbox.style.cssText = 'position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.92); padding:16px; cursor:zoom-out;';
+  lightbox.innerHTML = `<img alt="인증 사진 확대" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:8px;" />`;
+  document.body.appendChild(lightbox);
+  const lightboxImg = lightbox.querySelector('img');
+  lightbox.addEventListener('click', () => { lightbox.style.display = 'none'; lightboxImg.src = ''; });
+
   document.getElementById('certs-list').addEventListener('click', async e => {
+    const photo = e.target.closest('.cert-photo-img');
+    if (photo && photo.src) { lightboxImg.src = photo.src; lightbox.style.display = 'flex'; return; }
     const approve = e.target.closest('.cert-approve-btn');
     const reject  = e.target.closest('.cert-reject-btn');
     try {

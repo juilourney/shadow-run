@@ -7,6 +7,10 @@ import { openBoltProgress } from './bolt-progress.js';
 
 const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
+// 게이지 바(줄다리기 비율)를 이 개수만큼 번개가 완료되기 전엔 잠근다 — 초반(특히 솔로
+// 번개) 완료 직후 바 방향으로 참가자 팀이 역추적되는 것을 막기 위해.
+const GAUGE_REVEAL_BOLTS = 3;
+
 export function render() {
   const cal = getCalendar();
   return `
@@ -417,8 +421,12 @@ function renderFromStore() {
     document.getElementById('my-role-badge').style.borderColor = isPacer ? 'rgba(56,189,248,.3)' : 'rgba(192,132,252,.3)';
   }
 
-  // 정확한 수치는 투표 시간·종료 3일 전부터만 공개 — 평소엔 게이지 바(비율)만.
-  // 개별 번개 완료 직후 수치 변화로 참가자의 팀·역할이 역추적되는 것을 막는다.
+  // 게이지 바 공개 조건 — 번개 GAUGE_REVEAL_BOLTS개가 완료되기 전엔 바(비율)를 잠근다.
+  // 초반, 특히 솔로 번개는 완료 직후 바 방향만으로 그 사람 팀이 드러나기 때문.
+  // 숫자 공개 시점(투표·종료 3일 전)이 먼저 오면 그때 함께 열린다.
+  const doneBolts = getBolts().filter(b => b.status === 'done' && b.reviewStatus !== 'rejected').length;
+  const barPublic = doneBolts >= GAUGE_REVEAL_BOLTS || isGaugeNumbersPublic();
+
   const diffEl = document.getElementById('gauge-diff');
   if (isGaugeNumbersPublic()) {
     document.getElementById('gauge-ghost').textContent = fmt(g.ghost);
@@ -433,13 +441,13 @@ function renderFromStore() {
     document.getElementById('gauge-pacer').textContent = '???';
     document.getElementById('gauge-ghost-unit').style.display = 'none';
     document.getElementById('gauge-pacer-unit').style.display = 'none';
-    diffEl.textContent = '🔒 비공개';
+    diffEl.textContent = barPublic ? '🔒 비공개' : '🔒 탐색 중';
     diffEl.style.color = '#52525b';
   }
 
-  // 점유율 비례 × 50% (중앙에서 뻗음)
-  document.getElementById('gauge-bar-pacer').style.width = `${(g.pacerRatio * 50).toFixed(1)}%`;
-  document.getElementById('gauge-bar-ghost').style.width = `${(g.ghostRatio * 50).toFixed(1)}%`;
+  // 점유율 비례 × 50% (중앙에서 뻗음) — 잠금 중엔 바를 비워 방향을 감춘다.
+  document.getElementById('gauge-bar-pacer').style.width = barPublic ? `${(g.pacerRatio * 50).toFixed(1)}%` : '0%';
+  document.getElementById('gauge-bar-ghost').style.width = barPublic ? `${(g.ghostRatio * 50).toFixed(1)}%` : '0%';
 
   document.getElementById('stat-pure-km').textContent = fmt(me.pureKm);
   document.getElementById('stat-bolts').textContent   = me.boltsCompleted;

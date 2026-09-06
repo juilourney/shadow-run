@@ -11,7 +11,6 @@ export const RULES = {
   // 거리를 곱하므로 멀리 뛸수록 보너스도 커진다(4명×10km면 200km로 종전과 동일).
   skillPerHeadKm: 5,
   singleTeamMin: 3,
-  expiredPenalty: 0.5,
   fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
   certBufferMin: 120,     // 인증 마감 버퍼(분)
 };
@@ -102,21 +101,4 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
   }
 
   return { gaugeDelta: delta, perPlayerKmInc: distanceKm, singleTeam, boltTeam };
-}
-
-// 자동 만료 페널티 계산 — sweepExpiredBolts(src/store.js) 이식. 거리 × 50%만 지급.
-export function computeExpiry({ bolt, playerMap, isTug }) {
-  const km = (bolt.distance || 0) * RULES.expiredPenalty;
-  const delta = { pacer: 0, ghost: 0 };
-  for (const pid of bolt.participants || []) {
-    const p = playerMap[pid];
-    if (!p) continue;
-    if (isTug) {
-      delta[p.team] += km;
-      delta[opponentOf(p.team)] -= km;
-    } else {
-      delta[p.team] += km;
-    }
-  }
-  return { gaugeDelta: delta, perPlayerKmInc: km };
 }

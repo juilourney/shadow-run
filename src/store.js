@@ -36,7 +36,6 @@ export const CONFIG = {
   abilityWeeklyLimit: 3,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
   certBufferMin: 120,           // 인증 마감 버퍼(분) — 예상 완주시간 뒤 여유
   fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
-  expiredPenalty: 0.5,          // 인증 마감 초과(자동 만료) 시 지급 마일리지 = 거리 × 이 값
 };
 
 // ── 상태 (스냅샷) — Firestore와 실시간 동기화되는 로컬 캐시 ────
@@ -396,11 +395,9 @@ export function boltDeadline(bolt) {
   return boltEstimatedFinish(bolt) + CONFIG.certBufferMin * 60 * 1000;
 }
 
-// 마감 지난 진행 중(open/running) 번개를 만료 처리 — 마일리지는 거리 × CONFIG.expiredPenalty(50%)만 지급.
-// 여러 기기가 거의 동시에 마감을 감지하므로, 트랜잭션으로 상태 전환을 선점한 기기 하나만
-// 페널티(마일리지·게이지)를 반영한다 — 중복 반영 방지.
-// 만료 판정·페널티 반영은 서버(/api/expire-bolt)가 한다 — 만료 게이지도 조작 통로가 되면
-// 안 되므로 서버가 계산·검증·선점한다. 로컬은 즉시 expired로 표시해 이 기기의 반복 호출만 막는다.
+// 마감 지난 진행 중(open/running) 번개를 만료 처리 — 인증을 안 했으므로 적립 없음(게이지·마일리지 0).
+// 만료 판정·상태 전환은 서버(/api/expire-bolt)가 updateTime 선점으로 정확히 1회 처리한다.
+// 로컬은 즉시 expired로 표시해 이 기기의 반복 호출만 막는다.
 const _expireRequested = new Set();
 function sweepExpiredBolts() {
   const now = Date.now();

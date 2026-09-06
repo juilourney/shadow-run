@@ -1,4 +1,23 @@
-import { subscribe, getRoster, addRosterMember, updateRosterMember, removeRosterMember } from '../../store.js';
+import { subscribe, getRoster, getAssignment, addRosterMember, updateRosterMember, removeRosterMember, ROLES } from '../../store.js';
+
+// 배정 완료 후 관리자 마스터 뷰 — 팀 배지 색상
+const TEAM = {
+  pacer: { label: '페이서', color: '#38bdf8', bg: 'rgba(56,189,248,.12)', border: 'rgba(56,189,248,.3)' },
+  ghost: { label: '고스트', color: '#a78bfa', bg: 'rgba(167,139,250,.12)', border: 'rgba(167,139,250,.3)' },
+};
+
+// 팀 + 역할 배지 (일반 러너는 회색, 특수 역할은 앰버 강조)
+function assignBadges(p) {
+  const t = TEAM[p.team] ?? { label: p.team, color: '#a1a1aa', bg: 'rgba(255,255,255,.06)', border: 'rgba(255,255,255,.12)' };
+  const roleName = ROLES[p.role]?.name ?? p.role;
+  const special = p.role && p.role !== 'runner';
+  const rc = special ? '#fbbf24' : '#71717a';
+  const rbg = special ? 'rgba(251,191,36,.12)' : 'rgba(255,255,255,.04)';
+  const rbd = special ? 'rgba(251,191,36,.3)' : 'rgba(255,255,255,.08)';
+  return `
+    <span style="font-size:11px; font-weight:700; color:${t.color}; background:${t.bg}; border:1px solid ${t.border}; padding:2px 8px; border-radius:100px;">${t.label}</span>
+    <span style="font-size:11px; font-weight:700; color:${rc}; background:${rbg}; border:1px solid ${rbd}; padding:2px 8px; border-radius:100px;">${roleName}</span>`;
+}
 
 export function render() {
   return `
@@ -25,13 +44,16 @@ export function render() {
 </div>`;
 }
 
-function rosterRow(r) {
-  const badge = r.enteredAt
+function rosterRow(r, player) {
+  // 배정 완료 후 매칭되면 팀·역할 배지, 그 전(또는 미배정)엔 입장/미입장 배지
+  const badge = player
+    ? assignBadges(player)
+    : r.enteredAt
     ? `<span style="font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.3); padding:2px 9px; border-radius:100px;">입장</span>`
     : `<span style="font-size:11px; font-weight:600; color:#71717a; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); padding:2px 9px; border-radius:100px;">미입장</span>`;
   return `
     <div class="admin-row" data-id="${r.id}">
-      <span style="display:flex; align-items:center; gap:9px;">
+      <span style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
         <span style="font-size:14px; font-weight:600;">${r.name}</span>
         ${badge}
       </span>
@@ -44,12 +66,22 @@ function rosterRow(r) {
 
 function refresh() {
   const roster = getRoster();
-  const entered = roster.filter(r => r.enteredAt).length;
-  document.getElementById('roster-count').textContent =
-    `등록 ${roster.length}명 · 입장 ${entered} · 미입장 ${roster.length - entered}`;
+  const asg = getAssignment();
+  const byName = asg.assigned ? new Map(asg.players.map(p => [p.name, p])) : null;
+
+  const countEl = document.getElementById('roster-count');
+  if (asg.assigned) {
+    const pacer = asg.players.filter(p => p.team === 'pacer').length;
+    const ghost = asg.players.filter(p => p.team === 'ghost').length;
+    countEl.textContent = `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}`;
+  } else {
+    const entered = roster.filter(r => r.enteredAt).length;
+    countEl.textContent = `등록 ${roster.length}명 · 입장 ${entered} · 미입장 ${roster.length - entered}`;
+  }
+
   document.getElementById('roster-body').innerHTML = roster.length === 0
     ? `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 참가자가 없습니다.</p>`
-    : roster.map(rosterRow).join('');
+    : roster.map(r => rosterRow(r, byName ? byName.get(r.name) : null)).join('');
 }
 
 function showMsg(msg, color) {

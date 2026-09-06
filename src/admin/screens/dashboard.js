@@ -325,3 +325,10 @@ export function init(goTo) {
   // 오프라인 등으로 데이터가 끝내 안 와도 2초 뒤엔 화면을 드러낸다(영구 빈 화면 방지).
   setTimeout(() => { const s = document.getElementById('dash-shell'); if (s) s.style.opacity = '1'; }, 2000);
 }
+
+// 오른쪽 메뉴 탭으로 대시보드에 다시 들어올 때 — 펼쳐둔 참석자·지난 번개를 접고 최신화한다.
+export function onShow() {
+  expandedBoltId = null;
+  showEnded = false;
+  refresh();
+}

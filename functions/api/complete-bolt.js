@@ -146,12 +146,28 @@ export async function onRequestPost(context) {
     }
 
     // 인증 사진은 별도 컬렉션에 저장(관리자만 조회 — 참가자 기기 부담 방지). 실패해도 완료는 유효.
+    // 진단: 저장 성공 여부·실패 사유를 번개 문서(photoSaved/photoErr)에 남긴다.
+    // 게임 로직(게이지·마일리지·완료)엔 영향 없는 부가 필드 — 원인 파악 후 제거 예정.
+    let photoSaved = false;
+    let photoErr = '';
     if (typeof certPhoto === 'string' && certPhoto.startsWith('data:image/') && certPhoto.length <= 800000) {
-      await fetch(`${firestoreUrl(env, `certPhotos/${boltId}`)}`, {
-        method: 'PATCH', headers: authHeaders,
-        body: JSON.stringify({ fields: toFirestoreFields({ photo: certPhoto, at: Date.now() }) }),
-      }).catch(() => {});
+      try {
+        const pr = await fetch(`${firestoreUrl(env, `certPhotos/${boltId}`)}`, {
+          method: 'PATCH', headers: authHeaders,
+          body: JSON.stringify({ fields: toFirestoreFields({ photo: certPhoto, at: Date.now() }) }),
+        });
+        photoSaved = pr.ok;
+        if (!pr.ok) photoErr = `http ${pr.status}: ${(await pr.text().catch(() => '')).slice(0, 300)}`;
+      } catch (e) {
+        photoErr = `throw: ${e.message}`;
+      }
+    } else {
+      photoErr = `guard: type=${typeof certPhoto} len=${typeof certPhoto === 'string' ? certPhoto.length : 0} head=${String(certPhoto).slice(0, 24)}`;
     }
+    await fetch(`${firestoreUrl(env, `bolts/${boltId}`)}?updateMask.fieldPaths=photoSaved&updateMask.fieldPaths=photoErr`, {
+      method: 'PATCH', headers: authHeaders,
+      body: JSON.stringify({ fields: toFirestoreFields({ photoSaved, photoErr }) }),
+    }).catch(() => {});
 
     return json({ result, card });
   } catch (e) {

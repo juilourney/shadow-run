@@ -5,6 +5,7 @@
 export const RULES = {
   eliteMultiplier: 2,
   votePenalty: 0.5,
+  penaltyClearBolts: 3,   // 적발 후 이만큼 번개를 완주(인증)하면 페널티 해제 (src/store.js CONFIG와 동일)
   // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일).
   //   페이서 시너지 : 전부 우리 게이지에 적립
   //   고스트 게이지 : 절반을 상대에서 깎고 절반을 우리에게 더함(당겨오기) → 총 스윙 동일

@@ -103,6 +103,7 @@ export function render() {
     <div id="dash-penalty-badge" class="anim-up-3" style="display:none; margin-top:10px;
       background:rgba(251,113,133,.08); border:1px solid rgba(251,113,133,.22); border-radius:14px; padding:11px 14px;">
       <p style="font-size:12px; font-weight:700; color:#fb7185; line-height:1.5;">🔓 정체가 공개돼 게이지 기여 −50% 적용 중</p>
+      <p id="dash-penalty-left" style="font-size:11px; color:#fbbf24; font-weight:700; margin-top:3px; line-height:1.4;"></p>
       <p style="font-size:11px; color:#52525b; margin-top:2px; line-height:1.4;">달린 거리(순수 기여)는 그대로 기록돼요</p>
     </div>
 
@@ -454,6 +455,10 @@ function renderFromStore() {
 
   // 적발(팀 공개)된 본인에게만 게이지 페널티 배지 노출 — 역할 공개는 팀 공개를 전제로 하므로 penalized로 판정
   document.getElementById('dash-penalty-badge').style.display = me.penalized ? 'block' : 'none';
+  if (me.penalized) {
+    document.getElementById('dash-penalty-left').textContent =
+      `번개 ${me.penaltyBoltsLeft}번 더 완주하면 해제돼요`;
+  }
 
   // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
   document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';

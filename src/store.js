@@ -27,6 +27,7 @@ export const CONFIG = {
   weeks: 3,                     // 관리자 화면에서 변경 가능
   eliteMultiplier: 2,           // 엘리트 마일리지 배수
   votePenalty: 0.5,             // 투표 적발 시 마일리지 감소율
+  penaltyClearBolts: 3,         // 적발 후 이만큼 번개를 완주(인증)하면 페널티 자동 해제
   roleRevealThreshold: 0.6,     // 역할 공개·능력 박탈: 지목 인원 중 동일 역할 비율 기준
   voteMinRatio: 0.3,            // 페널티 최소 기준: 전체 표의 30% 이상 + 단독 1위여야 적발
   // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일 — 실제 계산은 서버 game-rules.js)
@@ -367,10 +368,20 @@ function myPlayer() {
   };
 }
 
+// 팀 적발 −50% 페널티는 '적발 후 CONFIG.penaltyClearBolts번 완주'까지만 유효 — 남은 횟수와 함께 계산.
+// (기준점이 없는 구버전 적발자는 0으로 봐 총 완주 수로 판정)
+function penaltyState(p) {
+  if (!p?.penalized) return { penalized: false, penaltyBoltsLeft: 0 };
+  const since = (Number(p.boltsCompleted) || 0) - (Number(p.penalizedAtBolts) || 0);
+  const left = CONFIG.penaltyClearBolts - since;
+  return { penalized: left > 0, penaltyBoltsLeft: Math.max(0, left) };
+}
+
 export function getMe() {
   const p = myPlayer();
   return {
     ...p,
+    ...penaltyState(p),
     pureKm: p.km,
     abilityUsed: abilityUsedThisWeek(),
     revealed: { ...state.me.revealed },

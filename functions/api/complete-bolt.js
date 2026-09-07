@@ -54,7 +54,15 @@ export async function onRequestPost(context) {
     const penMap = {};
     for (const d of playersData.documents || []) {
       const pf = fromFirestoreFields(d.fields);
-      penMap[d.name.split('/').pop()] = { penalized: !!pf.penalized, abilityStripped: !!pf.abilityStripped };
+      // 팀 적발 −50%는 영구가 아니라 '적발 후 RULES.penaltyClearBolts번 완주'까지만 유효.
+      // boltsCompleted는 이번 완료 반영 전 값이라, 적발 시점 대비 차이로 남은 횟수를 판정한다.
+      // (기준점이 없는 구버전 적발자는 0으로 봐 총 완주 수로 판정)
+      const done = Number(pf.boltsCompleted) || 0;
+      const since = done - (Number(pf.penalizedAtBolts) || 0);
+      penMap[d.name.split('/').pop()] = {
+        penalized: !!pf.penalized && since < RULES.penaltyClearBolts,
+        abilityStripped: !!pf.abilityStripped,
+      };
     }
     const playerMap = {};
     for (const p of assignment.players || []) {

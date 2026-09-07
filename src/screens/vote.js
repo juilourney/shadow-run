@@ -252,7 +252,7 @@ export function render() {
         border:2px solid rgba(251,113,133,.4); box-shadow:0 0 44px -10px rgba(251,113,133,.5);"></div>
       <h2 style="font-size:26px; font-weight:800; letter-spacing:-.02em;"><span id="vc-name-1"></span>님</h2>
       <p style="font-size:14px; color:#71717a; line-height:1.75; max-width:280px;">
-        이 참가자를 지목합니다.<br/>가장 많이 지목되면 팀이 공개되고<br/>마일리지가 영구적으로 50% 감소합니다.</p>
+        이 참가자를 지목합니다.<br/>가장 많이 지목되면 팀이 공개되고<br/>마일리지가 50% 감소합니다(번개 3번 완주 시 해제).</p>
     </div>
 
     <!-- STEP 2 · 역할 지목 -->

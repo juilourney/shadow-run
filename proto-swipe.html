@@ -71,18 +71,37 @@
   .gc{ position:absolute; left:50%; top:-5px; bottom:-5px; width:2px; transform:translateX(-50%);
     background:linear-gradient(#fff,rgba(255,255,255,.2)); z-index:2; }
 
-  /* ── 하단 탭바 ── */
+  /* ── 하단 탭바 (플로팅) ──
+     화면 바닥에 붙지 않고 떠 있는 알약 형태. 좌우/아래 여백을 두고,
+     활성 탭 뒤로 하이라이트가 미끄러져 따라간다. */
   #tabbar{
-    position:fixed; left:0; right:0; bottom:0; z-index:50;
-    display:flex; justify-content:space-around; align-items:center;
-    padding: 8px 8px calc(var(--safe-bottom) + 8px);
-    background:rgba(10,10,12,.92); backdrop-filter:blur(16px);
-    border-top:1px solid rgba(255,255,255,.07);
+    position:fixed; z-index:50;
+    left:50%; transform:translateX(-50%);
+    bottom: calc(var(--safe-bottom) + 16px);
+    display:inline-flex; align-items:center;   /* 폭을 화면 끝까지 늘리지 않고 내용만큼만 */
+    max-width:calc(100% - 24px);
+    padding:6px;
+    border-radius:24px;
+    background:rgba(16,16,19,.72);
+    -webkit-backdrop-filter:blur(22px) saturate(1.4);
+    backdrop-filter:blur(22px) saturate(1.4);
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 12px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   }
-  .tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  /* 활성 탭 뒤를 따라 움직이는 알약 */
+  #pill{
+    position:absolute; top:6px; bottom:6px; left:6px;
+    border-radius:19px;
+    background:var(--accent-tint);
+    border:1px solid rgba(56,189,248,.22);
+    pointer-events:none;
+  }
+  .tab{ position:relative; z-index:1; flex:0 0 54px;   /* 균일 폭 — 가운데로 모임 */
+    display:flex; flex-direction:column; align-items:center; gap:2px;
     padding:6px 0; border:none; background:none; cursor:pointer; }
-  .tab .ic{ font-size:18px; opacity:.45; transition:opacity .2s, transform .2s; }
-  .tab .lb{ font-size:10px; color:#52525b; font-weight:600; transition:color .2s; }
+  .tab .ic{ font-size:17px; opacity:.42; transition:opacity .22s, transform .22s; }
+  .tab .lb{ font-size:9.5px; color:#52525b; font-weight:600; letter-spacing:-.01em;
+    transition:color .22s; }
   .tab.on .ic{ opacity:1; transform:translateY(-1px); }
   .tab.on .lb{ color:var(--accent); }
 
@@ -160,6 +179,7 @@
 </div>
 
 <nav id="tabbar">
+  <div id="pill"></div>
   <button class="tab on" data-i="0"><span class="ic">🏠</span><span class="lb">홈</span></button>
   <button class="tab" data-i="1"><span class="ic">⚡</span><span class="lb">번개</span></button>
   <button class="tab" data-i="2"><span class="ic">🗳️</span><span class="lb">투표</span></button>
@@ -213,16 +233,29 @@
     pager.scrollTo({ left: pager.clientWidth * Number(t.dataset.i), behavior: 'smooth' });
   }));
 
-  // 스와이프로 페이지가 바뀌면 탭 강조 갱신
+  // 알약은 손가락을 실시간으로 따라간다 — 페이지가 절반 넘어가야 튀는 게 아니라
+  // 스와이프하는 만큼 미끄러져서, 지금 어디쯤 가고 있는지가 보인다.
+  const pill = document.getElementById('pill');
+  function movePill(pos) {
+    const w = tabs[0].offsetWidth;
+    pill.style.width = `${w}px`;
+    pill.style.transform = `translateX(${w * pos}px)`;
+  }
+
   let raf = null;
   pager.addEventListener('scroll', () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = null;
-      const i = Math.round(pager.scrollLeft / pager.clientWidth);
+      const pos = pager.scrollLeft / pager.clientWidth;   // 0~4 (소수 포함)
+      const i = Math.round(pos);
       tabs.forEach((t, n) => t.classList.toggle('on', n === i));
+      movePill(pos);
     });
   }, { passive: true });
+
+  movePill(0);
+  addEventListener('resize', () => movePill(pager.scrollLeft / pager.clientWidth));
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, restoreMissingVoteRecord, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -108,7 +108,9 @@ export function render() {
 
 function votesBody() {
   const history = getVoteHistory();   // 최신순
-  if (history.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
+  // 임시: 스팸 정리 중 함께 지워진 '이번 투표' 정상 기록 1건 복구용 — 완료 후 제거 예정
+  const restoreBtn = `<div style="padding:12px;"><button class="vote-restore-btn" style="width:100%; height:40px; font-size:12px; font-weight:600; color:#34d399; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.25); border-radius:12px; cursor:pointer;">↩︎ 이번 투표 결과 복구</button></div>`;
+  if (history.length === 0) return restoreBtn + `<p style="padding:16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
   // 결과만 한 줄씩 — 공개(누구 팀·역할) 또는 적발 실패
   return history.map(v => {
     const result = v.caught.length === 0
@@ -313,6 +315,12 @@ export function init(goTo) {
   });
   // 번개 목록 상호작용 (본문은 매번 새로 그려지므로 위임)
   document.getElementById('admin-tab-body').addEventListener('click', async e => {
+    const restore = e.target.closest('.vote-restore-btn');   // 이번 투표 결과 복구(일회성)
+    if (restore) {
+      restore.disabled = true; restore.textContent = '복구 중…';
+      try { await restoreMissingVoteRecord(); } catch (err) { alert(err.message); }
+      return;
+    }
     if (e.target.closest('.ended-toggle')) {   // '지난 번개' 섹션 펼치기/접기
       showEnded = !showEnded;
       renderTabBody();

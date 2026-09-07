@@ -990,6 +990,20 @@ export async function castVote(targetId, roleGuess = null) {
 // 목격 못 해도 따라잡기 위함), 표 삭제가 끝나기 전에 다시 불려 페널티가 두 번
 // 적용되지 않도록 진행 중 재진입을 막고 삭제 완료까지 기다린 뒤 반환한다.
 let _tallyInFlight = null;
+// 일회성 복구 — 버그(매초 재집계 스팸)로 정상 결과 1건까지 정리 과정에서 함께
+// 지워진 '이번 투표'(이민규, 26표, 팀+역할 공개) 기록을 실제 상태 그대로 복원한다.
+// 목적 달성 후 이 함수와 호출 버튼은 제거할 예정.
+export async function restoreMissingVoteRecord() {
+  await addDoc(collection(db, 'voteHistory'), {
+    at: 1788786254684,
+    ballotCount: 26,
+    caught: [{
+      name: '이민규', teamCaught: true, team: 'ghost',
+      roleRevealed: true, revealedRole: 'detective', guessFailed: false,
+    }],
+  });
+}
+
 export async function tallyVote() {
   if (_tallyInFlight) return _tallyInFlight;
   _tallyInFlight = _tallyVote().finally(() => { _tallyInFlight = null; });

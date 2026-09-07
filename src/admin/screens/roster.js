@@ -1,4 +1,4 @@
-import { subscribe, getRoster, getAssignment, addRosterMember, updateRosterMember, removeRosterMember, ROLES } from '../../store.js';
+import { subscribe, getRoster, getAssignment, getPlayers, addRosterMember, updateRosterMember, removeRosterMember, ROLES } from '../../store.js';
 
 // 배정 완료 후 관리자 마스터 뷰 — 팀 배지 색상
 const TEAM = {
@@ -51,11 +51,16 @@ function rosterRow(r, player) {
     : r.enteredAt
     ? `<span style="font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.3); padding:2px 9px; border-radius:100px;">입장</span>`
     : `<span style="font-size:11px; font-weight:600; color:#71717a; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); padding:2px 9px; border-radius:100px;">미입장</span>`;
+  // 배정 후엔 각자 누적 마일리지도 표시
+  const km = player && typeof player.km === 'number'
+    ? `<span class="num" style="font-size:12px; font-weight:700; color:#a1a1aa;">${player.km.toFixed(1)}km</span>`
+    : '';
   return `
     <div class="admin-row" data-id="${r.id}">
       <span style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
         <span style="font-size:14px; font-weight:600;">${r.name}</span>
         ${badge}
+        ${km}
       </span>
       <div style="display:flex; gap:6px;">
         <button class="btn btn-secondary roster-edit-btn" style="height:32px; padding:0 12px; font-size:12px;">수정</button>
@@ -67,7 +72,9 @@ function rosterRow(r, player) {
 function refresh() {
   const roster = getRoster();
   const asg = getAssignment();
-  const byName = asg.assigned ? new Map(asg.players.map(p => [p.name, p])) : null;
+  // km까지 있는 실시간 players에서 매칭(이름 형태 차이 흡수) — 배정표(asg.players)엔 km이 없다
+  const norm = s => (s || '').normalize('NFC').trim();
+  const byName = asg.assigned ? new Map(getPlayers().map(p => [norm(p.name), p])) : null;
 
   const countEl = document.getElementById('roster-count');
   if (asg.assigned) {
@@ -81,7 +88,7 @@ function refresh() {
 
   document.getElementById('roster-body').innerHTML = roster.length === 0
     ? `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 참가자가 없습니다.</p>`
-    : roster.map(r => rosterRow(r, byName ? byName.get(r.name) : null)).join('');
+    : roster.map(r => rosterRow(r, byName ? byName.get(norm(r.name)) : null)).join('');
 }
 
 function showMsg(msg, color) {

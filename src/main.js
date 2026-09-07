@@ -3,7 +3,7 @@ import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -266,8 +266,12 @@ function routeByAssignment(name) {
 // 이 기기에 저장된 이름(마지막 입장 이름 또는 카드·역할 확인 기록)이 있으면
 // 이름 입력 화면을 건너뛰고 자동 입장시킨다. 잘못 저장된 경우를 위한 탈출구는
 // 대기실의 "다른 이름으로 입장" 버튼(clearSavedIdentity).
-const confirmed = getConfirmedRecord();
-const rememberedName = confirmed?.name || getSavedName();
+// URL에 ?reset 이 있으면 저장된 신원(이름·확인 기록)을 지우고 이름 입력부터 다시 시작한다 —
+// 이름이 잘못 저장돼 본인(역할·투표권)을 못 찾는 기기의 탈출구(게임 중엔 대기실 버튼을 못 보므로).
+const wantsReset = new URLSearchParams(location.search).has('reset');
+if (wantsReset) clearSavedIdentity();
+const confirmed = wantsReset ? null : getConfirmedRecord();
+const rememberedName = wantsReset ? null : (confirmed?.name || getSavedName());
 
 if (confirmed && confirmed.team && confirmed.role) {
   // 카드·역할까지 확인한 기기 — 저장된 팀·역할로 Firestore 응답을 기다리지 않고
@@ -306,7 +310,7 @@ if (confirmed && confirmed.team && confirmed.role) {
     unsub();
     const { assigned, assignedAt, players } = getAssignment();
     const stillValid = assigned && assignedAt === confirmed.assignedAt
-      && players.some(p => p.name === confirmed.name);
+      && players.some(p => nameEq(p.name, confirmed.name));
     if (!stillValid) {
       clearConfirmedRecord();   // 이름은 유지, 확인 기록만 삭제
       routeByAssignment(confirmed.name);

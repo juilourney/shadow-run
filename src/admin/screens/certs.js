@@ -40,8 +40,16 @@ function certCard(c) {
   const stale = r?.certAt && c.startAt
     && (r.certAt < c.startAt - CERT_EARLY_GRACE_MS || (c.deadline !== Infinity && r.certAt > c.deadline));
 
+  // 참가자 이름 앞에 팀 색 점(페이서=파랑 / 고스트=보라 / 미배정=회색)으로 한눈에 구분
+  const participantsHtml = (c.participants && c.participants.length)
+    ? c.participants.map(p => {
+        const color = p.team === 'pacer' ? '#38bdf8' : p.team === 'ghost' ? '#a78bfa' : '#52525b';
+        return `<span style="display:inline-flex; align-items:center; gap:5px; margin:0 12px 4px 0; white-space:nowrap;"><span style="width:8px; height:8px; border-radius:50%; background:${color};"></span>${p.name}</span>`;
+      }).join('')
+    : '—';
+
   const infoRows = [
-    ['참가자', c.participantNames.join(', ') || '—'],
+    ['참가자', participantsHtml],
     ['인증 거리', r ? `${r.distanceKm.toFixed(1)} km` : '—'],
     ['버프/스킬', r ? (r.singleTeam ? '단일팀 스킬 발동' : `버프 ×${r.buffMultiplier}`) : '—'],
     ['번개 시작', fmtAt(c.startAt) ?? '—'],

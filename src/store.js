@@ -883,8 +883,8 @@ export function getCertReviews() {
       deadline: boltDeadline(b),
       reviewStatus: b.reviewStatus ?? null,   // null = 심사 기능 도입 전 완료분
       result: b.result ?? null,
-      participantNames: (b.result?.participantIds ?? b.participants ?? [])
-        .map(pid => playerById(pid)?.name ?? '?'),
+      participants: (b.result?.participantIds ?? b.participants ?? [])
+        .map(pid => { const p = playerById(pid); return { name: p?.name ?? '?', team: p?.team ?? null }; }),
     }))
     .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
 }

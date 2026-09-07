@@ -990,12 +990,14 @@ export async function castVote(targetId, roleGuess = null) {
 // 목격 못 해도 따라잡기 위함), 표 삭제가 끝나기 전에 다시 불려 페널티가 두 번
 // 적용되지 않도록 진행 중 재진입을 막고 삭제 완료까지 기다린 뒤 반환한다.
 let _tallyInFlight = null;
-// 일회성 복구 — 정리 과정에서 관리자 기록(voteHistory)은 복원했지만, 참가자 소식
-// 피드(timeline)의 공개 알림은 함께 지워진 채 남아있다. 그 알림만 다시 올린다.
+// 일회성 정리 — 복구 버튼이 재렌더링으로 '완료' 표시가 바로 덮이는 바람에 여러 번
+// 눌려 소식 피드에 팀·역할 공개 알림이 6쌍(12건) 중복됐다. 가장 처음 쌍만 남기고 지운다.
 // 목적 달성 후 이 함수와 호출 버튼은 제거할 예정.
-export async function restoreMissingVoteTimeline() {
-  await addDoc(collection(db, 'timeline'), { kind: 'team', name: '이민규', team: 'ghost', at: Date.now() });
-  await addDoc(collection(db, 'timeline'), { kind: 'role', name: '이민규', role: 'detective', at: Date.now() });
+export async function dedupeVoteTimeline() {
+  const keep = new Set(['uwYXP6NRXS82zGVbjplj', 'b0iOJUZwrLUkMee7AlzV']);
+  const dupes = state.timeline.filter(e => (e.kind === 'team' || e.kind === 'role') && !keep.has(e.id));
+  await Promise.all(dupes.map(e => deleteDoc(doc(db, 'timeline', e.id))));
+  return { removed: dupes.length };
 }
 
 export async function tallyVote() {

@@ -96,14 +96,11 @@
     border:1px solid rgba(56,189,248,.22);
     pointer-events:none;
   }
-  .tab{ position:relative; z-index:1; flex:0 0 54px;   /* 균일 폭 — 가운데로 모임 */
-    display:flex; flex-direction:column; align-items:center; gap:2px;
-    padding:6px 0; border:none; background:none; cursor:pointer; }
-  .tab .ic{ font-size:17px; opacity:.42; transition:opacity .22s, transform .22s; }
-  .tab .lb{ font-size:9.5px; color:#52525b; font-weight:600; letter-spacing:-.01em;
-    transition:color .22s; }
-  .tab.on .ic{ opacity:1; transform:translateY(-1px); }
-  .tab.on .lb{ color:var(--accent); }
+  .tab{ position:relative; z-index:1; flex:0 0 50px;   /* 균일 폭 — 가운데로 모임 */
+    display:flex; align-items:center; justify-content:center;
+    padding:11px 0; border:none; background:none; cursor:pointer; }
+  .tab .ic{ font-size:20px; opacity:.4; transition:opacity .22s, transform .22s; }
+  .tab.on .ic{ opacity:1; transform:scale(1.08); }
 
   /* 안내 배너 */
   .hint{ background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.25);
@@ -180,11 +177,11 @@
 
 <nav id="tabbar">
   <div id="pill"></div>
-  <button class="tab on" data-i="0"><span class="ic">🏠</span><span class="lb">홈</span></button>
-  <button class="tab" data-i="1"><span class="ic">⚡</span><span class="lb">번개</span></button>
-  <button class="tab" data-i="2"><span class="ic">🗳️</span><span class="lb">투표</span></button>
-  <button class="tab" data-i="3"><span class="ic">👥</span><span class="lb">참가자</span></button>
-  <button class="tab" data-i="4"><span class="ic">📖</span><span class="lb">가이드</span></button>
+  <button class="tab on" data-i="0" aria-label="홈"><span class="ic">🏠</span></button>
+  <button class="tab" data-i="1" aria-label="번개"><span class="ic">⚡</span></button>
+  <button class="tab" data-i="2" aria-label="투표"><span class="ic">🗳️</span></button>
+  <button class="tab" data-i="3" aria-label="참가자"><span class="ic">👥</span></button>
+  <button class="tab" data-i="4" aria-label="가이드"><span class="ic">📖</span></button>
 </nav>
 
 <script>

@@ -36,6 +36,15 @@ function fmtAt(ms) {
   return new Date(ms).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// 이 번개가 게이지에 실제로 더한 최종치 — 스킬·버프·엘리트·페널티가 전부 반영된 gaugeDelta.
+function fmtGaugeEffect(d) {
+  if (!d) return '';
+  const seg = [];
+  if (d.pacer) seg.push(`<span style="color:#38bdf8;">페이서 ${d.pacer > 0 ? '+' : '−'}${Math.abs(d.pacer).toFixed(1)}</span>`);
+  if (d.ghost) seg.push(`<span style="color:#a78bfa;">고스트 ${d.ghost > 0 ? '+' : '−'}${Math.abs(d.ghost).toFixed(1)}</span>`);
+  return seg.length ? ` · 게이지 ${seg.join(' / ')}km` : '';
+}
+
 function certCard(c) {
   const status = STATUS_META[c.reviewStatus] ?? { label: '심사 도입 전', color: '#71717a', bg: 'rgba(113,113,122,.12)' };
   const r = c.result;
@@ -55,7 +64,7 @@ function certCard(c) {
   const infoRows = [
     ['참가자', participantsHtml],
     ['인증 거리', r ? `${r.distanceKm.toFixed(1)} km` : '—'],
-    ['버프/스킬', r ? (r.singleTeam ? '단일팀 스킬 발동' : `버프 ×${r.buffMultiplier}`) : '—'],
+    ['버프/스킬', r ? `${r.singleTeam ? '단일팀 스킬 발동' : `버프 ×${r.buffMultiplier}`}${fmtGaugeEffect(r.gaugeDelta)}` : '—'],
     ['번개 시작', fmtAt(c.startAt) ?? '—'],
     ['사진 기록 시각', r?.certAt
       ? `${fmtAt(r.certAt)}${stale ? ' <span style="color:#fbbf24; font-weight:700;">⚠️ 일정과 어긋남</span>' : ''}`

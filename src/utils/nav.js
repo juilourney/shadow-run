@@ -12,6 +12,20 @@ function removeBootGate() {
 
 export function isProgrammaticScroll() { return _programmaticScroll; }
 
+// 탭 이동(smooth) 애니메이션이 도는 중에 손가락이 닿으면, 애니메이션을 끝까지 기다리지 않고
+// 목표 섹션으로 즉시 정렬한 뒤 제어권을 사용자에게 넘긴다. 그러지 않으면 애니메이션 중간
+// 위치를 기준으로 '섹션 건너뛰기 방지' 안전장치가 오작동해, 이동 직후 스크롤이 먹지 않는다.
+let _pendingTarget = null;
+export function settleProgrammaticScroll() {
+  if (!_programmaticScroll) return;
+  clearTimeout(_scrollTimer);
+  _programmaticScroll = false;
+  if (_pendingTarget) {
+    document.getElementById(_pendingTarget)?.scrollIntoView({ behavior: 'instant', block: 'start' });
+    _pendingTarget = null;
+  }
+}
+
 // 바텀시트 등 오버레이가 뜬 동안 배경(게임 섹션) 스크롤 잠금 + 사이드 메뉴(탭바) 비활성
 export function setScrollLock(locked) {
   document.documentElement.classList.toggle('lock-scroll', locked);
@@ -111,8 +125,9 @@ export function scrollToSection(gsId) {
   const enter    = !gameWrap.classList.contains('active');
 
   _programmaticScroll = true;
+  _pendingTarget = gsId;
   clearTimeout(_scrollTimer);
-  _scrollTimer = setTimeout(() => { _programmaticScroll = false; }, 800);
+  _scrollTimer = setTimeout(() => { _programmaticScroll = false; _pendingTarget = null; }, 800);
 
   if (enter) {
     goToScreen('s-game');

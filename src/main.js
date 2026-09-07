@@ -1,7 +1,7 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
-import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap } from './utils/nav.js';
+import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap, settleProgrammaticScroll } from './utils/nav.js';
 import { state } from './state.js';
 import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
@@ -155,6 +155,9 @@ function nearestSectionIndex() {
 let swipeStartIndex = null;
 let swipeClearTimer = null;
 document.getElementById('s-game').addEventListener('touchstart', () => {
+  // 탭 이동 애니메이션 중이면 즉시 목표 섹션으로 정렬하고 제어권을 넘긴다 —
+  // 그래야 아래 swipeStartIndex가 '애니메이션 중간 위치'가 아닌 실제 섹션을 잡는다.
+  settleProgrammaticScroll();
   clearTimeout(swipeClearTimer);
   swipeStartIndex = nearestSectionIndex();
 }, { passive: true });
@@ -169,6 +172,9 @@ document.getElementById('s-game').addEventListener('touchend', () => {
 window.addEventListener('scroll', () => {
   if (swipeStartIndex === null) return;
   if (document.documentElement.classList.contains('lock-scroll')) return;
+  // 탭으로 2칸 이상 건너뛰는 '의도된' 이동까지 되돌리면 안 된다 — 이 안전장치는
+  // 손가락 스와이프 전용이다.
+  if (isProgrammaticScroll()) return;
   const idx = nearestSectionIndex();
   if (idx === -1) return;
   const diff = idx - swipeStartIndex;

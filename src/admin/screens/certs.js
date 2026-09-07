@@ -4,6 +4,10 @@ import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBo
 const photoCache = new Map();   // boltId → dataURL | null(없음)
 const photoLoading = new Set();
 
+// 날짜별 접이식 — 펼쳐진 날짜 키 집합 + 사용자가 직접 토글한 날짜(기본값 무시용)
+const openDateKeys = new Set();
+const touchedDates = new Set();
+
 const STATUS_META = {
   pending:  { label: '심사 대기', color: '#fbbf24', bg: 'rgba(251,191,36,.12)' },
   approved: { label: '인정됨',   color: '#34d399', bg: 'rgba(52,211,153,.12)' },
@@ -129,29 +133,50 @@ function dateGroupKey(ts) {
   return { key: String(d0.getTime()), label };
 }
 
-// 날짜 헤더로 묶어 렌더 (list는 날짜 내림차순 정렬 전제)
-function groupedByDate(list, rowFn) {
-  let html = '', lastKey = null;
+// 날짜별로 묶기 (list는 날짜 내림차순 정렬 전제) — 순서 유지
+function groupCerts(list) {
+  const groups = [];
+  let cur = null;
   for (const item of list) {
     const g = dateGroupKey(item.startAt);
-    if (g.key !== lastKey) {
-      html += `<div style="font-size:12px; font-weight:700; color:#71717a; letter-spacing:.04em; margin:18px 2px 10px;">${g.label}</div>`;
-      lastKey = g.key;
-    }
-    html += rowFn(item);
+    if (!cur || cur.key !== g.key) { cur = { key: g.key, label: g.label, items: [] }; groups.push(cur); }
+    cur.items.push(item);
   }
-  return html;
+  return groups;
 }
 
 function refresh() {
   const list = getCertReviews();
+  const el = document.getElementById('certs-list');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="bezel" style="padding:24px; border-radius:20px; text-align:center;">
+        <p style="font-size:13px; color:#52525b;">완료된 번개가 아직 없습니다.</p></div>`;
+    return;
+  }
   const pending = list.filter(c => c.reviewStatus === 'pending').length;
-  document.getElementById('certs-list').innerHTML = list.length === 0
-    ? `<div class="bezel" style="padding:24px; border-radius:20px; text-align:center;">
-        <p style="font-size:13px; color:#52525b;">완료된 번개가 아직 없습니다.</p></div>`
-    : `<p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">완료 ${list.length}건 · 심사 대기 ${pending}건</p>`
-      + groupedByDate(list, certCard);
-  loadMissingPhotos(list);
+  const today = dateGroupKey(Date.now()).key;
+  const visible = [];   // 펼친 날짜의 카드만 사진 로드
+  const groupsHtml = groupCerts(list).map(grp => {
+    const pend = grp.items.filter(c => c.reviewStatus === 'pending').length;
+    // 기본: 오늘 또는 심사 대기 있는 날은 펼침, 지난(완료된) 날짜는 접음 — 사용자가 건드리기 전까지
+    if (!touchedDates.has(grp.key)) {
+      if (grp.key === today || pend > 0) openDateKeys.add(grp.key);
+      else openDateKeys.delete(grp.key);
+    }
+    const open = openDateKeys.has(grp.key);
+    if (open) visible.push(...grp.items);
+    const pendBadge = pend ? `<span style="color:#fbbf24; font-weight:700;"> · 심사 대기 ${pend}</span>` : '';
+    const header = `
+      <div class="cert-date-toggle" data-date="${grp.key}"
+        style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin:18px 2px 10px;">
+        <span style="font-size:12px; font-weight:700; color:#a1a1aa; letter-spacing:.04em;">${grp.label}
+          <span style="color:#52525b; font-weight:400;">${grp.items.length}건</span>${pendBadge}</span>
+        <span style="font-size:12px; color:#52525b;">${open ? '접기 ▲' : '펼치기 ▾'}</span>
+      </div>`;
+    return header + (open ? grp.items.map(certCard).join('') : '');
+  }).join('');
+  el.innerHTML = `<p class="eyebrow" style="color:#3f3f46; margin-bottom:10px;">완료 ${list.length}건 · 심사 대기 ${pending}건</p>` + groupsHtml;
+  loadMissingPhotos(visible);
 }
 
 export function init(goTo) {
@@ -164,6 +189,14 @@ export function init(goTo) {
   lightbox.addEventListener('click', () => { lightbox.style.display = 'none'; lightboxImg.src = ''; });
 
   document.getElementById('certs-list').addEventListener('click', async e => {
+    const dateToggle = e.target.closest('.cert-date-toggle');   // 날짜 헤더 접기/펼치기
+    if (dateToggle) {
+      const k = dateToggle.dataset.date;
+      touchedDates.add(k);
+      if (openDateKeys.has(k)) openDateKeys.delete(k); else openDateKeys.add(k);
+      refresh();
+      return;
+    }
     const photo = e.target.closest('.cert-photo-img');
     if (photo && photo.src) { lightboxImg.src = photo.src; lightbox.style.display = 'flex'; return; }
     const approve   = e.target.closest('.cert-approve-btn');

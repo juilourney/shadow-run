@@ -990,26 +990,6 @@ export async function castVote(targetId, roleGuess = null) {
 // 목격 못 해도 따라잡기 위함), 표 삭제가 끝나기 전에 다시 불려 페널티가 두 번
 // 적용되지 않도록 진행 중 재진입을 막고 삭제 완료까지 기다린 뒤 반환한다.
 let _tallyInFlight = null;
-// 관리자 — 버그로 중복 쌓인 투표 스팸 정리. 집계 기록(voteHistory)과 투표 소식(team/role/fail
-// 타임라인)을 지우고, 적발돼 공개·페널티된 참가자를 원복한다. 진행 중인 표(votes)는 건드리지 않는다.
-export async function cleanupVoteSpam() {
-  const ops = [];
-  const vh = await getDocs(collection(db, 'voteHistory'));
-  vh.docs.forEach(d => ops.push(deleteDoc(doc(db, 'voteHistory', d.id))));
-  for (const e of state.timeline) {
-    if (['team', 'role', 'fail'].includes(e.kind)) ops.push(deleteDoc(doc(db, 'timeline', e.id)));
-  }
-  for (const p of state.players) {
-    if (p.publicTeam || p.publicRole || p.penalized || p.abilityStripped) {
-      ops.push(updateDoc(doc(db, 'players', p.id), {
-        publicTeam: null, publicRole: null, penalized: false, penalizedAtBolts: 0, abilityStripped: false,
-      }));
-    }
-  }
-  await Promise.all(ops);
-  return { history: vh.size };
-}
-
 export async function tallyVote() {
   if (_tallyInFlight) return _tallyInFlight;
   _tallyInFlight = _tallyVote().finally(() => { _tallyInFlight = null; });

@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, cleanupVoteSpam, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -108,10 +108,9 @@ export function render() {
 
 function votesBody() {
   const history = getVoteHistory();   // 최신순
-  const cleanBtn = `<div style="padding:12px;"><button class="vote-clean-btn" style="width:100%; height:40px; font-size:12px; font-weight:600; color:#fb7185; background:rgba(251,113,133,.08); border:1px solid rgba(251,113,133,.25); border-radius:12px; cursor:pointer;">🧹 투표 기록 정리 (스팸·중복 삭제)</button></div>`;
-  if (history.length === 0) return cleanBtn + `<p style="padding:16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
+  if (history.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
   // 결과만 한 줄씩 — 공개(누구 팀·역할) 또는 적발 실패
-  const rows = history.map(v => {
+  return history.map(v => {
     const result = v.caught.length === 0
       ? `<span style="color:#71717a;">적발 실패</span>`
       : v.caught.map(c =>
@@ -122,7 +121,6 @@ function votesBody() {
       <span style="font-size:11px; color:#52525b; white-space:nowrap;">${fmtDate(v.at)}</span>
     </div>`;
   }).join('');
-  return cleanBtn + rows;
 }
 
 function participantChips(bolt) {
@@ -315,13 +313,6 @@ export function init(goTo) {
   });
   // 번개 목록 상호작용 (본문은 매번 새로 그려지므로 위임)
   document.getElementById('admin-tab-body').addEventListener('click', async e => {
-    const clean = e.target.closest('.vote-clean-btn');   // 투표 스팸 정리
-    if (clean) {
-      if (!confirm('투표 집계 기록과 팀공개 소식을 모두 정리할까요?\n버그로 중복된 기록이 삭제되고 적발 상태가 원복됩니다.\n(진행 중인 투표 표는 유지 — 마감 때 한 번만 집계돼요)')) return;
-      clean.disabled = true; clean.textContent = '정리 중…';
-      try { await cleanupVoteSpam(); } catch (err) { alert(err.message); }
-      return;
-    }
     if (e.target.closest('.ended-toggle')) {   // '지난 번개' 섹션 펼치기/접기
       showEnded = !showEnded;
       renderTabBody();

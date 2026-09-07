@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, dedupeVoteTimeline, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -106,15 +106,11 @@ export function render() {
 </div>`;
 }
 
-let dedupeStarted = false;   // 실시간 재렌더링으로 버튼이 리셋돼 여러 번 눌리는 것 방지 — 클릭 즉시 숨김
-
 function votesBody() {
   const history = getVoteHistory();   // 최신순
-  // 임시: 중복 클릭으로 6쌍 생긴 팀·역할 공개 알림을 1쌍만 남기고 정리 — 완료 후 제거 예정
-  const restoreBtn = dedupeStarted ? '' : `<div style="padding:12px;"><button class="vote-restore-btn" style="width:100%; height:40px; font-size:12px; font-weight:600; color:#34d399; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.25); border-radius:12px; cursor:pointer;">🧹 중복 알림 정리 (1쌍만 남기기)</button></div>`;
-  if (history.length === 0) return restoreBtn + `<p style="padding:16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
+  if (history.length === 0) return `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">투표 기록이 없습니다.</p>`;
   // 결과만 한 줄씩 — 공개(누구 팀·역할) 또는 적발 실패
-  return restoreBtn + history.map(v => {
+  return history.map(v => {
     const result = v.caught.length === 0
       ? `<span style="color:#71717a;">적발 실패</span>`
       : v.caught.map(c =>
@@ -317,17 +313,6 @@ export function init(goTo) {
   });
   // 번개 목록 상호작용 (본문은 매번 새로 그려지므로 위임)
   document.getElementById('admin-tab-body').addEventListener('click', async e => {
-    const restore = e.target.closest('.vote-restore-btn');   // 중복 알림 정리(일회성)
-    if (restore) {
-      dedupeStarted = true;   // 재클릭 방지 — 실시간 리렌더로 버튼이 새로 그려져도 다시 안 나타남
-      restore.disabled = true; restore.textContent = '정리 중…';
-      try {
-        const { removed } = await dedupeVoteTimeline();
-        alert(`중복 알림 ${removed}건을 정리했어요.`);
-      } catch (err) { alert(err.message); }
-      renderTabBody();
-      return;
-    }
     if (e.target.closest('.ended-toggle')) {   // '지난 번개' 섹션 펼치기/접기
       showEnded = !showEnded;
       renderTabBody();

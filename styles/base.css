@@ -8,7 +8,9 @@ html {
   /* 슬라이드가 각 섹션에 확실히 걸림 (한 번에 한 섹션, 통과 불가) */
   scroll-snap-type: y mandatory;
   scroll-padding-top: 0;
-  scroll-behavior: smooth; /* 스냅이 순간이동하지 않고 부드럽게 붙음 */
+  /* scroll-behavior: smooth 는 넣지 않는다 — mandatory 스냅 컨테이너에서 네이티브
+     smooth 스크롤은 스냅 엔진이 애니메이션을 끊어, 손가락 스크롤이 씹히는 원인이 된다.
+     부드러운 섹션 이동이 필요한 곳은 scrollIntoView({behavior:'smooth'})로 개별 지정. */
 }
 /* 오버레이 화면이 떠 있을 때 배경 게임 섹션 스크롤 잠금 */
 html.lock-scroll {
@@ -99,7 +101,10 @@ body {
   flex: 1;
   overflow-y: auto;            /* 긴 섹션(가이드)은 내부에서 스크롤 → 안 갇힘 */
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: auto; /* 내부 끝에서 위/아래 섹션으로 스크롤 이어짐 (기본 contain 해제) */
+  /* 내부 스크롤이 문서로 새어나가면, 네이티브 스냅 이동과 main.js의 섹션 이동이
+     동시에 같은 축을 잡아 서로를 끊는다(스크롤이 '안 먹는' 원인). 체이닝은 막고
+     섹션 이동은 main.js 터치 핸들러 한 곳만 담당하게 한다. */
+  overscroll-behavior-y: contain;
 }
 
 /* ── 게임 섹션 orb 배경 (name 화면과 동일 스타일) ── */

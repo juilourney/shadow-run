@@ -146,22 +146,29 @@ function initPullToRefresh(screen) {
 
 // 내부 스크롤이 경계에 닿으면 이전/다음 패널로 이어지게 — 본게임과 같은 iOS 보완
 outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
-  let startY = 0;
+  const PULL = 60;      // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
   let chaining = false;
-  body.addEventListener('touchstart', e => {
-    startY = e.touches[0].clientY;
+  let edgeY = null;     // 위/아래 끝에 처음 닿은 순간의 손가락 위치
+  body.addEventListener('touchstart', () => {
     chaining = false;
+    edgeY = null;
   }, { passive: true });
   body.addEventListener('touchmove', e => {
     if (chaining) return;
     if (body.scrollHeight <= body.clientHeight + 2) return;
-    const dy = e.touches[0].clientY - startY;
+    const y        = e.touches[0].clientY;
     const atTop    = body.scrollTop <= 0;
     const atBottom = body.scrollHeight - body.scrollTop <= body.clientHeight + 2;
-    if (atTop && dy > 8 && idx > 0) {
+    // 경계를 벗어나면 기준점 초기화 — 다시 끝에 닿을 때부터 새로 잰다.
+    if (!atTop && !atBottom) { edgeY = null; return; }
+    // touchstart 기준으로 재면 긴 화면을 한 번에 쭉 내려 바닥에 닿는 순간 누적 이동이
+    // 이미 커서 곧바로 옆 패널로 튕긴다 — '끝에 닿은 순간'을 기준으로 다시 잰다.
+    if (edgeY === null) { edgeY = y; return; }
+    const pull = y - edgeY;
+    if (atTop && pull > PULL && idx > 0) {
       chaining = true;
       showPanel(idx - 1);
-    } else if (atBottom && dy < -8 && idx < PANELS.length - 1) {
+    } else if (atBottom && pull < -PULL && idx < PANELS.length - 1) {
       chaining = true;
       showPanel(idx + 1);
     }

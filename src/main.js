@@ -182,12 +182,13 @@ window.addEventListener('scroll', () => {
 // 외부 scroll-snap으로 touch가 전파되지 않는 문제를 JS로 보완
 document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   const section = body.closest('.game-section');
-  let startY = 0;
+  const PULL = 60;      // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
   let chaining = false;
+  let edgeY = null;     // 위/아래 끝에 처음 닿은 순간의 손가락 위치
 
-  body.addEventListener('touchstart', e => {
-    startY = e.touches[0].clientY;
+  body.addEventListener('touchstart', () => {
     chaining = false;
+    edgeY = null;
   }, { passive: true });
 
   body.addEventListener('touchmove', e => {
@@ -197,17 +198,24 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
     // JS 체이닝을 돌리면 이중 스크롤로 튐. 실제 내부 스크롤이 있을 때만 보완.
     if (body.scrollHeight <= body.clientHeight + 2) return;
 
-    const dy = e.touches[0].clientY - startY;
     const idx = SECTION_IDS.indexOf(section.id);
     if (idx === -1) return;
 
+    const y        = e.touches[0].clientY;
     const atTop    = body.scrollTop <= 0;
     const atBottom = body.scrollHeight - body.scrollTop <= body.clientHeight + 2;
 
-    if (atTop && dy > 8 && idx > 0) {
+    // 경계를 벗어나면 기준점 초기화 — 다시 끝에 닿을 때부터 새로 잰다
+    if (!atTop && !atBottom) { edgeY = null; return; }
+    // 끝에 '방금 닿은' 순간을 기준점으로 잡는다. touchstart 기준으로 재면, 긴 화면을
+    // 한 번에 쭉 내려 바닥에 닿는 순간 이미 누적 이동이 커서 곧바로 다음 섹션으로 튕겼다.
+    if (edgeY === null) { edgeY = y; return; }
+
+    const pull = y - edgeY;
+    if (atTop && pull > PULL && idx > 0) {
       chaining = true;
       document.getElementById(SECTION_IDS[idx - 1])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (atBottom && dy < -8 && idx < SECTION_IDS.length - 1) {
+    } else if (atBottom && pull < -PULL && idx < SECTION_IDS.length - 1) {
       chaining = true;
       document.getElementById(SECTION_IDS[idx + 1])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

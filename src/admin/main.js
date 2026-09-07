@@ -146,9 +146,11 @@ function initPullToRefresh(screen) {
 
 // 내부 스크롤이 경계에 닿으면 이전/다음 패널로 이어지게 — 본게임과 같은 iOS 보완
 outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
-  const PULL = 60;      // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
+  const PULL = 60;       // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
+  const DWELL = 180;     // 경계에서 이만큼(ms) 머문 뒤의 당김만 인정 — 플릭 통과 방지
   let chaining = false;
-  let edgeY = null;     // 위/아래 끝에 처음 닿은 순간의 손가락 위치
+  let edgeY = null;      // 위/아래 끝에 처음 닿은 순간의 손가락 위치
+  let edgeAt = 0;        // 그 순간의 시각
   body.addEventListener('touchstart', () => {
     chaining = false;
     edgeY = null;
@@ -163,7 +165,9 @@ outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
     if (!atTop && !atBottom) { edgeY = null; return; }
     // touchstart 기준으로 재면 긴 화면을 한 번에 쭉 내려 바닥에 닿는 순간 누적 이동이
     // 이미 커서 곧바로 옆 패널로 튕긴다 — '끝에 닿은 순간'을 기준으로 다시 잰다.
-    if (edgeY === null) { edgeY = y; return; }
+    if (edgeY === null) { edgeY = y; edgeAt = e.timeStamp; return; }
+    // 빠른 플릭이 경계를 스치며 지나가는 것과, 끝에서 의도적으로 당기는 것을 구분한다.
+    if (e.timeStamp - edgeAt < DWELL) return;
     const pull = y - edgeY;
     if (atTop && pull > PULL && idx > 0) {
       chaining = true;

@@ -182,9 +182,11 @@ window.addEventListener('scroll', () => {
 // 외부 scroll-snap으로 touch가 전파되지 않는 문제를 JS로 보완
 document.querySelectorAll('.game-section .scroll-body').forEach(body => {
   const section = body.closest('.game-section');
-  const PULL = 60;      // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
+  const PULL = 60;       // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리
+  const DWELL = 180;     // 경계에서 이만큼(ms) 머문 뒤의 당김만 인정 — 플릭 통과 방지
   let chaining = false;
-  let edgeY = null;     // 위/아래 끝에 처음 닿은 순간의 손가락 위치
+  let edgeY = null;      // 위/아래 끝에 처음 닿은 순간의 손가락 위치
+  let edgeAt = 0;        // 그 순간의 시각
 
   body.addEventListener('touchstart', () => {
     chaining = false;
@@ -209,7 +211,10 @@ document.querySelectorAll('.game-section .scroll-body').forEach(body => {
     if (!atTop && !atBottom) { edgeY = null; return; }
     // 끝에 '방금 닿은' 순간을 기준점으로 잡는다. touchstart 기준으로 재면, 긴 화면을
     // 한 번에 쭉 내려 바닥에 닿는 순간 이미 누적 이동이 커서 곧바로 다음 섹션으로 튕겼다.
-    if (edgeY === null) { edgeY = y; return; }
+    if (edgeY === null) { edgeY = y; edgeAt = e.timeStamp; return; }
+    // 빠르게 훅 내리는 플릭은 바닥을 스치며 지나가도 손가락이 계속 움직인다 —
+    // 경계에서 잠깐 머문 뒤의 당김만 '섹션 이동 의도'로 본다.
+    if (e.timeStamp - edgeAt < DWELL) return;
 
     const pull = y - edgeY;
     if (atTop && pull > PULL && idx > 0) {

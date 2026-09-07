@@ -354,8 +354,14 @@ export function getPhase(now = new Date()) {
 
 // 나 — players에서 내 이름과 일치하는 항목을 찾음. 배정 전(또는 매칭 실패)에는
 // 안전한 기본값을 반환해 초기 렌더링에서 크래시가 나지 않게 한다.
+// 이름 비교 — 앞뒤 공백·한글 유니코드 정규화(NFC/NFD) 차이를 흡수해 본인 매칭이 어긋나지 않게.
+// (카톡 붙여넣기 NFC ↔ 키보드 입력 NFD가 섞이면 ===로는 못 찾아 역할·투표권을 잃는다)
+export function nameEq(a, b) {
+  return (a || '').normalize('NFC').trim() === (b || '').normalize('NFC').trim();
+}
+
 function myPlayer() {
-  return state.players.find(p => p.name === identity.name) || {
+  return state.players.find(p => nameEq(p.name, identity.name)) || {
     id: null, name: identity.name || '', team: null, role: null, km: 0,
     publicTeam: null, publicRole: null, penalized: false, abilityStripped: false, boltsCompleted: 0,
   };
@@ -373,7 +379,7 @@ export function getMe() {
 }
 
 export function getPlayers({ excludeSelf = false } = {}) {
-  const list = state.players.map(p => ({ ...p, isSelf: p.name === identity.name }));
+  const list = state.players.map(p => ({ ...p, isSelf: nameEq(p.name, identity.name) }));
   return excludeSelf ? list.filter(p => !p.isSelf) : list;
 }
 
@@ -565,7 +571,7 @@ export function getRoster() {
 }
 
 export function isNameRegistered(name) {
-  return state.roster.some(r => r.name === name.trim());
+  return state.roster.some(r => nameEq(r.name, name));
 }
 
 // 참가자가 이름 입력 화면에서 직접 자기 이름을 명단에 등록 — 이미 있으면 그대로 통과.

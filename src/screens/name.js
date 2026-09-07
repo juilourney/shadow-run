@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
-import { joinRoster, getAssignment, saveName, isNameRegistered } from '../store.js';
+import { joinRoster, getAssignment, saveName, isNameRegistered, nameEq } from '../store.js';
 
 const DEFAULT_HINT = '등록된 이름으로 입장하세요';
 const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
@@ -120,7 +120,7 @@ async function enterGame() {
   // 게임 진행 중(배정 완료)에는 배정된 이름만 입장 가능 — 중간 난입 차단.
   // 배정에 있는 이름은 통과(기기 변경 등으로 재입장하는 기존 참가자).
   const assignment = getAssignment();
-  if (assignment.assigned && !assignment.players.some(p => p.name === name)) {
+  if (assignment.assigned && !assignment.players.some(p => nameEq(p.name, name))) {
     input.style.borderColor = 'rgba(251,113,133,.6)';
     hint.textContent = '게임이 진행 중이라 새로 입장할 수 없어요. 다음 시즌에 만나요!';
     hint.style.color = '#fb7185';
@@ -160,7 +160,7 @@ async function enterGame() {
 
   // 이미 팀·역할 배정이 끝난 상태라면 대기실을 거치지 않고 바로 카드/게임 화면으로
   const { assigned, players } = getAssignment();
-  const me = assigned ? players.find(p => p.name === name) : null;
+  const me = assigned ? players.find(p => nameEq(p.name, name)) : null;
   if (me) {
     enterAssignedPlayer(me);
     return;

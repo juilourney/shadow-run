@@ -43,6 +43,7 @@ document.addEventListener('click', e => {
 // 프로그램 전환은 rAF 트윈 — mandatory 스냅 컨테이너에서 네이티브 smooth 스크롤은
 // 스냅 엔진이 애니메이션을 끊어 동작하지 않는다(대기실과 같은 패턴)
 let panelAnim = null;
+let panelTargetTop = null;   // 트윈이 도착해야 할 위치 — 도중에 손가락이 닿으면 여기로 즉시 정렬
 function showPanel(index, instant = false) {
   paintTabs(index);
   closeMenu();
@@ -56,6 +57,7 @@ function showPanel(index, instant = false) {
 
   outer.style.scrollSnapType = 'none';   // 트윈 중간 프레임을 스냅이 가로채지 않게
   cancelAnimationFrame(panelAnim);
+  panelTargetTop = endTop;
   const t0 = performance.now();
   const DUR = 420;
   const ease = t => 1 - Math.pow(1 - t, 3);
@@ -63,16 +65,19 @@ function showPanel(index, instant = false) {
     const p = Math.min(1, (now - t0) / DUR);
     outer.scrollTop = startTop + (endTop - startTop) * ease(p);
     if (p < 1) panelAnim = requestAnimationFrame(step);
-    else { panelAnim = null; outer.style.scrollSnapType = 'y mandatory'; }
+    else { panelAnim = null; panelTargetTop = null; outer.style.scrollSnapType = 'y mandatory'; }
   };
   panelAnim = requestAnimationFrame(step);
 }
 
-// 트윈 도중 손가락이 닿으면 제어권을 사용자에게 — 스냅도 명시값으로 복원
+// 트윈 도중 손가락이 닿으면 제어권을 사용자에게 넘긴다. 이때 스크롤을 패널 중간에
+// 남긴 채 스냅만 복원하면, 스냅 엔진이 가까운 쪽(=이전 패널)으로 되돌리거나 정착하는
+// 동안 손가락 스크롤이 씹힌다 — 목표 패널로 즉시 정렬한 뒤 넘긴다.
 outer.addEventListener('touchstart', () => {
   if (panelAnim === null) return;
   cancelAnimationFrame(panelAnim);
   panelAnim = null;
+  if (panelTargetTop !== null) { outer.scrollTop = panelTargetTop; panelTargetTop = null; }
   outer.style.scrollSnapType = 'y mandatory';
 }, { passive: true });
 

@@ -19,12 +19,15 @@ function assignBadges(p) {
     <span style="font-size:11px; font-weight:700; color:${rc}; background:${rbg}; border:1px solid ${rbd}; padding:2px 8px; border-radius:100px;">${roleName}</span>`;
 }
 
+let sortMode = 'name';   // 명단 정렬: 이름순 ↔ 거리순(마일리지)
+
 export function render() {
   return `
 <div class="admin-screen" id="admin-roster">
   <div class="admin-shell">
-    <div class="admin-header">
+    <div class="admin-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
       <h2 style="font-size:22px; font-weight:700;">참가자 명단</h2>
+      <button id="roster-sort" class="btn btn-secondary" style="height:34px; padding:0 14px; font-size:12px; flex-shrink:0;">이름순</button>
     </div>
 
     <p style="font-size:12px; color:#71717a; margin-bottom:14px;">게임 시작 전 참여 가능한 실명 목록입니다. 참가자는 이 명단에 있는 이름으로만 입장할 수 있습니다.</p>
@@ -86,9 +89,16 @@ function refresh() {
     countEl.textContent = `등록 ${roster.length}명 · 입장 ${entered} · 미입장 ${roster.length - entered}`;
   }
 
+  const sortBtn = document.getElementById('roster-sort');
+  if (sortBtn) sortBtn.textContent = sortMode === 'km' ? '거리순' : '이름순';
+  let rows = roster;
+  if (sortMode === 'km' && byName) {
+    rows = [...roster].sort((a, b) =>
+      (byName.get(norm(b.name))?.km ?? -1) - (byName.get(norm(a.name))?.km ?? -1));
+  }
   document.getElementById('roster-body').innerHTML = roster.length === 0
     ? `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 참가자가 없습니다.</p>`
-    : roster.map(r => rosterRow(r, byName ? byName.get(norm(r.name)) : null)).join('');
+    : rows.map(r => rosterRow(r, byName ? byName.get(norm(r.name)) : null)).join('');
 }
 
 function showMsg(msg, color) {
@@ -100,6 +110,11 @@ function showMsg(msg, color) {
 
 export function init(goTo) {
   const bulkInput = document.getElementById('roster-bulk');
+
+  document.getElementById('roster-sort').addEventListener('click', () => {
+    sortMode = sortMode === 'name' ? 'km' : 'name';
+    refresh();
+  });
 
   document.getElementById('roster-add-btn').addEventListener('click', async () => {
     // 줄바꿈·쉼표로 분리 → 트림 → 빈값·중복 제거

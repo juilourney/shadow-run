@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -50,8 +50,10 @@ export function render() {
     <div class="admin-header">
       <div>
         <h2 id="admin-game-name" style="font-size:22px; font-weight:700;">—</h2>
-        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
           <span id="admin-game-status" class="admin-badge">—</span>
+          <span id="admin-phase" style="font-size:11px; font-weight:700; padding:2px 9px; border-radius:100px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); display:none;"></span>
           <span id="admin-game-dday" style="font-size:12px; color:#71717a;"></span>
         </div>
       </div>
@@ -229,6 +231,17 @@ function refresh() {
   statusEl.className = `admin-badge ${gs.status}`;
   document.getElementById('admin-game-dday').textContent =
     gs.status === 'ongoing' ? `D-${gs.dday} · ${gs.week}주차` : gs.status === 'scheduled' ? `시작 ${gs.start.toLocaleDateString('ko-KR')}` : '';
+
+  // 진행 중 단계 표시 — 투표 시간이면 '투표 중', 아니면 줄다리기 / 탐색전
+  const phaseEl = document.getElementById('admin-phase');
+  if (gs.status === 'ongoing') {
+    if (isVoteWindowNow())        { phaseEl.textContent = '🗳️ 투표 중';  phaseEl.style.color = '#fb7185'; }
+    else if (getPhase().isTug)    { phaseEl.textContent = '🪢 줄다리기'; phaseEl.style.color = '#c084fc'; }
+    else                          { phaseEl.textContent = '🔍 탐색전';   phaseEl.style.color = '#38bdf8'; }
+    phaseEl.style.display = '';
+  } else {
+    phaseEl.style.display = 'none';
+  }
 
   const g = getGauge();
 

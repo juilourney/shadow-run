@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>Shadow Run — 좌우 탭 이동 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --ink:#08080a; --accent:#38bdf8; --accent-tint:rgba(56,189,248,.14);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; }   /* 문서 자체는 스크롤하지 않는다 */
+  body{
+    font-family:'Pretendard',system-ui,sans-serif; background:var(--ink); color:#fafafa;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{ font-variant-numeric:tabular-nums; }
+
+  /* ── 좌우 스와이프 컨테이너 ─────────────────────────────
+     핵심: 가로축만 스냅. 세로는 각 섹션 내부가 담당해서 서로 간섭이 없다. */
+  #pager{
+    display:flex;
+    height:100dvh;
+    overflow-x:auto; overflow-y:hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+  }
+  #pager::-webkit-scrollbar{ display:none; }
+  .page{
+    flex:0 0 100%;
+    width:100%;
+    height:100dvh;
+    scroll-snap-align:start;
+    scroll-snap-stop:always;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  /* 세로 스크롤은 오직 여기서만 — 가로 컨테이너로 새어나가지 않게 contain */
+  .body{
+    flex:1; overflow-y:auto; overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    padding: calc(var(--safe-top) + 16px) 18px calc(var(--safe-bottom) + 96px);
+  }
+  .body::-webkit-scrollbar{ display:none; }
+
+  h2{ font-size:24px; font-weight:800; letter-spacing:-.02em; margin-bottom:4px; }
+  .sub{ font-size:12px; color:#71717a; margin-bottom:16px; }
+  .bezel{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+    border-radius:20px; padding:16px 18px; margin-bottom:12px; }
+  .row{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:13px 16px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .row:last-child{ border-bottom:none; }
+  .list{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07);
+    border-radius:20px; overflow:hidden; }
+  .av{ width:36px; height:36px; border-radius:50%; background:#3f3f46;
+    display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .nm{ font-size:14px; font-weight:600; }
+  .km{ font-size:12px; color:#52525b; font-weight:600; }
+  .b{ font-size:11px; font-weight:700; padding:2px 8px; border-radius:100px; }
+  .bp{ color:#38bdf8; background:rgba(56,189,248,.12); border:1px solid rgba(56,189,248,.3); }
+  .bg{ color:#a78bfa; background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.3); }
+
+  /* 게이지 */
+  .gw{ position:relative; height:14px; border-radius:99px; background:rgba(255,255,255,.06);
+    overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+  .gc{ position:absolute; left:50%; top:-5px; bottom:-5px; width:2px; transform:translateX(-50%);
+    background:linear-gradient(#fff,rgba(255,255,255,.2)); z-index:2; }
+
+  /* ── 하단 탭바 ── */
+  #tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    display:flex; justify-content:space-around; align-items:center;
+    padding: 8px 8px calc(var(--safe-bottom) + 8px);
+    background:rgba(10,10,12,.92); backdrop-filter:blur(16px);
+    border-top:1px solid rgba(255,255,255,.07);
+  }
+  .tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:6px 0; border:none; background:none; cursor:pointer; }
+  .tab .ic{ font-size:18px; opacity:.45; transition:opacity .2s, transform .2s; }
+  .tab .lb{ font-size:10px; color:#52525b; font-weight:600; transition:color .2s; }
+  .tab.on .ic{ opacity:1; transform:translateY(-1px); }
+  .tab.on .lb{ color:var(--accent); }
+
+  /* 안내 배너 */
+  .hint{ background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.25);
+    border-radius:14px; padding:12px 14px; margin-bottom:14px; }
+  .hint p{ font-size:12px; color:#7dd3fc; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div id="pager">
+  <!-- 1. 홈 -->
+  <section class="page"><div class="body">
+    <h2>실시간 줄다리기</h2>
+    <p class="sub">D-19 · 2주차 · 🔍 탐색전</p>
+    <div class="hint"><p><b>← 좌우로 스와이프</b>해서 탭을 옮겨보세요.<br>위아래 스크롤은 탭을 절대 벗어나지 않습니다.</p></div>
+    <div class="bezel">
+      <p style="font-size:11px;color:#52525b;margin-bottom:10px;letter-spacing:.04em;">실시간 게이지</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+        <span style="font-size:12px;color:#a78bfa;">고스트 <b class="num">980.0</b> km</span>
+        <span class="num" style="font-size:12px;font-weight:700;color:#38bdf8;">+260.0 km</span>
+        <span style="font-size:12px;color:#38bdf8;">페이서 <b class="num">1,240.0</b> km</span>
+      </div>
+      <div class="gw"><div class="gc"></div>
+        <div style="position:absolute;left:50%;top:0;bottom:0;border-radius:0 99px 99px 0;width:27.9%;background:linear-gradient(90deg,#0ea5e9,#38bdf8);"></div>
+        <div style="position:absolute;right:50%;top:0;bottom:0;border-radius:99px 0 0 99px;width:22.1%;background:linear-gradient(270deg,#a855f7,#7c3aed);"></div>
+      </div>
+    </div>
+    <div class="bezel"><p style="font-size:13px;color:#a1a1aa;line-height:1.6;">내 마일리지 <b class="num" style="color:#fafafa;">42.0 km</b> · 완주 <b class="num" style="color:#fafafa;">6</b>회</p></div>
+    <div class="bezel"><p style="font-size:12px;color:#71717a;line-height:1.7;">⚡ 저녁 조깅 번개가 완료됐습니다 · 3명 완주<br>🔍 탐정이 능력을 사용해 추리했습니다<br>⚡ 아침 회복런 번개가 완료됐습니다 · 4명 완주</p></div>
+  </div></section>
+
+  <!-- 2. 번개 -->
+  <section class="page"><div class="body">
+    <h2>번개</h2>
+    <p class="sub">진행 중인 번개 3</p>
+    <div class="bezel"><p style="font-size:15px;font-weight:700;margin-bottom:4px;">새벽 한강 러닝</p>
+      <p style="font-size:12px;color:#71717a;">9월 9일 06:00 · 반포한강공원 · 6km · 5:30/km</p>
+      <p style="font-size:12px;color:#52525b;margin-top:4px;">참여 2/4명 · 방장 김철수</p></div>
+    <div class="bezel"><p style="font-size:15px;font-weight:700;margin-bottom:4px;">점심 스피드런</p>
+      <p style="font-size:12px;color:#71717a;">9월 9일 12:30 · 올림픽공원 · 5km · 6:00/km</p>
+      <p style="font-size:12px;color:#52525b;margin-top:4px;">참여 4/4명 · 방장 이영희</p></div>
+    <div class="bezel"><p style="font-size:15px;font-weight:700;margin-bottom:4px;">저녁 인터벌</p>
+      <p style="font-size:12px;color:#71717a;">9월 9일 19:30 · 양재천 · 8km · 5:00/km</p>
+      <p style="font-size:12px;color:#52525b;margin-top:4px;">참여 1/4명 · 방장 박민수</p></div>
+  </div></section>
+
+  <!-- 3. 투표 -->
+  <section class="page"><div class="body">
+    <h2>투표</h2>
+    <p class="sub">전체 6번 중 2번째 투표</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div class="bezel" style="text-align:center;margin:0;"><p style="font-size:11px;color:#52525b;margin-bottom:6px;">보유 투표권</p>
+        <p class="num" style="font-size:32px;font-weight:800;color:#fb7185;line-height:1;">1</p></div>
+      <div class="bezel" style="text-align:center;margin:0;"><p style="font-size:11px;color:#52525b;margin-bottom:6px;">종료까지</p>
+        <p class="num" style="font-size:22px;font-weight:800;color:#fb7185;line-height:1;">02:14:08</p></div>
+    </div>
+    <div class="list" id="voteList"></div>
+  </div></section>
+
+  <!-- 4. 참가자 (긴 목록 — 세로 스크롤 테스트용) -->
+  <section class="page"><div class="body">
+    <h2>참가자</h2>
+    <p class="sub">40명 참가 중 · 여기서 위아래로 길게 스크롤해보세요</p>
+    <div class="list" id="memberList"></div>
+  </div></section>
+
+  <!-- 5. 가이드 (아주 긴 글) -->
+  <section class="page"><div class="body">
+    <h2>게임 가이드</h2>
+    <p class="sub">긴 글에서도 탭이 안 넘어가는지 확인해보세요</p>
+    <div id="guideBody"></div>
+  </div></section>
+</div>
+
+<nav id="tabbar">
+  <button class="tab on" data-i="0"><span class="ic">🏠</span><span class="lb">홈</span></button>
+  <button class="tab" data-i="1"><span class="ic">⚡</span><span class="lb">번개</span></button>
+  <button class="tab" data-i="2"><span class="ic">🗳️</span><span class="lb">투표</span></button>
+  <button class="tab" data-i="3"><span class="ic">👥</span><span class="lb">참가자</span></button>
+  <button class="tab" data-i="4"><span class="ic">📖</span><span class="lb">가이드</span></button>
+</nav>
+
+<script>
+  // ── 더미 데이터 채우기 ────────────────────────────────
+  const NAMES = ['김철수','이영희','박민수','최지우','정수빈','한도윤','강민재','오세훈','윤가은','임영빈',
+                 '이민규','김보라','조현우','신예은','배준호','문지훈','서다인','안소연','황태양','노아린',
+                 '권시우','남궁현','도경수','류지훈','마동석','박서준','손예진','유재석','장윤정','전지현',
+                 '조인성','차은우','최민식','하정우','한지민','현빈','홍길동','황정민','김연아','손흥민'];
+
+  document.getElementById('memberList').innerHTML = NAMES.map((n, i) => `
+    <div class="row">
+      <span style="display:flex;align-items:center;gap:10px;">
+        <span class="av">${n[0]}</span>
+        <span class="nm">${n}</span>
+        ${i % 7 === 0 ? `<span class="b ${i % 14 === 0 ? 'bp' : 'bg'}">🗳️ ${i % 14 === 0 ? '페이서' : '고스트'}</span>` : ''}
+      </span>
+      <span class="km num">${(40 - i * 0.8).toFixed(1)}km</span>
+    </div>`).join('');
+
+  document.getElementById('voteList').innerHTML = NAMES.slice(0, 12).map(n => `
+    <div class="row">
+      <span style="display:flex;align-items:center;gap:10px;"><span class="av">${n[0]}</span><span class="nm">${n}</span></span>
+      <span style="font-size:12px;font-weight:700;color:#fb7185;border:1px solid rgba(251,113,133,.35);border-radius:10px;padding:6px 12px;">지목하기</span>
+    </div>`).join('');
+
+  const SECTIONS = [
+    ['🎯 게임 개요', '전체 참가자는 페이서팀과 고스트팀으로 나뉘어 함께 달리며 대결합니다. 참가자 대부분은 기본 역할인 러너로 배정되고, 각 팀마다 특수 역할 다섯 가지가 하나씩 추가로 랜덤 배정됩니다. 본인의 정체와 역할은 팀원들에게도 비공개입니다.'],
+    ['⚡ 번개', '번개는 함께 달릴 사람을 모으는 모임입니다. 방장 포함 최대 4명까지 참여할 수 있고, 시작 시각과 거리·페이스를 정해 등록합니다. 완주 후에는 러닝 앱 기록 사진을 올려 인증해야 마일리지가 반영됩니다.'],
+    ['🏃 팀 고유 스킬', '같은 팀 3~4명이 함께 달리면 팀 고유 스킬이 발동합니다. 페이서 시너지는 인원×거리×5km를 전부 우리 게이지에 적립하고, 고스트 게이지는 그 절반을 상대에서 깎고 절반을 우리에게 더합니다.'],
+    ['📊 게이지 공개', '게이지 바는 번개가 3개 완료되면 실시간으로 열립니다. 초반에는 개별 번개 하나로 참가자의 팀이 드러나지 않도록 잠겨 있어요. 팀별 정확한 마일리지 숫자와 격차는 투표 시간과 종료 3일 전부터 공개됩니다.'],
+    ['🗳️ 투표', '월요일과 목요일 18시부터 22시까지 투표가 열립니다. 최다 득표자가 전체 표의 30% 이상을 받으면 팀 소속이 공개되고 마일리지가 50% 감소합니다. 이 감소는 번개를 3번 완주하면 해제됩니다.'],
+    ['🔍 탐정과 밀정', '탐정은 다른 참가자의 팀을, 밀정은 역할을 확인할 수 있습니다. 각각 주 3회까지 사용할 수 있고, 확인 결과는 본인 기기에만 저장되어 다른 사람에게 새어나가지 않습니다.'],
+    ['🏁 승리 조건', '3주가 끝났을 때 게이지가 더 높은 팀이 승리합니다. 탐색 기간에는 정체를 드러내지 말고 아군을 찾는 데 집중하고, 줄다리기 기간이 시작되면 모은 정보와 팀 스킬을 총동원해 게이지를 끌어오세요.'],
+  ];
+  document.getElementById('guideBody').innerHTML = SECTIONS.map(([t, d]) => `
+    <div class="bezel">
+      <p style="font-size:15px;font-weight:700;margin-bottom:8px;">${t}</p>
+      <p style="font-size:13px;color:#a1a1aa;line-height:1.75;">${d}</p>
+    </div>`).join('');
+
+  // ── 탭바 ↔ 페이지 동기화 ──────────────────────────────
+  const pager = document.getElementById('pager');
+  const tabs  = [...document.querySelectorAll('.tab')];
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    pager.scrollTo({ left: pager.clientWidth * Number(t.dataset.i), behavior: 'smooth' });
+  }));
+
+  // 스와이프로 페이지가 바뀌면 탭 강조 갱신
+  let raf = null;
+  pager.addEventListener('scroll', () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = null;
+      const i = Math.round(pager.scrollLeft / pager.clientWidth);
+      tabs.forEach((t, n) => t.classList.toggle('on', n === i));
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

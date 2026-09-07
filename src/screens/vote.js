@@ -296,6 +296,7 @@ export function init() {
   const timerEl = document.getElementById('vote-timer');
   const inactiveOverlay = document.getElementById('vote-inactive-overlay');
   let tallying = false;
+  let wasVoting = null;   // 직전 틱의 투표중 여부 — 마감 '전환'을 감지해 1회만 집계
 
   function tick() {
     const status = getVoteStatus();
@@ -311,15 +312,17 @@ export function init() {
     } else {
       // 다음 투표 회차·일시 갱신 (앱을 켜둔 채 투표가 지나가도 최신으로)
       updateNextVoteInfo(status);
-      if (!tallying) {
-        // 투표 기간이 아니면 매 틱마다 미집계 표가 남아있는지 확인해 집계한다 — "방금 마감
-        // 전환을 목격"이 아니라 "미집계 표 존재"가 기준이라, 마감 순간 아무도 앱을 안 켜놨어도
-        // 나중에 누군가 열었을 때 자연스럽게 따라잡는다(표 없으면 tallyVote 내부에서 즉시 반환).
+      // 집계는 '마감 전환(투표중→마감)' 또는 '앱을 처음 열었는데 미집계 표가 남은 경우'에만 1회.
+      // 예전엔 매초 집계라 여러 기기·표 트리클로 같은 적발이 수십 번 중복 기록되는 스팸이 났다.
+      // (표가 없으면 tallyVote 내부에서 즉시 반환하므로 앱-오픈 캐치업도 안전)
+      const shouldTally = wasVoting === true || wasVoting === null;
+      if (!tallying && shouldTally) {
         tallying = true;
         tallyVote().catch(err => console.warn('투표 자동 집계 실패:', err.message)).finally(() => { tallying = false; });
       }
     }
 
+    wasVoting = status.isVotingNow;
     maybeShowNewVoteResult();
   }
   tick();

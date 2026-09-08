@@ -40,9 +40,10 @@ export const CONFIG = {
   fallbackPaceSec: 420,         // 페이스 미공개 시 가정 페이스(초/km) = 7:00
 };
 
-// 인증 사진 기록 시각이 시작 시각보다 이만큼 넘게 이르면 '⚠️ 일정과 어긋남' 표시.
+// 인증 사진 기록 시각과 번개 일정의 허용 오차 — 시작 전·마감 후 양쪽에 같은 값으로 적용한다.
+// 이 범위를 벗어나야 '⚠️ 일정과 어긋남'으로 표시한다.
 // 화면(bolt-detail)·관리자 심사(certs) 공통 기준 — 한 곳에서 관리한다.
-export const CERT_EARLY_GRACE_MS = 10 * 60 * 1000;
+export const CERT_GRACE_MS = 20 * 60 * 1000;
 
 // ── 상태 (스냅샷) — Firestore와 실시간 동기화되는 로컬 캐시 ────
 // 마지막으로 받은 게임 설정(시작일·기간)을 기기에 캐시 — 부팅 시 settings onSnapshot이

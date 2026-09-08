@@ -124,8 +124,9 @@ addEventListener('resize', () => {
   paint(i);
 });
 
-// 홈(대시보드) 패널 — 맨 위에서 아래로 당기면 새로고침(페이지 리로드)
-function initPullToRefresh(screen) {
+// 아래로 당기면 새로고침 — 모든 탭에서 동작한다.
+// 표시기는 하나만 만들어 공유한다(탭마다 만들면 4개가 겹쳐 뜬다).
+function initPullToRefresh(screens) {
   const ind = document.createElement('div');
   ind.textContent = '↓ 당겨서 새로고침';
   ind.style.cssText = `position:fixed; top:0; left:50%; z-index:200;
@@ -137,47 +138,54 @@ function initPullToRefresh(screen) {
   document.body.appendChild(ind);
 
   const THRESHOLD = 60, MAX = 80;   // 당긴 거리(저항 반영)가 THRESHOLD 넘으면 새로고침
-  let startY = 0, pulling = false, dist = 0;
+  let startY = 0, startX = 0, pulling = false, dist = 0;
 
-  screen.addEventListener('touchstart', e => {
-    pulling = screen.scrollTop <= 0;
-    if (pulling) { startY = e.touches[0].clientY; dist = 0; }
-  }, { passive: true });
-
-  screen.addEventListener('touchmove', e => {
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy <= 0) {                    // 위로 올리면 일반 스크롤로 넘김
-      ind.style.transition = 'transform .25s ease, opacity .2s';
-      ind.style.transform = 'translate(-50%,-40px)'; ind.style.opacity = '0';
-      pulling = false;
-      return;
-    }
-    dist = Math.min(MAX, dy * 0.5);   // 고무줄 저항감
-    e.preventDefault();               // 네이티브 오버스크롤 방지
-    ind.style.transition = 'none';
-    ind.style.opacity = '1';
-    ind.style.transform = `translate(-50%, ${dist - 8}px)`;
-    ind.textContent = dist >= THRESHOLD ? '↑ 놓으면 새로고침' : '↓ 당겨서 새로고침';
-  }, { passive: false });
-
-  const finish = () => {
-    if (!pulling) return;
-    pulling = false;
+  const hide = () => {
     ind.style.transition = 'transform .25s ease, opacity .2s';
-    if (dist >= THRESHOLD) {
-      ind.textContent = '새로고침 중…';
-      ind.style.transform = 'translate(-50%, 16px)'; ind.style.opacity = '1';
-      setTimeout(() => location.reload(), 250);
-    } else {
-      ind.style.transform = 'translate(-50%,-40px)'; ind.style.opacity = '0';
-    }
+    ind.style.transform = 'translate(-50%,-40px)';
+    ind.style.opacity = '0';
   };
-  screen.addEventListener('touchend', finish, { passive: true });
-  screen.addEventListener('touchcancel', finish, { passive: true });
+
+  screens.forEach(screen => {
+    screen.addEventListener('touchstart', e => {
+      pulling = screen.scrollTop <= 0;
+      if (pulling) { startY = e.touches[0].clientY; startX = e.touches[0].clientX; dist = 0; }
+    }, { passive: true });
+
+    screen.addEventListener('touchmove', e => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+      // 가로로 더 많이 움직였으면 탭 이동 제스처다 — 여기서 preventDefault를 하면
+      // 좌우 스와이프가 통째로 막히므로 즉시 양보한다.
+      if (Math.abs(dx) > Math.abs(dy)) { pulling = false; hide(); return; }
+      if (dy <= 0) { hide(); pulling = false; return; }   // 위로 올리면 일반 스크롤로 넘김
+      dist = Math.min(MAX, dy * 0.5);   // 고무줄 저항감
+      e.preventDefault();               // 네이티브 오버스크롤 방지
+      ind.style.transition = 'none';
+      ind.style.opacity = '1';
+      ind.style.transform = `translate(-50%, ${dist - 8}px)`;
+      ind.textContent = dist >= THRESHOLD ? '↑ 놓으면 새로고침' : '↓ 당겨서 새로고침';
+    }, { passive: false });
+
+    const finish = () => {
+      if (!pulling) return;
+      pulling = false;
+      ind.style.transition = 'transform .25s ease, opacity .2s';
+      if (dist >= THRESHOLD) {
+        ind.textContent = '새로고침 중…';
+        ind.style.transform = 'translate(-50%, 16px)'; ind.style.opacity = '1';
+        setTimeout(() => location.reload(), 250);
+      } else {
+        hide();
+      }
+    };
+    screen.addEventListener('touchend', finish, { passive: true });
+    screen.addEventListener('touchcancel', finish, { passive: true });
+  });
 }
 
-initPullToRefresh(outer.querySelectorAll('.admin-screen')[0]);   // 홈(대시보드) 탭만
+initPullToRefresh([...outer.querySelectorAll('.admin-screen')]);   // 모든 탭
 
 export function goTo(name) {
   const loginEl = document.getElementById('admin-login');

@@ -74,15 +74,23 @@
   /* ── 하단 탭바 (플로팅) ──
      화면 바닥에 붙지 않고 떠 있는 알약 형태. 좌우/아래 여백을 두고,
      활성 탭 뒤로 하이라이트가 미끄러져 따라간다. */
-  #tabbar{
+  /* 래퍼가 화면 전체를 덮고 flex로 가운데 정렬한다.
+     예전엔 바에 left:50% + translateX(-50%)만 줬는데, position:fixed에 left만 주면
+     '사용 가능한 폭 = 화면폭 − left'로 계산돼서 브라우저에 따라 바가 내용보다 좁게
+     잡히고 탭이 잘렸다(크롬은 멀쩡, 사파리는 잘림). 래퍼를 쓰면 그 계산이 사라진다. */
+  #tabbar-wrap{
     position:fixed; z-index:50;
-    left:50%; transform:translateX(-50%);
+    left:0; right:0;
     bottom: calc(var(--safe-bottom) + 16px);
-    display:inline-flex; align-items:center;   /* 폭을 화면 끝까지 늘리지 않고 내용만큼만 */
-    max-width:calc(100% - 24px);
+    display:flex; justify-content:center;
+    pointer-events:none;   /* 빈 좌우 영역이 뒤 콘텐츠 터치를 막지 않게 */
+  }
+  #tabbar{
+    position:relative;
+    display:flex; align-items:center;
     padding:6px;
     border-radius:24px;
-    overflow:hidden;   /* 알약이 어떤 경우에도 바 모양 밖으로 못 나가게 (바운스 대비 이중 안전장치) */
+    pointer-events:auto;
     background:rgba(16,16,19,.72);
     -webkit-backdrop-filter:blur(22px) saturate(1.4);
     backdrop-filter:blur(22px) saturate(1.4);
@@ -97,10 +105,11 @@
     border:1px solid rgba(56,189,248,.22);
     pointer-events:none;
   }
-  .tab{ position:relative; z-index:1; flex:0 0 50px;   /* 균일 폭 — 가운데로 모임 */
+  .tab{ position:relative; z-index:1; flex:0 0 56px;   /* 균일 폭 — 가운데로 모임 */
     display:flex; align-items:center; justify-content:center;
-    padding:11px 0; border:none; background:none; cursor:pointer; }
-  .tab .ic{ font-size:20px; opacity:.4; transition:opacity .22s, transform .22s; }
+    height:44px;   /* 이모지 글리프가 줄 상자를 넘어도 잘리지 않게 넉넉히 */
+    border:none; background:none; cursor:pointer; padding:0; }
+  .tab .ic{ font-size:21px; line-height:1; opacity:.4; transition:opacity .22s, transform .22s; }
   .tab.on .ic{ opacity:1; transform:scale(1.08); }
 
   /* 안내 배너 */
@@ -176,14 +185,14 @@
   </div></section>
 </div>
 
-<nav id="tabbar">
+<nav id="tabbar-wrap"><div id="tabbar">
   <div id="pill"></div>
   <button class="tab on" data-i="0" aria-label="홈"><span class="ic">🏠</span></button>
   <button class="tab" data-i="1" aria-label="번개"><span class="ic">⚡</span></button>
   <button class="tab" data-i="2" aria-label="투표"><span class="ic">🗳️</span></button>
   <button class="tab" data-i="3" aria-label="참가자"><span class="ic">👥</span></button>
   <button class="tab" data-i="4" aria-label="가이드"><span class="ic">📖</span></button>
-</nav>
+</div></nav>
 
 <script>
   // ── 더미 데이터 채우기 ────────────────────────────────

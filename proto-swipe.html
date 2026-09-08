@@ -78,10 +78,9 @@
   /* ── 하단 탭바 (플로팅) ──
      화면 바닥에 붙지 않고 떠 있는 알약 형태. 좌우/아래 여백을 두고,
      활성 탭 뒤로 하이라이트가 미끄러져 따라간다. */
-  /* 래퍼가 화면 전체를 덮고 flex로 가운데 정렬한다.
-     예전엔 바에 left:50% + translateX(-50%)만 줬는데, position:fixed에 left만 주면
-     '사용 가능한 폭 = 화면폭 − left'로 계산돼서 브라우저에 따라 바가 내용보다 좁게
-     잡히고 탭이 잘렸다(크롬은 멀쩡, 사파리는 잘림). 래퍼를 쓰면 그 계산이 사라진다. */
+  /* 바 폭을 브라우저가 내용에서 유추하게 두면(inline-flex·fit-content·flex item 모두)
+     사파리가 내용보다 좁게 잡아 탭이 바 밖으로 삐져나왔다. 탭 개수 × 탭 폭으로
+     직접 못박아 계산의 여지를 없앤다. 탭을 추가하면 --tab-n만 바꾸면 된다. */
   #tabbar-wrap{
     position:fixed; z-index:50;
     left:0; right:0;
@@ -90,9 +89,15 @@
     pointer-events:none;   /* 빈 좌우 영역이 뒤 콘텐츠 터치를 막지 않게 */
   }
   #tabbar{
+    --tab-w:56px;   /* 탭 하나의 폭 */
+    --tab-n:5;      /* 탭 개수 */
+    --pad:6px;
     position:relative;
     display:flex; align-items:center;
-    padding:6px;
+    /* box-sizing:border-box이므로 패딩·테두리까지 포함한 값 */
+    width: calc(var(--tab-w) * var(--tab-n) + var(--pad) * 2 + 2px);
+    flex:0 0 auto;   /* 래퍼 안에서 절대 줄어들지 않게 */
+    padding:var(--pad);
     border-radius:24px;
     pointer-events:auto;
     background:rgba(16,16,19,.72);
@@ -103,13 +108,14 @@
   }
   /* 활성 탭 뒤를 따라 움직이는 알약 */
   #pill{
-    position:absolute; top:6px; bottom:6px; left:6px;
+    position:absolute; top:var(--pad); bottom:var(--pad); left:var(--pad);
     border-radius:19px;
     background:var(--accent-tint);
     border:1px solid rgba(56,189,248,.22);
     pointer-events:none;
   }
-  .tab{ position:relative; z-index:1; flex:0 0 56px;   /* 균일 폭 — 가운데로 모임 */
+  .tab{ position:relative; z-index:1;
+    flex:0 0 var(--tab-w); width:var(--tab-w); min-width:0;   /* 바 폭 계산과 같은 값을 공유 */
     display:flex; align-items:center; justify-content:center;
     height:44px;   /* 이모지 글리프가 줄 상자를 넘어도 잘리지 않게 넉넉히 */
     border:none; background:none; cursor:pointer; padding:0; }
@@ -129,7 +135,8 @@
   <section class="page"><div class="body">
     <h2>실시간 줄다리기</h2>
     <p class="sub">D-19 · 2주차 · 🔍 탐색전</p>
-    <div class="hint"><p><b>← 좌우로 스와이프</b>해서 탭을 옮겨보세요.<br>위아래 스크롤은 탭을 절대 벗어나지 않습니다.</p></div>
+    <div class="hint"><p><b>← 좌우로 스와이프</b>해서 탭을 옮겨보세요.<br>위아래 스크롤은 탭을 절대 벗어나지 않습니다.
+      <br><span style="color:#52525b;">build 5 · 탭바 <b id="barw">—</b></span></p></div>
     <div class="bezel">
       <p style="font-size:11px;color:#52525b;margin-bottom:10px;letter-spacing:.04em;">실시간 게이지</p>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
@@ -273,6 +280,17 @@
   }, { passive: true });
 
   movePill(0);
+
+  // 실제로 그려진 탭바 폭을 화면에 찍는다 — 캐시된 옛 버전인지, 폭 계산이 어긋났는지
+  // 폰에서 바로 확인하기 위함(294px이 정상, 탭 5개 × 56 + 여백).
+  {
+    const bar = document.getElementById('tabbar');
+    const last = tabs[tabs.length - 1].getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    const ok = last.right <= br.right + 0.5;
+    document.getElementById('barw').innerHTML =
+      `${Math.round(br.width)}px ${ok ? '<span style="color:#34d399;">정상</span>' : '<span style="color:#fb7185;">넘침</span>'}`;
+  }
   // 회전·주소창 접힘 등으로 폭이 바뀌면 scrollLeft가 새 폭과 어긋나 알약이 아이콘 사이에
   // 걸린다 — 가장 가까운 탭으로 정렬한 뒤 알약을 맞춘다.
   addEventListener('resize', () => {

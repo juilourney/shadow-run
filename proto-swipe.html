@@ -82,6 +82,7 @@
     max-width:calc(100% - 24px);
     padding:6px;
     border-radius:24px;
+    overflow:hidden;   /* 알약이 어떤 경우에도 바 모양 밖으로 못 나가게 (바운스 대비 이중 안전장치) */
     background:rgba(16,16,19,.72);
     -webkit-backdrop-filter:blur(22px) saturate(1.4);
     backdrop-filter:blur(22px) saturate(1.4);
@@ -239,12 +240,19 @@
     pill.style.transform = `translateX(${w * pos}px)`;
   }
 
+  // 첫/마지막 탭에서 더 밀면 iOS가 고무줄 바운스를 주는데, 그때 scrollLeft가 음수가 되거나
+  // 최대치를 넘는다. 그 값을 그대로 쓰면 알약이 바 밖으로 미끄러져 나가므로 0~4로 가둔다.
+  function currentPos() {
+    const raw = pager.scrollLeft / pager.clientWidth;
+    return Math.max(0, Math.min(tabs.length - 1, raw || 0));
+  }
+
   let raf = null;
   pager.addEventListener('scroll', () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = null;
-      const pos = pager.scrollLeft / pager.clientWidth;   // 0~4 (소수 포함)
+      const pos = currentPos();
       const i = Math.round(pos);
       tabs.forEach((t, n) => t.classList.toggle('on', n === i));
       movePill(pos);
@@ -252,7 +260,13 @@
   }, { passive: true });
 
   movePill(0);
-  addEventListener('resize', () => movePill(pager.scrollLeft / pager.clientWidth));
+  // 회전·주소창 접힘 등으로 폭이 바뀌면 scrollLeft가 새 폭과 어긋나 알약이 아이콘 사이에
+  // 걸린다 — 가장 가까운 탭으로 정렬한 뒤 알약을 맞춘다.
+  addEventListener('resize', () => {
+    const i = Math.round(currentPos());
+    pager.scrollLeft = pager.clientWidth * i;
+    movePill(i);
+  });
 </script>
 </body>
 </html>

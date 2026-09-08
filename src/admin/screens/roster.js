@@ -49,7 +49,9 @@ export function render() {
 
 function rosterRow(r, player) {
   // 배정 완료 후 매칭되면 팀·역할 배지, 그 전(또는 미배정)엔 입장/미입장 배지
-  const badge = player
+  // 팀·역할은 서버에서 따로 받아오므로 도착 전엔 비어 있다 — 그때 배지를 그리면
+  // 'null null'이 뜬다. 값이 실제로 있을 때만 팀·역할 배지를 쓴다.
+  const badge = player && player.team
     ? assignBadges(player)
     : r.enteredAt
     ? `<span style="font-size:11px; font-weight:700; color:#34d399; background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.3); padding:2px 9px; border-radius:100px;">입장</span>`
@@ -87,7 +89,10 @@ function refresh() {
     const secretPlayers = getAdminSecrets().players;
     const pacer = secretPlayers.filter(p => p.team === 'pacer').length;
     const ghost = secretPlayers.filter(p => p.team === 'ghost').length;
-    countEl.textContent = `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}`;
+    // 팀 구성은 서버 응답이 와야 알 수 있다 — 도착 전엔 0/0 대신 인원만 보여준다
+    countEl.textContent = pacer + ghost > 0
+      ? `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}`
+      : `배정 완료 ${asg.players.length}명`;
   } else {
     const entered = roster.filter(r => r.enteredAt).length;
     countEl.textContent = `등록 ${roster.length}명 · 입장 ${entered} · 미입장 ${roster.length - entered}`;

@@ -5,7 +5,10 @@ import * as certs     from './screens/certs.js';
 import * as roster    from './screens/roster.js';
 import * as settings  from './screens/settings.js';
 
-// 본게임과 같은 상하 스냅 슬라이드 구조 — 메뉴는 오른쪽 플로팅 탭바로 이동
+// 좌우 스와이프로 메뉴를 넘긴다 — 세로는 화면 안 스크롤 전용.
+// 예전엔 상하 스냅이라 탭 이동과 내부 스크롤이 같은 축을 나눠 써서, "이 손짓이
+// 스크롤인가 탭 이동인가"를 거리(30px)·머문 시간(120ms)으로 추측해야 했다.
+// 축을 나누니 그 추측 코드(경계 감지·체이닝·트윈 중단 처리)가 전부 필요 없어졌다.
 const PANELS = [
   { key: 'dashboard', icon: '🏠', label: '대시보드',   mod: dashboard },
   { key: 'certs',     icon: '🧾', label: '인증 관리',  mod: certs },
@@ -20,81 +23,70 @@ app.innerHTML = `
   <div id="admin-scroll">
     ${PANELS.map(p => `<section class="admin-section">${p.mod.render()}</section>`).join('')}
   </div>
-  <div id="admin-tab-handle"><span></span></div>
-  <div id="admin-tabbar">
-    ${PANELS.map((p, i) => `<div class="admin-side-tab" data-i="${i}" title="${p.label}">${p.icon}</div>`).join('')}
-  </div>`;
+  <nav id="admin-tabbar-wrap"><div id="admin-tabbar">
+    <div id="admin-pill"></div>
+    ${PANELS.map((p, i) => `<div class="admin-side-tab" data-i="${i}" title="${p.label}" aria-label="${p.label}">${p.icon}</div>`).join('')}
+  </div></nav>`;
 
 const outer  = document.getElementById('admin-scroll');
+const wrap   = document.getElementById('admin-tabbar-wrap');
 const tabbar = document.getElementById('admin-tabbar');
-const handle = document.getElementById('admin-tab-handle');
+const pill   = document.getElementById('admin-pill');
+const tabEls = [...tabbar.querySelectorAll('.admin-side-tab')];
 
-function paintTabs(index) {
-  tabbar.querySelectorAll('.admin-side-tab').forEach((t, i) => t.classList.toggle('on', i === index));
+// 알약은 스와이프 진행도(소수 인덱스)를 그대로 따라 미끄러진다.
+// 첫/마지막 패널에서 더 밀면 고무줄 바운스로 scrollLeft가 범위를 벗어나므로 가둔다 —
+// 안 그러면 알약이 바 바깥으로 빠져나간다.
+function currentPos() {
+  const raw = outer.scrollLeft / outer.clientWidth;
+  return Math.max(0, Math.min(PANELS.length - 1, raw || 0));
 }
 
-const openMenu  = () => { tabbar.classList.add('open');    handle.classList.add('hidden'); };
-const closeMenu = () => { tabbar.classList.remove('open'); handle.classList.remove('hidden'); };
-handle.addEventListener('click', e => { e.stopPropagation(); openMenu(); });
-document.addEventListener('click', e => {
-  if (tabbar.classList.contains('open') && !tabbar.contains(e.target)) closeMenu();
-});
+function paint(pos) {
+  const i = Math.round(pos);
+  tabEls.forEach((t, n) => t.classList.toggle('on', n === i));
+  const w = tabEls[0].offsetWidth;
+  if (w) {
+    pill.style.width = `${w}px`;
+    pill.style.transform = `translateX(${w * pos}px)`;
+  }
+}
 
-// 프로그램 전환은 rAF 트윈 — mandatory 스냅 컨테이너에서 네이티브 smooth 스크롤은
-// 스냅 엔진이 애니메이션을 끊어 동작하지 않는다(대기실과 같은 패턴)
-let panelAnim = null;
-let panelTargetTop = null;   // 트윈이 도착해야 할 위치 — 도중에 손가락이 닿으면 여기로 즉시 정렬
 function showPanel(index, instant = false) {
-  paintTabs(index);
-  closeMenu();
-  // 도착할 패널은 항상 맨 위(첫 항목)부터 보이게 — 내부 스크롤을 리셋해 이전 스크롤 위치가 남지 않도록
+  // 도착할 패널은 항상 맨 위(첫 항목)부터 보이게 — 이전 스크롤 위치가 남지 않도록
   const targetScreen = outer.querySelectorAll('.admin-section')[index]?.querySelector('.admin-screen');
   if (targetScreen) targetScreen.scrollTop = 0;
-  const endTop = index * outer.clientHeight;
-  if (instant) { outer.scrollTop = endTop; return; }
-  const startTop = outer.scrollTop;
-  if (Math.abs(endTop - startTop) < 2) return;
-
-  outer.style.scrollSnapType = 'none';   // 트윈 중간 프레임을 스냅이 가로채지 않게
-  cancelAnimationFrame(panelAnim);
-  panelTargetTop = endTop;
-  const t0 = performance.now();
-  const DUR = 420;
-  const ease = t => 1 - Math.pow(1 - t, 3);
-  const step = now => {
-    const p = Math.min(1, (now - t0) / DUR);
-    outer.scrollTop = startTop + (endTop - startTop) * ease(p);
-    if (p < 1) panelAnim = requestAnimationFrame(step);
-    else { panelAnim = null; panelTargetTop = null; outer.style.scrollSnapType = 'y mandatory'; }
-  };
-  panelAnim = requestAnimationFrame(step);
+  outer.scrollTo({ left: outer.clientWidth * index, behavior: instant ? 'instant' : 'smooth' });
+  paint(index);
 }
 
-// 트윈 도중 손가락이 닿으면 제어권을 사용자에게 넘긴다. 이때 스크롤을 패널 중간에
-// 남긴 채 스냅만 복원하면, 스냅 엔진이 가까운 쪽(=이전 패널)으로 되돌리거나 정착하는
-// 동안 손가락 스크롤이 씹힌다 — 목표 패널로 즉시 정렬한 뒤 넘긴다.
-outer.addEventListener('touchstart', () => {
-  if (panelAnim === null) return;
-  cancelAnimationFrame(panelAnim);
-  panelAnim = null;
-  if (panelTargetTop !== null) { outer.scrollTop = panelTargetTop; panelTargetTop = null; }
-  outer.style.scrollSnapType = 'y mandatory';
-}, { passive: true });
-
-tabbar.querySelectorAll('.admin-side-tab').forEach(t => {
-  t.addEventListener('click', e => { e.stopPropagation(); showPanel(Number(t.dataset.i)); });
+tabEls.forEach(t => {
+  t.addEventListener('click', () => showPanel(Number(t.dataset.i)));
 });
 
-// 손가락 스크롤로 패널이 바뀌면 탭 동기화 + 도착한 화면 최신화
+// 손가락으로 패널이 바뀌면 탭 동기화 + 도착한 화면 최신화
 let currentIndex = 0;
+let raf = null;
 outer.addEventListener('scroll', () => {
-  const idx = Math.round(outer.scrollTop / outer.clientHeight);
-  if (idx !== currentIndex) {
-    currentIndex = idx;
-    paintTabs(idx);
-    PANELS[idx]?.mod.onShow?.();
-  }
+  if (raf) return;
+  raf = requestAnimationFrame(() => {
+    raf = null;
+    const pos = currentPos();
+    paint(pos);
+    const idx = Math.round(pos);
+    if (idx !== currentIndex) {
+      currentIndex = idx;
+      PANELS[idx]?.mod.onShow?.();
+    }
+  });
 }, { passive: true });
+
+// 회전 등으로 폭이 바뀌면 scrollLeft가 새 폭과 어긋나 패널이 어중간하게 걸린다
+addEventListener('resize', () => {
+  const i = Math.round(currentPos());
+  outer.scrollLeft = outer.clientWidth * i;
+  paint(i);
+});
 
 // 홈(대시보드) 패널 — 맨 위에서 아래로 당기면 새로고침(페이지 리로드)
 function initPullToRefresh(screen) {
@@ -149,56 +141,19 @@ function initPullToRefresh(screen) {
   screen.addEventListener('touchcancel', finish, { passive: true });
 }
 
-// 내부 스크롤이 경계에 닿으면 이전/다음 패널로 이어지게 — 본게임과 같은 iOS 보완
-outer.querySelectorAll('.admin-screen').forEach((body, idx) => {
-  const PULL = 30;       // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리 (가볍게)
-  const DWELL = 120;     // 경계에서 이만큼(ms) 머문 뒤의 당김만 인정 — 플릭 통과 방지
-  let chaining = false;
-  let edgeY = null;      // 위/아래 끝에 처음 닿은 순간의 손가락 위치
-  let edgeAt = 0;        // 그 순간의 시각
-  body.addEventListener('touchstart', () => {
-    chaining = false;
-    edgeY = null;
-  }, { passive: true });
-  body.addEventListener('touchmove', e => {
-    if (chaining) return;
-    if (body.scrollHeight <= body.clientHeight + 2) return;
-    const y        = e.touches[0].clientY;
-    const atTop    = body.scrollTop <= 0;
-    const atBottom = body.scrollHeight - body.scrollTop <= body.clientHeight + 2;
-    // 경계를 벗어나면 기준점 초기화 — 다시 끝에 닿을 때부터 새로 잰다.
-    if (!atTop && !atBottom) { edgeY = null; return; }
-    // touchstart 기준으로 재면 긴 화면을 한 번에 쭉 내려 바닥에 닿는 순간 누적 이동이
-    // 이미 커서 곧바로 옆 패널로 튕긴다 — '끝에 닿은 순간'을 기준으로 다시 잰다.
-    if (edgeY === null) { edgeY = y; edgeAt = e.timeStamp; return; }
-    // 빠른 플릭이 경계를 스치며 지나가는 것과, 끝에서 의도적으로 당기는 것을 구분한다.
-    if (e.timeStamp - edgeAt < DWELL) return;
-    const pull = y - edgeY;
-    if (atTop && pull > PULL && idx > 0) {
-      chaining = true;
-      showPanel(idx - 1);
-    } else if (atBottom && pull < -PULL && idx < PANELS.length - 1) {
-      chaining = true;
-      showPanel(idx + 1);
-    }
-  }, { passive: true });
-
-  if (idx === 0) initPullToRefresh(body);   // 홈(대시보드) 탭만 당겨서 새로고침
-});
+initPullToRefresh(outer.querySelectorAll('.admin-screen')[0]);   // 홈(대시보드) 탭만
 
 export function goTo(name) {
   const loginEl = document.getElementById('admin-login');
   if (name === 'login') {
     loginEl.classList.add('active');
-    outer.style.display  = 'none';
-    handle.style.display = 'none';
-    tabbar.style.display = 'none';
+    outer.style.display = 'none';
+    wrap.style.display  = 'none';
     return;
   }
   loginEl.classList.remove('active');
-  outer.style.display  = '';
-  handle.style.display = '';
-  tabbar.style.display = '';
+  outer.style.display = '';
+  wrap.style.display  = '';
   const idx = Math.max(0, PANELS.findIndex(p => p.key === name));
   currentIndex = idx;
   showPanel(idx, true);

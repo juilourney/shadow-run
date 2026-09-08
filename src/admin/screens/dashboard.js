@@ -28,8 +28,9 @@ let showEnded = false;       // '지난 번개'(완료·만료) 섹션 펼침 �
 
 // 최종 순위 한 줄 — 전원 정체 공개(관리자용). km 내림차순.
 function rankRowAdmin(p, i) {
-  const t = TEAM[p.team] ?? { label: p.team, color: '#a1a1aa' };
-  const roleName = ROLES[p.role]?.name ?? p.role;
+  // 정체는 서버(관리자 인증) 응답이 와야 채워진다 — 그 전엔 자리표시
+  const t = TEAM[p.team] ?? { label: '—', color: '#52525b' };
+  const roleName = p.role ? (ROLES[p.role]?.name ?? p.role) : '';
   const isFirst = i === 0;
   return `
   <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:11px;
@@ -37,7 +38,7 @@ function rankRowAdmin(p, i) {
     <span style="width:20px; text-align:center; font-size:${isFirst ? '15px' : '12px'}; color:#71717a;">${isFirst ? '👑' : i + 1}</span>
     <div style="flex:1; min-width:0;">
       <p style="font-size:13px; font-weight:600; line-height:1.2;">${p.name}</p>
-      <p style="font-size:11px; color:${t.color}; margin-top:2px; line-height:1.2;">${t.label} · ${roleName}</p>
+      <p style="font-size:11px; color:${t.color}; margin-top:2px; line-height:1.2;">${t.label}${roleName ? ` · ${roleName}` : ''}</p>
     </div>
     <span class="num" style="font-size:13px; font-weight:700; white-space:nowrap;">${fmt(p.km)} <span style="font-size:10px; color:#52525b;">km</span></span>
   </div>`;

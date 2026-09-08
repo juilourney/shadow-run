@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt, CERT_EARLY_GRACE_MS } from '../store.js';
+import { subscribe, getBolts, getPlayers, setPendingBolt, toggleBoltLock, cancelBolt, startBolt, getBoltTeamInfo, CERT_EARLY_GRACE_MS } from '../store.js';
 import { openBuffView } from './bolt-buff.js';
 import { openBoltProgress } from './bolt-progress.js';
 
@@ -210,14 +210,15 @@ export function init() {
       const checked = [...document.querySelectorAll('#detail-checklist-people .checkin-box:checked')]
         .map(el => el.dataset.pid);
       const bolt = getBolts().find(b => b.id === activeBoltId);
-      const allPlayers = getPlayers();
-      const firstParticipant = allPlayers.find(p => bolt?.participants.includes(p.id));
+      // 단일팀 여부·팀은 서버가 판정해 캐시해둔 값 (클라이언트는 남의 팀을 모른다).
+      // 최종 게이지 계산과 카드는 어차피 서버가 다시 정하므로 여기 값은 표시용이다.
+      const teamInfo = getBoltTeamInfo(activeBoltId);
       setPendingBolt({
         boltId: activeBoltId,
         distanceKm: verifiedKm,
         participantIds: checked,
-        isSingleTeam: bolt?.isSingleTeam ?? false,
-        team: bolt?.isSingleTeam ? (firstParticipant?.team ?? null) : null,
+        isSingleTeam: teamInfo?.isSingleTeam ?? false,
+        team: teamInfo?.team ?? null,
         boltTitle: bolt?.title ?? '번개',
         certPhoto, certAt,   // 관리자 인증 심사용 — 완료 시 번개 문서에 저장
       });

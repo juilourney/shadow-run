@@ -1,4 +1,5 @@
 import { getGauge, getPlayers, getMe, getCalendar, subscribe, ROLES } from '../store.js';
+import { fetchFinalReveal } from '../auth.js';
 import { goToScreen } from '../utils/nav.js';
 
 const TEAM = {
@@ -68,10 +69,22 @@ export function render() {
 </div>`;
 }
 
+// 종료 후 서버가 공개한 전원 정체 — 결과 화면에서만 쓰인다(평소엔 클라이언트가 모른다)
+let _revealed = null;
+
 export function openEndView() {
   const g = getGauge();
   const me = getMe();
-  const players = getPlayers();
+  const players = getPlayers().map(p => ({ ...p, ...(_revealed?.[p.id] || {}) }));
+
+  // 팀·역할은 서버에만 있으므로 결과 화면을 열 때 받아온다. 도착하면 한 번 더 그린다.
+  if (!_revealed) {
+    fetchFinalReveal().then(map => {
+      if (!map) return;
+      _revealed = map;
+      openEndView();
+    });
+  }
 
   // ① 우승팀
   const winnerEl = document.getElementById('end-winner');
@@ -117,8 +130,9 @@ export function openEndView() {
 }
 
 function rankRow(p, i) {
-  const t = TEAM[p.team];
-  const roleName = ROLES[p.role]?.name ?? p.role;
+  // 정체는 서버(/api/final-reveal) 응답이 도착해야 채워진다 — 그 전까지는 회색 자리표시
+  const t = TEAM[p.team] ?? { label: '—', color: '#52525b' };
+  const roleName = p.role ? (ROLES[p.role]?.name ?? p.role) : '';
   const isFirst = i === 0;
   const selfStyle = p.isSelf ? 'border:1px solid rgba(255,255,255,.22);' : '';
   const rankMark = isFirst
@@ -130,7 +144,7 @@ function rankRow(p, i) {
     ${rankMark}
     <div style="flex:1;min-width:0;">
       <p style="font-size:14px;font-weight:${p.isSelf ? '700' : '500'};line-height:1.2;">${p.name}</p>
-      <p style="font-size:11px;color:${t.color};margin-top:2px;line-height:1.2;">${t.label} · ${roleName}</p>
+      <p style="font-size:11px;color:${t.color};margin-top:2px;line-height:1.2;">${t.label}${roleName ? ` · ${roleName}` : ''}</p>
     </div>
     <span class="num" style="font-size:15px;font-weight:700;white-space:nowrap;">${fmt(p.km)}<span style="font-size:10px;font-weight:400;color:#52525b;"> km</span></span>
   </div>`;

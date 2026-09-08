@@ -303,6 +303,9 @@ onSnapshot(collection(db, 'players'), snap => {
 // 번개 — 클라이언트 직접 쓰기
 onSnapshot(collection(db, 'bolts'), snap => {
   state.bolts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // 내가 참여 중인 번개의 단일팀 여부는 서버에만 있다 — 참가자가 바뀔 때마다 다시 묻는다
+  // (3명이 모여 단일팀이 성립하는 순간 안내·글로우가 켜져야 하므로)
+  refreshMyBoltTeamInfo();
   notify();
 }, err => console.warn('번개 실시간 동기화 실패:', err.message));
 
@@ -797,10 +800,45 @@ export function clearConfirmedRecord() {
 }
 
 // ── 내부 규칙 헬퍼 ────────────────────────────────────────
+// 단일팀 여부는 참가자 전원의 팀을 알아야 판정되는데, 클라이언트는 이제 남의 팀을 모른다.
+// 서버(/api/bolt-team)에 물어 캐시한다 — 그 번개의 참가자에게만 답이 온다.
+const _boltTeamInfo = {};   // { [boltId]: { isSingleTeam, team } }
+let _boltTeamSig = null;    // 마지막으로 조회한 (번개, 참가자 구성) — 바뀔 때만 다시 묻는다
+
+// 내가 참여 중인 번개의 단일팀 여부를 최신으로 유지 (bolts 스냅샷마다 호출)
+function refreshMyBoltTeamInfo() {
+  const myId = state.players.find(p => nameEq(p.name, identity.name))?.id;
+  if (!myId) return;
+  const bolt = state.bolts.find(b => ACTIVE_BOLT_STATUSES.includes(b.status) && (b.participants || []).includes(myId));
+  if (!bolt) { _boltTeamSig = null; return; }
+  const sig = `${bolt.id}|${(bolt.participants || []).join(',')}`;
+  if (sig === _boltTeamSig) return;
+  _boltTeamSig = sig;
+  delete _boltTeamInfo[bolt.id];
+  ensureBoltTeamInfo(bolt.id);
+}
+
+export async function ensureBoltTeamInfo(boltId) {
+  if (!boltId || _boltTeamInfo[boltId]) return _boltTeamInfo[boltId];
+  try {
+    const res = await fetch('/api/bolt-team', {
+      method: 'POST', headers: { 'content-type': 'application/json', ...playerAuthHeaders() },
+      body: JSON.stringify({ boltId }),
+    });
+    if (!res.ok) return null;
+    _boltTeamInfo[boltId] = await res.json();
+    notify();
+    return _boltTeamInfo[boltId];
+  } catch { return null; }
+}
+
+export function getBoltTeamInfo(boltId) {
+  return _boltTeamInfo[boltId] || null;
+}
+
 function isSingleTeamBolt(bolt) {
   if (bolt.participants.length < CONFIG.singleTeamMin) return false;
-  const teams = bolt.participants.map(id => playerById(id)?.team);
-  return teams.every(t => t && t === teams[0]);
+  return !!_boltTeamInfo[bolt.id]?.isSingleTeam;
 }
 
 function playerById(id) {

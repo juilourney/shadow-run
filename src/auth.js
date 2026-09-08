@@ -59,6 +59,22 @@ export async function playerLogin(name, code) {
   return data;
 }
 
+// 게임 종료 후 전원 정체 — 결과 화면 전용. 종료 전이면 서버가 403으로 거절한다.
+// 반환: { [playerId]: {team, role} } 또는 null
+export async function fetchFinalReveal() {
+  if (!getPlayerToken()) return null;
+  try {
+    const res = await fetch('/api/final-reveal', {
+      method: 'POST', headers: { 'content-type': 'application/json', ...playerAuthHeaders() },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Object.fromEntries((data.players || []).map(p => [p.id, { team: p.team, role: p.role }]));
+  } catch {
+    return null;
+  }
+}
+
 // 저장된 토큰으로 내 팀·역할 재조회. 토큰이 없거나 만료면 null(→ 이름 화면으로).
 export async function fetchMe() {
   if (!getPlayerToken()) return null;

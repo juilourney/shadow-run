@@ -100,6 +100,19 @@ tabEls.forEach(t => {
   t.addEventListener('click', () => showPanel(Number(t.dataset.i)));
 });
 
+// 새로고침(당겨서 새로고침 포함) 후에도 보던 탭에 그대로 머물도록 기억해둔다.
+// sessionStorage라 탭을 닫으면 사라지고, 관리자 토큰과 수명이 같다.
+const PANEL_KEY = 'sr_admin_panel';
+function rememberPanel(idx) {
+  try { sessionStorage.setItem(PANEL_KEY, PANELS[idx]?.key ?? ''); } catch {}
+}
+function lastPanelKey() {
+  try {
+    const k = sessionStorage.getItem(PANEL_KEY);
+    return PANELS.some(p => p.key === k) ? k : 'dashboard';
+  } catch { return 'dashboard'; }
+}
+
 // 손가락으로 패널이 바뀌면 탭 동기화 + 도착한 화면 최신화
 let currentIndex = 0;
 let raf = null;
@@ -112,6 +125,7 @@ outer.addEventListener('scroll', () => {
     const idx = Math.round(pos);
     if (idx !== currentIndex) {
       currentIndex = idx;
+      rememberPanel(idx);
       PANELS[idx]?.mod.onShow?.();
     }
   });
@@ -200,6 +214,7 @@ export function goTo(name) {
   wrap.style.display  = '';
   const idx = Math.max(0, PANELS.findIndex(p => p.key === name));
   currentIndex = idx;
+  rememberPanel(idx);
   showPanel(idx, true);
   PANELS[idx]?.mod.onShow?.();
 }
@@ -209,4 +224,4 @@ PANELS.forEach(p => p.mod.init(goTo));
 // 토큰이 '있는지'가 아니라 '유효(미만료)한지'로 판정 — 만료된 토큰으로 대시보드에
 // 들어가면 모든 관리자 액션이 조용히 401 나므로, 만료면 지우고 로그인부터 다시.
 if (!isAdminTokenValid()) clearAdminToken();
-goTo(isAdminTokenValid() ? 'dashboard' : 'login');
+goTo(isAdminTokenValid() ? lastPanelKey() : 'login');

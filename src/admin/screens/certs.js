@@ -1,4 +1,4 @@
-import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto, CERT_GRACE_MS, loadAdminSecrets } from '../../store.js';
+import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto, CERT_GRACE_MS, loadAdminSecrets, recomputeBolt } from '../../store.js';
 
 // 인증 사진은 별도 컬렉션에서 개별 로드(참가자 기기 부담 방지) — 한 번 받은 건 캐시
 const photoCache = new Map();   // boltId → dataURL | null(없음)
@@ -90,6 +90,13 @@ function certCard(c) {
       </div>`
     : '';
 
+  // 결과 보정 — 완료된 번개에만. 카드 종류(혼자 달림/팀 스킬/랜덤 버프) 판정이
+  // 잘못 나갔을 때 현재 규칙으로 다시 계산해 게이지 차이만큼만 되돌린다.
+  const recomputeBtn = c.result
+    ? `<button class="btn btn-secondary cert-recompute-btn" data-id="${c.id}"
+        style="width:100%; height:36px; font-size:12px; color:#a1a1aa; margin-top:8px;">⟳ 결과 재계산</button>`
+    : '';
+
   return `
   <div class="bezel" style="padding:18px; border-radius:20px; margin-bottom:12px; ${stale && c.reviewStatus === 'pending' ? 'border:1px solid rgba(251,191,36,.35);' : ''}">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
@@ -99,7 +106,7 @@ function certCard(c) {
     </div>
     <div class="cert-photo-slot" data-id="${c.id}" style="margin-bottom:10px;">${photoSlotHtml(c.id)}</div>
     ${infoRows}
-    ${actions}
+    ${actions}${recomputeBtn}
   </div>`;
 }
 
@@ -211,7 +218,17 @@ export function init(goTo) {
     const approve   = e.target.closest('.cert-approve-btn');
     const reject    = e.target.closest('.cert-reject-btn');
     const reapprove = e.target.closest('.cert-reapprove-btn');
+    const recompute = e.target.closest('.cert-recompute-btn');
     try {
+      if (recompute) {
+        if (!confirm('이 번개의 결과를 현재 규칙으로 다시 계산할까요?\n게이지 차이만큼만 보정됩니다. (랜덤 버프는 다시 뽑지 않습니다)')) return;
+        const r = await recomputeBolt(recompute.dataset.id);
+        const f = n => (n > 0 ? '+' : '') + n.toFixed(1);
+        alert(r.changed
+          ? `보정 완료 — ${r.boltTitle}\n\n카드 ${r.before.card} → ${r.after.card}\n게이지 페이서 ${f(r.gaugeCorrection.pacer)} / 고스트 ${f(r.gaugeCorrection.ghost)}`
+          : `바뀔 내용이 없습니다 — ${r.boltTitle}`);
+        return;
+      }
       if (approve) {
         await approveBoltCert(approve.dataset.id);
       } else if (reject) {

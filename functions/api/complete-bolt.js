@@ -76,10 +76,14 @@ export async function onRequestPost(context) {
 
     // 카드 결정: 혼자(참가자 1명) → 버프 없음(×1) / 단일팀(같은 팀 3~4명) → 팀 스킬 /
     // 그 외(혼합·2명) → 랜덤 버프(서버 draw로 ×3 우회 차단).
-    const teams = boltParticipants.map(id => playerMap[id]?.team);
-    const singleTeam = boltParticipants.length >= RULES.singleTeamMin && teams.every(t => t && t === teams[0]);
+    //
+    // 판정 기준은 '등록 인원'이 아니라 **실제로 뛰고 인증한 사람(checkedIds)**이다.
+    // 등록만 2명이고 한 명만 인증한 번개가 혼자 달림이 아닌 것으로 처리돼,
+    // 실제로는 혼자 뛰었는데 랜덤 버프(×3)가 붙은 사고가 있었다.
+    const teams = checkedIds.map(id => playerMap[id]?.team);
+    const singleTeam = checkedIds.length >= RULES.singleTeamMin && teams.every(t => t && t === teams[0]);
     let card;
-    if (boltParticipants.length <= 1) {
+    if (checkedIds.length <= 1) {
       card = SOLO_CARD;                                  // 혼자 달림 → 버프 미적용
     } else if (singleTeam) {
       card = teams[0] === 'pacer' ? PACER_SKILL : GHOST_SKILL;

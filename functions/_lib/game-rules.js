@@ -72,10 +72,11 @@ export function boltDeadline(bolt) {
 }
 
 // 참가자 전원이 같은 팀 & 최소 인원 이상 → 단일팀 번개(팀 고유 스킬 발동).
-// bolt.participants(전체) 기준 — src/store.js isSingleTeamBolt와 동일.
-export function isSingleTeamBolt(bolt, playerMap) {
-  if (!bolt.participants || bolt.participants.length < RULES.singleTeamMin) return false;
-  const teams = bolt.participants.map(id => playerMap[id]?.team);
+// 기준은 '등록 인원'이 아니라 실제로 뛰고 인증한 사람(ids) — 등록만 해두고 안 온 사람이
+// 판정에 섞이면, 혼자 뛴 번개에 버프가 붙는 식으로 어긋난다.
+export function isSingleTeamBolt(ids, playerMap) {
+  if (!ids || ids.length < RULES.singleTeamMin) return false;
+  const teams = ids.map(id => playerMap[id]?.team);
   return teams.every(t => t && t === teams[0]);
 }
 
@@ -83,7 +84,7 @@ export function isSingleTeamBolt(bolt, playerMap) {
 //  playerMap: { [id]: { team, role, penalized, abilityStripped } } (서버가 읽은 players)
 //  반환: { gaugeDelta:{pacer,ghost}, perPlayerKmInc(=distanceKm), singleTeam, boltTeam }
 export function computeCompletion({ bolt, playerMap, distanceKm, participantIds, buffMultiplier, isTug }) {
-  const singleTeam = isSingleTeamBolt(bolt, playerMap);
+  const singleTeam = isSingleTeamBolt(participantIds, playerMap);
   const delta = { pacer: 0, ghost: 0 };
 
   for (const pid of participantIds) {
@@ -106,7 +107,7 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
 
   let boltTeam = null;
   if (singleTeam) {
-    boltTeam = playerMap[bolt.participants[0]]?.team ?? null;
+    boltTeam = playerMap[participantIds[0]]?.team ?? null;
     const heads = participantIds.length;
     const skill = heads * distanceKm * RULES.skillPerHeadKm;   // 총 효과(양 팀 동일)
     if (boltTeam === 'pacer') {

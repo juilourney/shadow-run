@@ -1087,6 +1087,18 @@ export async function rejectBoltCert(boltId) {
 }
 
 // 재인정 — 불인정으로 되돌린 걸 다시 반영(확인 결과 맞는 인증일 때). reject의 정확한 역연산.
+// 완료된 번개 결과를 현재 규칙으로 재계산해 게이지 차이만큼 보정(관리자).
+// 카드 '종류'만 바로잡고 운(랜덤 버프)은 다시 뽑지 않는다 — 서버가 보장한다.
+export async function recomputeBolt(boltId) {
+  const res = await fetch('/api/recompute-bolt', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
+    body: JSON.stringify({ boltId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (res.status === 401 ? ADMIN_EXPIRED_MSG : '재계산에 실패했습니다'));
+  return data;
+}
+
 export async function reapproveBoltCert(boltId) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt || bolt.status !== 'done') throw new Error('완료된 번개가 아닙니다');

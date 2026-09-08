@@ -230,7 +230,8 @@ export function init(goTo) {
   });
 
   loadCurrent();
-  loadSecurity();
+  // loadSecurity()는 여기서 부르지 않는다 — init은 로그인 전에도 실행돼 401만 남긴다.
+  // 설정 화면에 실제로 들어올 때(onShow) 부른다.
 }
 
 // 대시보드 → 설정 화면 전환마다 최신 값 반영 (main.js goTo가 호출)

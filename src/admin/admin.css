@@ -67,25 +67,25 @@
   padding: var(--pad);
   border-radius: 24px;
   pointer-events: auto;
-  /* 유리(렌즈) 느낌 — 바탕을 거의 비우고 뒤 화면을 강하게 흐려 통과시킨다.
-     CSS로 진짜 굴절은 못 만들지만, 강한 블러 + 채도·밝기 상승 + 위아래 반사선으로
-     두꺼운 유리판처럼 보이게 한다. */
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.16);
-  backdrop-filter: blur(20px) saturate(190%) brightness(1.18);
-  -webkit-backdrop-filter: blur(20px) saturate(190%) brightness(1.18);
+  /* 투명 유리 — 흐리게 가리지 않고 뒤 글자가 그대로 비쳐 보이게 한다.
+     블러는 아이콘 가독성만 지킬 정도(3px)로 최소화하고, 유리처럼 보이는 몫은
+     테두리 반사(윗면 밝게·아랫면 약하게)와 살짝 올린 채도·밝기가 담당한다. */
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.24);
+  backdrop-filter: blur(3px) saturate(160%) brightness(1.12);
+  -webkit-backdrop-filter: blur(3px) saturate(160%) brightness(1.12);
   box-shadow:
-    0 14px 38px rgba(0,0,0,.5),
-    inset 0 1px 0 rgba(255,255,255,.32),      /* 윗면 반사 */
-    inset 0 -1px 0 rgba(255,255,255,.08),     /* 아랫면 반사 */
-    inset 0 0 22px rgba(255,255,255,.05);     /* 유리 두께감 */
+    0 10px 30px rgba(0,0,0,.4),
+    inset 0 1px 0 rgba(255,255,255,.45),      /* 윗면 반사 — 유리 두께의 밝은 모서리 */
+    inset 0 -1px 0 rgba(255,255,255,.14),     /* 아랫면 반사 */
+    inset 0 0 18px rgba(255,255,255,.06);     /* 안쪽 은은한 번짐 */
 }
-/* 렌즈의 볼록한 느낌 — 위쪽이 밝고 아래로 갈수록 사라지는 하이라이트 */
+/* 빛이 가장자리에서 꺾이는 느낌 — 위아래 테두리에만 하이라이트를 몰아준다 */
 #admin-tabbar::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.02) 42%, rgba(255,255,255,0) 60%),
-    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.12), transparent 62%);
+    linear-gradient(180deg, rgba(255,255,255,.20) 0%, rgba(255,255,255,0) 28%),
+    linear-gradient(0deg,   rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 22%);
   pointer-events: none;
 }
 /* 활성 탭 뒤를 스와이프 진행도만큼 미끄러져 따라가는 알약 */

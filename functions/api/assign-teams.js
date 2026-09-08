@@ -71,6 +71,15 @@ export async function onRequestPost(context) {
           seasonId: toFirestoreValue(Date.now()),
         } }),
       });
+      // 지난 시즌 비밀·기기 바인딩도 함께 폐기 — 남겨두면 새 시즌에서 옛 팀·역할이 조회된다
+      await fetch(firestoreUrl(context.env, 'secrets/assignment'), { method: 'DELETE', headers: authHeaders }).catch(() => {});
+      const idsRes = await fetch(firestoreUrl(context.env, 'identities?pageSize=300'), { headers: authHeaders });
+      if (idsRes.ok) {
+        const idsData = await idsRes.json();
+        await Promise.all((idsData.documents || []).map(d =>
+          fetch(firestoreUrl(context.env, `identities/${d.name.split('/').pop()}`), { method: 'DELETE', headers: authHeaders })
+        ));
+      }
       const resetData = await resetRes.json();
       return new Response(JSON.stringify(resetData), { status: resetRes.status, headers: { 'content-type': 'application/json' } });
     }
@@ -120,11 +129,21 @@ export async function onRequestPost(context) {
     const players = assignTeamsAndRoles(roster);
     const result = { assigned: true, players, assignedAt: Date.now() };
 
-    // players 컬렉션 시드 — 게임 진행 중 마일리지·역할공개 상태가 쌓일 단일 출처
+    // 팀·역할은 서버만 읽는 secrets/assignment에 넣는다. 예전엔 players와 game/assignment
+    // 양쪽에 그대로 들어갔는데 둘 다 공개 읽기라, URL 한 줄로 전원의 정체가 노출됐다.
+    await fetch(firestoreUrl(context.env, 'secrets/assignment'), {
+      method: 'PATCH', headers: authHeaders,
+      body: JSON.stringify({ fields: toFirestoreFields({
+        players: players.map(p => ({ id: p.id, name: p.name, team: p.team, role: p.role })),
+        assignedAt: result.assignedAt,
+      }) }),
+    });
+
+    // players 컬렉션 시드 — 마일리지·공개된 정체 등 '공개해도 되는' 상태만 담는다
     await Promise.all(players.map(p => fetch(firestoreUrl(context.env, `players/${p.id}`), {
       method: 'PATCH', headers: authHeaders,
       body: JSON.stringify({ fields: toFirestoreFields({
-        name: p.name, team: p.team, role: p.role, km: 0, boltsCompleted: 0,
+        name: p.name, km: 0, boltsCompleted: 0,
         publicTeam: null, publicRole: null, penalized: false, abilityStripped: false,
       }) }),
     })));
@@ -135,14 +154,20 @@ export async function onRequestPost(context) {
       `?updateMask.fieldPaths=assigned&updateMask.fieldPaths=players&updateMask.fieldPaths=assignedAt`;
     const writeRes = await fetch(writeUrl, {
       method: 'PATCH', headers: authHeaders,
-      body: JSON.stringify({ fields: { assigned: toFirestoreValue(true), players: toFirestoreValue(players), assignedAt: toFirestoreValue(result.assignedAt) } }),
+      // 공개 문서에는 '누가 배정됐는지'만 — 팀·역할은 담지 않는다(secrets/assignment로 감).
+      body: JSON.stringify({ fields: { assigned: toFirestoreValue(true), players: toFirestoreValue(players.map(p => ({ id: p.id, name: p.name }))), assignedAt: toFirestoreValue(result.assignedAt) } }),
     });
     if (!writeRes.ok) {
       const err = await writeRes.json();
       return new Response(JSON.stringify(err), { status: writeRes.status, headers: { 'content-type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify(result), { status: 200, headers: { 'content-type': 'application/json' } });
+    // 응답에도 팀·역할을 실으면 안 된다 — 이 엔드포인트는 시작 시각에 참가자 기기도
+    // 호출할 수 있어(경합 방지용 멱등 호출), 그대로 돌려주면 배정표가 통째로 새어나간다.
+    return new Response(JSON.stringify({
+      assigned: true, assignedAt: result.assignedAt,
+      players: players.map(p => ({ id: p.id, name: p.name })),
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: { 'content-type': 'application/json' }

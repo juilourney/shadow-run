@@ -1,7 +1,8 @@
 import { state } from '../state.js';
 import { goToScreen } from '../utils/nav.js';
 import { prepareWaiting, enterAssignedPlayer } from './waiting.js';
-import { joinRoster, getAssignment, saveName, isNameRegistered, nameEq } from '../store.js';
+import { joinRoster, getAssignment, saveName, isNameRegistered, nameEq, applyServerMe } from '../store.js';
+import { playerLogin } from '../auth.js';
 
 const DEFAULT_HINT = '등록된 이름으로 입장하세요';
 const REJECT_HINT  = '등록에 실패했습니다. 다시 시도해주세요';
@@ -85,6 +86,14 @@ export function render() {
             →
           </button>
         </div>
+        <!-- 참가 코드 — 다른 기기에서 재입장할 때만 나타난다(폰 교체·캐시 삭제) -->
+        <div id="code-row" style="display:none; margin-top:12px;">
+          <label style="font-size:12px; color:#71717a; display:block; margin-bottom:8px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">참가 코드</label>
+          <input class="input" type="text" id="code-input"
+            placeholder="A3K9QP" maxlength="8"
+            autocomplete="off" autocorrect="off" spellcheck="false"
+            style="width:100%; font-size:17px; font-weight:600; letter-spacing:.18em; text-transform:uppercase;" />
+        </div>
         <p id="name-hint" style="font-size:13px; color:#71717a; margin-top:10px; line-height:1.5; font-weight:600;">등록된 이름으로 입장하세요</p>
       </div>
     </div>
@@ -146,7 +155,39 @@ async function enterGame() {
     btn.disabled = false;
     return;
   }
-  btn.disabled = false;
+  // 배정이 끝났으면 서버에서 신원을 확인받는다 — 팀·역할은 이 응답으로만 알 수 있다.
+  // (이 기기가 처음이면 여기서 이름에 묶이고, 다른 기기가 이미 쓰고 있으면 참가 코드를 요구한다)
+  const codeRow = document.getElementById('code-row');
+  const codeInput = document.getElementById('code-input');
+  let loggedIn = null;
+  if (getAssignment().assigned) {
+    btn.disabled = true;
+    try {
+      loggedIn = await playerLogin(name, codeInput?.value?.trim() || null);
+    } catch (e) {
+      btn.disabled = false;
+      if (e.needCode) {
+        codeRow.style.display = '';
+        codeInput.focus();
+        hint.textContent = '다른 기기에서 이미 입장한 이름이에요. 운영자에게 받은 참가 코드를 입력하세요.';
+        hint.style.color = '#fbbf24';
+        return;
+      }
+      if (e.needAdmin) {
+        hint.textContent = e.message;
+        hint.style.color = '#fb7185';
+        return;
+      }
+      if (!e.notAssigned) {
+        input.style.borderColor = 'rgba(251,113,133,.6)';
+        hint.textContent = e.message;
+        hint.style.color = '#fb7185';
+        return;
+      }
+      // notAssigned — 배정 스냅샷이 아직 안 온 경우. 아래 기존 흐름(대기실)으로 진행한다.
+    }
+    btn.disabled = false;
+  }
 
   input.style.borderColor = '';
   state.name = name;
@@ -160,8 +201,9 @@ async function enterGame() {
 
   // 이미 팀·역할 배정이 끝난 상태라면 대기실을 거치지 않고 바로 카드/게임 화면으로
   const { assigned, players } = getAssignment();
-  const me = assigned ? players.find(p => nameEq(p.name, name)) : null;
+  const me = loggedIn || (assigned ? players.find(p => nameEq(p.name, name)) : null);
   if (me) {
+    applyServerMe(loggedIn);
     enterAssignedPlayer(me);
     return;
   }

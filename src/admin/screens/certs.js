@@ -1,4 +1,4 @@
-import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto, CERT_EARLY_GRACE_MS } from '../../store.js';
+import { subscribe, getCertReviews, approveBoltCert, rejectBoltCert, reapproveBoltCert, fetchCertPhoto, CERT_EARLY_GRACE_MS, loadAdminSecrets } from '../../store.js';
 
 // 인증 사진은 별도 컬렉션에서 개별 로드(참가자 기기 부담 방지) — 한 번 받은 건 캐시
 const photoCache = new Map();   // boltId → dataURL | null(없음)
@@ -231,5 +231,6 @@ export function init(goTo) {
 }
 
 export function onShow() {
+  loadAdminSecrets();   // 참가자 이름 옆 팀 색 점 — 팀 정보는 서버에서 받아온다
   refresh();
 }

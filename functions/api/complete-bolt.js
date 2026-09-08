@@ -9,6 +9,7 @@
 //  certAt: 사진 속 기록 시각(ms) — result에 저장, 관리자 심사에서 일정 대조에 사용
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
 import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
+import { readSecretAssignment } from '../_lib/secrets.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -43,11 +44,10 @@ export async function onRequestPost(context) {
     const checkedIds = participantIds.filter(id => boltParticipants.includes(id));
     if (checkedIds.length === 0) return json({ error: '유효한 참가자가 없습니다' }, 400);
 
-    // 역할·팀은 조작 불가능한 game/assignment(서버 전용 쓰기)에서 읽는다.
+    // 역할·팀은 서버만 읽을 수 있는 secrets/assignment에서 가져온다.
     // players 컬렉션은 클라이언트가 쓸 수 있어, 거기서 role을 믿으면 '내 역할을 elite로
     // 위조해 ×2' 같은 승부 조작이 가능해진다. 게이지에 직접 곱해지는 role/team은 배정 기준만 신뢰.
-    const asgRes = await fetch(firestoreUrl(env, 'game/assignment'), { headers: authHeaders });
-    const assignment = asgRes.ok ? fromFirestoreFields((await asgRes.json()).fields) : {};
+    const assignment = await readSecretAssignment(env, authHeaders);
     // 페널티·능력박탈은 게임 중 바뀌는 동적 상태라 players에서 읽는다(투표 집계가 씀).
     const playersRes = await fetch(firestoreUrl(env, 'players'), { headers: authHeaders });
     const playersData = await playersRes.json();

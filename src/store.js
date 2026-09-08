@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
+import { playerAuthHeaders, clearPlayerAuth } from './auth.js';
 import {
   doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
   arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork,
@@ -120,6 +121,54 @@ const ADMIN_TOKEN_KEY = 'sr_admin_auth';
 function adminAuthHeaders() {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
   return token ? { authorization: `Bearer ${token}` } : {};
+}
+
+// ── 관리자 전용 배정표 ────────────────────────────────────
+// 팀·역할은 이제 서버(secrets/assignment)에만 있어 참가자 앱은 남의 것을 볼 수 없다.
+// 관리 화면은 관리자 인증으로 따로 받아와 캐시한다(참가자 기기는 이 함수를 호출하지 않는다).
+let _adminSecrets = { byId: {}, players: [], loadedAt: 0, requireCode: false, migrated: false };
+
+export async function loadAdminSecrets({ force = false } = {}) {
+  if (!force && Date.now() - _adminSecrets.loadedAt < 30_000) return _adminSecrets;
+  try {
+    const res = await fetch('/api/admin-secrets', {
+      method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
+      body: JSON.stringify({ action: 'list' }),
+    });
+    if (!res.ok) return _adminSecrets;
+    const data = await res.json();
+    const byId = {};
+    for (const p of data.players || []) byId[p.id] = p;
+    _adminSecrets = {
+      byId, players: data.players || [], loadedAt: Date.now(),
+      requireCode: !!data.requireCode, migrated: !!data.migrated,
+    };
+    notify();
+  } catch {}
+  return _adminSecrets;
+}
+
+export function getAdminSecrets() {
+  return _adminSecrets;
+}
+
+// 관리 화면에서 한 명의 팀·역할 — 캐시에 없으면(로드 전·마이그레이션 전) players 문서로 폴백
+export function adminSecretOf(playerId) {
+  const s = _adminSecrets.byId[playerId];
+  if (s) return s;
+  const p = state.players.find(x => x.id === playerId);
+  return p ? { id: p.id, name: p.name, team: p.team ?? null, role: p.role ?? null } : null;
+}
+
+export async function adminSecretsAction(action, payload = {}) {
+  const res = await fetch('/api/admin-secrets', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '요청에 실패했습니다');
+  _adminSecrets.loadedAt = 0;   // 다음 조회 때 새로 받도록
+  return data;
 }
 
 // 토큰은 "${만료시각ms}.${서명}" 형식이라, 비밀키 없이도 만료 여부를 클라에서 읽을 수 있다.
@@ -361,9 +410,15 @@ export function nameEq(a, b) {
   return (a || '').normalize('NFC').trim() === (b || '').normalize('NFC').trim();
 }
 
+// 팀·역할은 players 문서에서 제거됐다(비밀 분리) — 내 것만 /api/me로 받아 identity에 담긴다.
+// 마이그레이션 전 문서에는 아직 남아 있을 수 있어 identity가 비면 문서 값으로 폴백한다.
 function myPlayer() {
-  return state.players.find(p => nameEq(p.name, identity.name)) || {
-    id: null, name: identity.name || '', team: null, role: null, km: 0,
+  const p = state.players.find(x => nameEq(x.name, identity.name));
+  const team = identity.team ?? p?.team ?? null;
+  const role = identity.role ?? p?.role ?? null;
+  if (p) return { ...p, team, role };
+  return {
+    id: null, name: identity.name || '', team, role, km: 0,
     publicTeam: null, publicRole: null, penalized: false, abilityStripped: false, boltsCompleted: 0,
   };
 }
@@ -389,8 +444,16 @@ export function getMe() {
   };
 }
 
+// 남의 team·role은 클라이언트가 알 이유가 없다 — 마이그레이션 전 문서에 남아 있는
+// 잔여 필드도 여기서 제거해, 화면·콘솔 어느 쪽으로도 새지 않게 한다.
+// (공개된 정체는 publicTeam/publicRole로 따로 내려오므로 영향 없음)
 export function getPlayers({ excludeSelf = false } = {}) {
-  const list = state.players.map(p => ({ ...p, isSelf: nameEq(p.name, identity.name) }));
+  const list = state.players.map(p => {
+    const isSelf = nameEq(p.name, identity.name);
+    if (isSelf) return { ...p, ...myPlayer(), isSelf: true };
+    const { team, role, ...rest } = p;
+    return { ...rest, isSelf: false };
+  });
   return excludeSelf ? list.filter(p => !p.isSelf) : list;
 }
 
@@ -519,6 +582,7 @@ function ensureMeLoaded() {
     if (saved && saved.name === identity.name && saved.assignedAt === state.assignment.assignedAt) {
       state.me.abilityLog = saved.abilityLog || [];
       state.me.revealed = saved.revealed || {};
+      if (typeof saved.abilityUsed === 'number') state.me.abilityUsed = saved.abilityUsed;
     }
   } catch {}
 }
@@ -529,13 +593,34 @@ function persistMe() {
       name: identity.name,
       assignedAt: state.assignment.assignedAt,
       abilityLog: state.me.abilityLog,
+      abilityUsed: state.me.abilityUsed,
       revealed: state.me.revealed,
     }));
   } catch {}
 }
 
+// /api/me 응답을 반영 — 팀·역할은 identity에, 능력 사용량·조사 결과는 state.me에.
+// 조사 결과가 서버에 남으니 캐시를 지워도 애써 알아낸 정보가 사라지지 않는다.
+export function applyServerMe(data) {
+  if (!data) return;
+  identity.name = data.name || identity.name;
+  identity.team = data.team ?? null;
+  identity.role = data.role ?? null;
+  ensureMeLoaded();
+  if (data.ability) {
+    state.me.abilityUsed = Number(data.ability.used) || 0;
+    if (data.ability.revealed && Object.keys(data.ability.revealed).length) {
+      state.me.revealed = { ...state.me.revealed, ...data.ability.revealed };
+    }
+    persistMe();
+  }
+  notify();
+}
+
+// 서버가 준 사용량이 정답. 아직 한 번도 못 받은 기기는 예전 로컬 기록으로 표시만 채운다.
 function abilityUsedThisWeek() {
   ensureMeLoaded();
+  if (typeof state.me.abilityUsed === 'number') return state.me.abilityUsed;
   const { week } = getPhase();
   return state.me.abilityLog.filter(e => e.week === week).length;
 }
@@ -697,6 +782,12 @@ export function clearSavedIdentity() {
     localStorage.removeItem(CONFIRMED_KEY);
     localStorage.removeItem(ME_PERSIST_KEY);   // 능력 기록·조사 결과 — 신원이 바뀌면 함께 폐기
   } catch {}
+  // 발급받은 토큰도 폐기 — 안 지우면 /api/me가 예전 신원을 그대로 복원해버린다.
+  // (기기 식별자는 남긴다 — 지우면 이 기기가 '새 기기'가 돼 참가 코드를 요구받는다)
+  clearPlayerAuth();
+  identity.team = null;
+  identity.role = null;
+  state.me.abilityUsed = undefined;
 }
 
 // 확인(카드·역할 뒤집기) 기록만 삭제 — 저장된 이름은 유지.
@@ -901,7 +992,7 @@ export function getCertReviews() {
       reviewStatus: b.reviewStatus ?? null,   // null = 심사 기능 도입 전 완료분
       result: b.result ?? null,
       participants: (b.result?.participantIds ?? b.participants ?? [])
-        .map(pid => { const p = playerById(pid); return { name: p?.name ?? '?', team: p?.team ?? null }; }),
+        .map(pid => { const p = playerById(pid); return { name: p?.name ?? '?', team: adminSecretOf(pid)?.team ?? null }; }),
     }))
     .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
 }
@@ -994,12 +1085,10 @@ export async function castVote(targetId, roleGuess = null) {
   return getVote();
 }
 
-// 투표 종료 집계 → 팀(무조건) + 역할(60% 적중 조건부) 판정.
-// 표가 흩어지면 2~3표짜리 최다 득표자가 영구 페널티를 받는 사고가 나므로,
-// ① 전체 표의 CONFIG.voteMinRatio 이상을 받아야 하고 ② 동점이면 아무도 처벌하지 않는다.
-// 투표 탭이 "미집계 표가 남아있으면 집계"를 매 틱 시도하므로(마감 순간을 아무도
-// 목격 못 해도 따라잡기 위함), 표 삭제가 끝나기 전에 다시 불려 페널티가 두 번
-// 적용되지 않도록 진행 중 재진입을 막고 삭제 완료까지 기다린 뒤 반환한다.
+// 투표 종료 집계 요청 — 판정 규칙(최소 득표 비율·동점 처리·역할 공개 기준)은 모두
+// 서버 game-rules.js가 갖고 있다. 투표 탭이 "미집계 표가 남아있으면 집계"를 매 틱
+// 시도하므로(마감 순간을 아무도 목격 못 해도 따라잡기 위함), 같은 기기에서 중복
+// 호출되지 않도록 진행 중 재진입만 여기서 막는다(기기 간 중복은 서버가 막는다).
 let _tallyInFlight = null;
 export async function tallyVote() {
   if (_tallyInFlight) return _tallyInFlight;
@@ -1008,126 +1097,47 @@ export async function tallyVote() {
 }
 
 async function _tallyVote() {
-  const ballots = state.vote.ballots;
-  if (ballots.length === 0) return null;
+  // 집계는 서버(/api/tally-vote)가 한다.
+  //  1) 집계에 대상의 team·role이 필요한데 클라이언트는 더 이상 그걸 모른다(비밀 분리).
+  //  2) 예전 클라이언트 집계는 여러 기기가 동시에 돌면서 히스토리를 48개까지 중복 기록했다.
+  //     서버는 표 삭제까지 한 번의 원자 커밋으로 처리해 정확히 한 번만 반영된다.
+  if (state.vote.ballots.length === 0) return null;
 
-  const teamCount = {};
-  for (const b of ballots) teamCount[b.targetId] = (teamCount[b.targetId] || 0) + 1;
-  const maxCount = Math.max(...Object.values(teamCount));
-  const topIds = Object.keys(teamCount).filter(id => teamCount[id] === maxCount);
-
-  const threshold = Math.ceil(ballots.length * CONFIG.voteMinRatio);
-  const tie = topIds.length > 1;
-  const belowThreshold = maxCount < threshold;
-
-  // 미달·동점이면 적발 없이 종료 — 표만 초기화하고 '적중 실패'로 알린다
-  if (tie || belowThreshold) {
-    pushTimelineEvent({ kind: 'fail' });
-    addDoc(collection(db, 'voteHistory'), { at: Date.now(), ballotCount: ballots.length, caught: [], tie, maxCount, threshold })
-      .catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
-    await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
-      .catch(err => console.warn('투표 초기화 실패:', err.message));
-    return { tie, belowThreshold, threshold, maxCount, caught: [] };
-  }
-
-  const caught = [];
-  const playerWrites = [];
-
-  for (const topId of topIds) {
-    const target = playerById(topId);
-    if (!target) continue;
-
-    const targetBallots = ballots.filter(b => b.targetId === topId);
-
-    // 최다 득표자는 어느 팀이 지목했는지와 무관하게 팀 공개 + 마일리지 페널티 (가이드 룰)
-    const teamCaught = true;
-      // 적발 시점의 완주 번개 수를 기록 — 이후 penaltyClearBolts번 더 완주하면 페널티 자동 해제
-    const update = { publicTeam: target.team, penalized: true, penalizedAtBolts: target.boltsCompleted ?? 0 };
-
-    let roleRevealed = false, guessFailed = false, guessedRole = null;
-    const roleCount = {};
-    for (const b of targetBallots) if (b.roleGuess) roleCount[b.roleGuess] = (roleCount[b.roleGuess] || 0) + 1;
-    let consensusRole = null, consensusN = 0;
-    for (const [role, n] of Object.entries(roleCount)) if (n > consensusN) { consensusN = n; consensusRole = role; }
-    const ratio = consensusRole ? consensusN / targetBallots.length : 0;
-
-    if (consensusRole && ratio >= CONFIG.roleRevealThreshold) {
-      if (consensusRole === target.role) {
-        roleRevealed = true;
-        update.publicRole      = target.role;
-        update.abilityStripped = true;
-      } else {
-        guessFailed = true;
-        guessedRole = consensusRole;
-      }
-    }
-
-    if (Object.keys(update).length > 0) {
-      playerWrites.push(updateDoc(doc(db, 'players', topId), update));
-    }
-
-    caught.push({
-      id: target.id,
-      name: target.name,
-      teamCaught,
-      team: teamCaught ? target.team : null,
-      roleRevealed,
-      revealedRole: roleRevealed ? target.role : null,
-      guessFailed,
-      guessedRole,
-    });
-  }
-
-  // 최다 득표자가 명단에서 사라진 경우(관리자 삭제 등) — 표를 지우지 않으면
-  // 미집계 표가 영원히 남아 집계 스윕이 매 틱 재시도하므로 여기서도 정리한다.
-  if (caught.length === 0) {
-    await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
-      .catch(err => console.warn('투표 초기화 실패:', err.message));
+  const res = await fetch('/api/tally-vote', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...playerAuthHeaders() },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.warn('투표 집계 실패:', data.error);
     return null;
   }
-  const result = { tie: caught.length > 1, caught };
-
-  let anyReveal = false;
-  for (const c of caught) {
-    if (c.teamCaught) { pushTimelineEvent({ kind: 'team', name: c.name, team: c.team }); anyReveal = true; }
-    if (c.roleRevealed) { pushTimelineEvent({ kind: 'role', name: c.name, role: c.revealedRole }); anyReveal = true; }
-  }
-  if (!anyReveal) pushTimelineEvent({ kind: 'fail' });
-
-  await Promise.all(playerWrites);
-
-  addDoc(collection(db, 'voteHistory'), {
-    at: Date.now(),
-    ballotCount: ballots.length,
-    caught: caught.map(c => ({ name: c.name, teamCaught: c.teamCaught, team: c.team, roleRevealed: c.roleRevealed, revealedRole: c.revealedRole, guessFailed: c.guessFailed })),
-  }).catch(err => console.warn('투표 히스토리 기록 실패:', err.message));
-
-  // 라운드 종료 — 다음 회차를 위해 표 초기화(적발 결과는 players에 영구 반영되어 유지됨)
-  await Promise.all(ballots.map(b => deleteDoc(doc(db, 'votes', b.id))))
-    .catch(err => console.warn('투표 초기화 실패:', err.message));
-
-  return result;
+  // 다른 기기가 이미 집계함 — 결과는 voteHistory 구독으로 자연히 들어온다
+  if (!data.tallied) return null;
+  return data.result;
 }
 
-// 탐정/밀정 능력 사용
+// 탐정/밀정 능력 사용 — 결과 판정은 서버(/api/investigate)만 한다.
+// 예전엔 클라이언트가 이미 갖고 있던 전원 데이터에서 꺼내 썼기 때문에, 능력이 없어도
+// 한도를 넘겨도 콘솔에서 얼마든지 볼 수 있었다.
 export async function useAbility(targetId) {
   ensureMeLoaded();
-  const meP = myPlayer();
-  if (meP.role !== 'detective' && meP.role !== 'spy') throw new Error('능력이 없습니다');
-  if (meP.abilityStripped) throw new Error('적발되어 능력이 박탈되었습니다');
-  if (abilityUsedThisWeek() >= CONFIG.abilityWeeklyLimit) throw new Error('이번 주 사용 횟수를 모두 소진했습니다');
   if (state.me.revealed[targetId]) return state.me.revealed[targetId];
 
-  const target = playerById(targetId);
-  if (!target) throw new Error('대상을 찾을 수 없습니다');
+  const res = await fetch('/api/investigate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...playerAuthHeaders() },
+    body: JSON.stringify({ targetId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '조사에 실패했습니다');
 
-  const result = meP.role === 'detective' ? { team: target.team } : { role: target.role };
-
+  const result = data.team !== undefined ? { team: data.team } : { role: data.role };
   state.me.revealed[targetId] = result;
-  state.me.abilityLog.push({ week: getPhase().week });
+  state.me.abilityUsed = data.used;
   persistMe();
 
-  pushTimelineEvent({ kind: 'ability', abilityRole: meP.role });
+  pushTimelineEvent({ kind: 'ability', abilityRole: myPlayer().role });
 
   notify();
   return result;

@@ -1,4 +1,4 @@
-import { subscribe, getRoster, getAssignment, getPlayers, addRosterMember, updateRosterMember, removeRosterMember, ROLES } from '../../store.js';
+import { subscribe, getRoster, getAssignment, getPlayers, addRosterMember, updateRosterMember, removeRosterMember, ROLES, loadAdminSecrets, getAdminSecrets, adminSecretOf } from '../../store.js';
 
 // 배정 완료 후 관리자 마스터 뷰 — 팀 배지 색상
 const TEAM = {
@@ -75,14 +75,18 @@ function rosterRow(r, player) {
 function refresh() {
   const roster = getRoster();
   const asg = getAssignment();
-  // km까지 있는 실시간 players에서 매칭(이름 형태 차이 흡수) — 배정표(asg.players)엔 km이 없다
+  // km까지 있는 실시간 players에서 매칭(이름 형태 차이 흡수) — 배정표(asg.players)엔 km이 없다.
+  // 팀·역할은 공개 문서에 없으므로 관리자 인증으로 받아온 캐시(adminSecretOf)에서 채운다.
   const norm = s => (s || '').normalize('NFC').trim();
-  const byName = asg.assigned ? new Map(getPlayers().map(p => [norm(p.name), p])) : null;
+  const byName = asg.assigned
+    ? new Map(getPlayers().map(p => [norm(p.name), { ...p, ...(adminSecretOf(p.id) || {}) }]))
+    : null;
 
   const countEl = document.getElementById('roster-count');
   if (asg.assigned) {
-    const pacer = asg.players.filter(p => p.team === 'pacer').length;
-    const ghost = asg.players.filter(p => p.team === 'ghost').length;
+    const secretPlayers = getAdminSecrets().players;
+    const pacer = secretPlayers.filter(p => p.team === 'pacer').length;
+    const ghost = secretPlayers.filter(p => p.team === 'ghost').length;
     countEl.textContent = `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}`;
   } else {
     const entered = roster.filter(r => r.enteredAt).length;
@@ -162,5 +166,6 @@ export function init(goTo) {
 }
 
 export function onShow() {
+  loadAdminSecrets();   // 팀·역할은 서버에만 있다 — 도착하면 subscribe(refresh)가 다시 그린다
   refresh();
 }

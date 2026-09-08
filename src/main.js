@@ -3,7 +3,7 @@ import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap, settleProgrammaticScroll } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -22,6 +22,7 @@ import * as members    from './screens/members.js';
 import * as guide      from './screens/guide.js';
 import * as waiting    from './screens/waiting.js';
 import { enterAssignedPlayer, prepareWaiting } from './screens/waiting.js';
+import { fetchMe, playerLogin } from './auth.js';
 import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
@@ -255,7 +256,19 @@ document.addEventListener('touchmove', e => {
 //   - 배정에 내 이름이 있으면 → 카드/게임 화면(확인 여부는 enterAssignedPlayer가 판단)
 //   - 게임 진행 중(배정 완료)인데 내 이름이 없으면 → 중간 난입 불가, 이름 화면으로
 //   - 배정 전(모집 기간)이고 명단에 있으면 → 대기실 / 명단에 없으면(관리자 삭제) → 이름 화면
-function routeByAssignment(name) {
+// 신원 복원 — 팀·역할은 이제 Firestore 공개 문서에 없고 서버만 안다.
+// 토큰이 있으면 /api/me로 받아오고, 없으면(기존 참가자의 첫 접속) 저장된 이름으로
+// 자동 입장해 이 기기를 이름에 묶는다. 참가자 입장에선 아무 조작도 필요 없다.
+async function restoreIdentity(name) {
+  let me = await fetchMe();
+  if (!me && name) {
+    try { me = await playerLogin(name); } catch { me = null; }   // 오프라인·미배정 — 캐시된 확인 기록으로 진행
+  }
+  if (me) applyServerMe(me);
+  return me;
+}
+
+async function routeByAssignment(name) {
   // 관리자가 그 사이 "신규 게임 생성"으로 새 시즌을 열었으면, 이 기기가 기억하고 있던
   // 이전 시즌 이름으로 조용히 재등록되지 않도록 기록을 지우고 이름 입력부터 다시 받는다.
   // (확인 완료 기기의 stale 복구 경로와 단순 "이름 기억하기" 경로 양쪽에서 공유하는 최종 관문)
@@ -267,7 +280,10 @@ function routeByAssignment(name) {
   const { assigned, players } = getAssignment();
   const me = assigned ? players.find(p => p.name === name) : null;
   if (me) {
-    enterAssignedPlayer(me);
+    // 배정 문서에는 이름만 남아 있다 — 팀·역할은 서버에서 받아온다.
+    // 네트워크가 안 되면 이 기기에 남은 확인 기록으로 진행(예전과 같은 오프라인 동작).
+    const srv = await restoreIdentity(name);
+    enterAssignedPlayer(srv || getConfirmedRecord() || me);
   } else if (assigned) {
     goToScreen('s-name');
   } else if (isNameRegistered(name)) {
@@ -305,6 +321,9 @@ if (confirmed && confirmed.team && confirmed.role) {
   state.roleConfirmed = true;
   applyTeamTheme(confirmed.team);
   initPhase();
+  // 화면은 저장된 팀·역할로 즉시 띄우되, 능력·투표 집계 호출에 필요한 토큰은
+  // 뒤에서 조용히 확보한다(기존 참가자의 첫 접속이면 여기서 기기가 바인딩된다).
+  restoreIdentity(confirmed.name);
   // 대시보드 플래시 방지 — 종료 여부는 실제 settings(startDate·weeks)에 달렸는데 캐시는
   // 낡을 수 있어(끝났는데 '안 끝남'으로 오판 → 대시보드 보였다가 s-end로 튐), 실제 settings가
   // 로드된 뒤에 진입 화면을 정한다. 그 사이엔 부팅 게이트(검은 화면)가 덮고 있어 아무것도 안 비침.

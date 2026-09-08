@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES, loadAdminSecrets, adminSecretOf } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -257,7 +257,10 @@ function refresh() {
       winnerEl.textContent = '🏁 무승부로 종료';
       diffEl.textContent = '양 팀 게이지 동점';
     }
-    const ranked = [...getPlayers()].sort((a, b) => b.km - a.km);
+    // 팀·역할은 공개 문서에 없다 — 관리자 캐시에서 붙여 최종 순위에 정체를 표시
+    const ranked = [...getPlayers()]
+      .map(p => ({ ...p, ...(adminSecretOf(p.id) || {}) }))
+      .sort((a, b) => b.km - a.km);
     document.getElementById('admin-result-ranking').innerHTML = ranked.map(rankRowAdmin).join('');
   } else {
     resultEl.style.display = 'none';
@@ -341,5 +344,6 @@ export function init(goTo) {
 export function onShow() {
   expandedBoltId = null;
   showEnded = false;
+  loadAdminSecrets();   // 팀·역할은 서버에만 있다 — 도착하면 subscribe(refresh)가 다시 그린다
   refresh();
 }

@@ -14,7 +14,23 @@ export const RULES = {
   singleTeamMin: 3,
   fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
   certBufferMin: 120,     // 인증 마감 버퍼(분)
+  abilityWeeklyLimit: 3,  // 탐정/밀정 주당 사용 한도 (src/store.js CONFIG와 동일)
+  roleRevealThreshold: 0.6, // 역할 공개·능력 박탈 기준 (동일)
+  voteMinRatio: 0.3,      // 적발 최소 득표 비율 (동일)
 };
+
+// 현재 주차(1~weeks). 시작 전이면 0. src/store.js getCalendar().week와 같은 식이며,
+// computeIsTug와 동일하게 KST 벽시계 날짜로 계산해 클라이언트와 일치시킨다.
+export function computeWeek(startDate, weeks = 3, nowMs = Date.now()) {
+  if (!startDate) return 0;
+  const kst = new Date(nowMs + 9 * 3600 * 1000);
+  const today0 = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const start0 = Date.UTC(sy, sm - 1, sd);
+  const dayIndex = Math.round((today0 - start0) / 86400000);
+  if (dayIndex < 0) return 0;
+  return Math.min(weeks, Math.floor(dayIndex / 7) + 1);
+}
 
 // 버프 카드 풀 — src/screens/bolt-buff.js와 동일(서버가 draw해 항상 ×3 우회를 막는다).
 // 결과 화면(bolt-result.js)이 result.card의 시각 속성을 그대로 쓰므로 전체 객체를 보존한다.

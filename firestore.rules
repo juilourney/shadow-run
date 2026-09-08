@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// Shadow Run — Firestore 보안 규칙
+//
+// Firebase 콘솔 > Firestore Database > 규칙 에 이 내용을 붙여넣고 [게시]를 누르세요.
+//
+// 핵심: 팀·역할은 secrets/ 와 identities/ 에만 있고, 클라이언트는 읽지도 쓰지도 못한다.
+// 서버(Cloudflare Functions)는 서비스 계정으로 접근하므로 이 규칙의 적용을 받지 않는다.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── 비밀 (클라이언트 접근 전면 차단) ─────────────────────
+    // secrets/assignment : 전원의 팀·역할
+    // identities/{id}    : 참가 코드·기기 바인딩·능력 사용 기록·조사 결과
+    // certPhotos/{id}    : 인증 사진 (관리자만 /api/cert-photo 경유로 조회)
+    match /secrets/{doc}     { allow read, write: if false; }
+    match /identities/{doc}  { allow read, write: if false; }
+    match /certPhotos/{doc}  { allow read, write: if false; }
+
+    // ── 서버 전용 쓰기 (읽기는 공개) ────────────────────────
+    // game/gauge·settings : 승부 조건이라 /api/set-gauge 등 서버만 쓴다
+    // game/assignment     : 누가 배정됐는지(이름·id)만 — 팀·역할은 들어가지 않는다
+    match /game/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /roster/{doc} {
+      allow read: if true;
+      allow write: if false;   // 명단 등록은 /api/roster 경유
+    }
+
+    // ── 게임 진행 데이터 (참가자 기기가 직접 읽고 쓴다) ────────
+    // players : 이름·마일리지·완주 수·공개된 정체(publicTeam/publicRole)·페널티.
+    //           team·role은 여기 없다(secrets로 이관) — 남의 정체는 조회 불가.
+    match /players/{doc}     { allow read, write: if true; }
+    match /bolts/{doc}       { allow read, write: if true; }
+    match /votes/{doc}       { allow read, write: if true; }
+    match /voteHistory/{doc} { allow read, write: if true; }
+    match /timeline/{doc}    { allow read, write: if true; }
+
+    // 위에 없는 경로는 모두 차단
+    match /{document=**} { allow read, write: if false; }
+  }
+}

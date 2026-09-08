@@ -5,18 +5,13 @@
 * { word-break: keep-all; -webkit-tap-highlight-color: transparent; }
 html {
   background: var(--ink);
-  /* 슬라이드가 각 섹션에 확실히 걸림 (한 번에 한 섹션, 통과 불가) */
-  scroll-snap-type: y mandatory;
-  scroll-padding-top: 0;
-  /* scroll-behavior: smooth 는 넣지 않는다 — mandatory 스냅 컨테이너에서 네이티브
-     smooth 스크롤은 스냅 엔진이 애니메이션을 끊어, 손가락 스크롤이 씹히는 원인이 된다.
-     부드러운 섹션 이동이 필요한 곳은 scrollIntoView({behavior:'smooth'})로 개별 지정. */
+  /* 문서 자체는 스냅하지 않는다 — 탭 이동은 가로축(.game-wrap), 세로는 섹션 내부 전용.
+     예전엔 여기에 y mandatory를 걸어 탭 이동과 내용 스크롤이 같은 축을 나눠 썼고,
+     그래서 손짓을 거리·시간으로 추측해 구분해야 했다(경계 감지·dwell). */
 }
-/* 오버레이 화면이 떠 있을 때 배경 게임 섹션 스크롤 잠금 */
-html.lock-scroll {
-  overflow: hidden;
-  scroll-snap-type: none;
-}
+/* 오버레이 화면이 떠 있을 때 배경 게임 섹션 잠금 */
+html.lock-scroll { overflow: hidden; }
+html.lock-scroll .game-wrap { overflow: hidden; }
 body {
   font-family: 'Pretendard', system-ui, sans-serif;
   font-size: 16px;
@@ -84,14 +79,24 @@ body {
   overflow: hidden;
 }
 
-/* ── 게임 컨테이너 (관리앱식 자연 스크롤 — body가 스크롤, 고정 쉘 없음) ── */
+/* ── 게임 컨테이너 (좌우 스와이프로 탭 이동) ──
+   가로축만 스냅한다. 세로는 각 섹션 내부(.scroll-body)가 담당해서 서로 간섭이 없다. */
 .game-wrap {
-  display: block;
+  display: flex;
+  height: 100dvh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
+.game-wrap::-webkit-scrollbar { display: none; }
 .game-section {
-  height: 100dvh;              /* 정확히 한 화면 = 스냅 단위 */
-  scroll-snap-align: start;    /* 섹션 시작(제목)에 걸림 */
-  scroll-snap-stop: always;    /* 한 번 슬라이드 = 한 섹션 (통과 불가) */
+  flex: 0 0 100%;              /* 정확히 한 화면 = 스냅 단위 */
+  width: 100%;
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;    /* 한 번 스와이프 = 한 섹션 (통과 불가) */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -101,10 +106,9 @@ body {
   flex: 1;
   overflow-y: auto;            /* 긴 섹션(가이드)은 내부에서 스크롤 → 안 갇힘 */
   -webkit-overflow-scrolling: touch;
-  /* 내부 스크롤이 문서로 새어나가면, 네이티브 스냅 이동과 main.js의 섹션 이동이
-     동시에 같은 축을 잡아 서로를 끊는다(스크롤이 '안 먹는' 원인). 체이닝은 막고
-     섹션 이동은 main.js 터치 핸들러 한 곳만 담당하게 한다. */
-  overscroll-behavior-y: contain;
+  /* 세로 스크롤이 가로 컨테이너로 새어나가지 않게 — 두 축이 서로를 끊는 것 방지 */
+  overscroll-behavior: contain;
+  padding-bottom: calc(var(--safe-bottom) + 88px);   /* 하단 플로팅 탭바 자리 */
 }
 
 /* ── 게임 섹션 orb 배경 (name 화면과 동일 스타일) ── */

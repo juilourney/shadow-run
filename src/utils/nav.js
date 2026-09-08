@@ -1,5 +1,4 @@
 let currentScreen = null;   // 아직 어떤 .screen도 활성화되지 않은 상태 — 첫 goToScreen 호출이 실제 전환으로 인식되게 함
-let _programmaticScroll = false;
 let _bootGateRemoved = false;
 
 // 부팅 라우팅이 어느 화면으로 갈지 정해지는 순간(첫 goToScreen 호출) 부팅 게이트를 걷는다 —
@@ -10,34 +9,12 @@ function removeBootGate() {
   document.getElementById('boot-gate')?.remove();
 }
 
-export function isProgrammaticScroll() { return _programmaticScroll; }
-
-// 탭 이동(smooth) 애니메이션이 도는 중에 손가락이 닿으면, 애니메이션을 끝까지 기다리지 않고
-// 목표 섹션으로 즉시 정렬한 뒤 제어권을 사용자에게 넘긴다. 그러지 않으면 애니메이션 중간
-// 위치를 기준으로 '섹션 건너뛰기 방지' 안전장치가 오작동해, 이동 직후 스크롤이 먹지 않는다.
-let _pendingTarget = null;
-export function settleProgrammaticScroll() {
-  if (!_programmaticScroll) return;
-  clearTimeout(_scrollTimer);
-  _programmaticScroll = false;
-  if (_pendingTarget) {
-    document.getElementById(_pendingTarget)?.scrollIntoView({ behavior: 'instant', block: 'start' });
-    _pendingTarget = null;
-  }
-}
-
-// 바텀시트 등 오버레이가 뜬 동안 배경(게임 섹션) 스크롤 잠금 + 사이드 메뉴(탭바) 비활성
+// 바텀시트 등 오버레이가 뜬 동안 배경(게임 섹션) 스크롤 잠금
 export function setScrollLock(locked) {
   document.documentElement.classList.toggle('lock-scroll', locked);
-  const tb     = document.getElementById('global-tabbar');
-  const handle = document.getElementById('tabbar-handle');
-  if (locked) {
-    tb?.classList.remove('open');                 // 열려 있던 사이드 메뉴 닫기
-    if (handle) handle.style.visibility = 'hidden'; // 손잡이 비활성 (팝업 위로 못 열게)
-  } else if (handle) {
-    handle.style.visibility = '';
-  }
 }
+
+export const SECTION_IDS = ['gs-dash', 'gs-bolt', 'gs-vote', 'gs-members', 'gs-guide'];
 
 const SECTION_TAB = {
   'gs-dash': 'home', 'gs-bolt': 'bolt', 'gs-vote': 'vote',
@@ -46,23 +23,18 @@ const SECTION_TAB = {
 
 // 사파리(WebKit)는 scroll-snap-type을 최초 페인트 이후 동적으로 바꾸면(클래스 토글 등)
 // 스냅 엔진이 새 값을 인식하지 못해 스와이프 잠금이 풀린 것처럼 동작하는 경우가 있다.
-// 강제로 none → 리플로우 → 원래값 순서로 재적용해 즉시 재인식시킨다.
-// - 게임 화면 진입 시(goToScreen)뿐 아니라, "홈 화면에 추가"한 PWA(standalone)를
-//   백그라운드에서 복귀시킬 때도 필요하다 — 일반 브라우저 탭과 달리 standalone은
-//   백그라운드→포그라운드 전환이 페이지 새로고침 없이 그대로 이어지기 때문에,
-//   재진입 시점에 한 번 재적용해도 복귀 시점엔 다시 풀린 채로 남을 수 있다.
+// none → 리플로우 → 원래값 순서로 재적용해 즉시 재인식시킨다.
+// "홈 화면에 추가"한 PWA(standalone)는 백그라운드→포그라운드 복귀가 새로고침 없이
+// 그대로 이어지므로, 복귀 시점에도 한 번 다시 물려준다.
 export function reengageScrollSnap() {
-  const html = document.documentElement;
-  if (html.classList.contains('lock-scroll')) return;
-  // none → 리플로우 → 인라인 제거 → 리플로우 를 모두 "동기"로 처리.
-  // requestAnimationFrame에 의존하면(백그라운드 탭·저전력 등으로) rAF가 지연될 때
-  // 인라인 scroll-snap-type:none이 그대로 남아 CSS의 y mandatory를 덮어써서
-  // 오히려 스냅이 영구히 풀리는 부작용이 있었다. 인라인을 최종적으로 비워
-  // lock-scroll 클래스 메커니즘(오버레이 열릴 때 none)도 그대로 유지된다.
-  html.style.scrollSnapType = 'none';
-  void html.offsetHeight;
-  html.style.scrollSnapType = '';
-  void html.offsetHeight;
+  const wrap = document.getElementById('s-game');
+  if (!wrap || document.documentElement.classList.contains('lock-scroll')) return;
+  // rAF에 의존하면(백그라운드 탭·저전력 등으로) 인라인 none이 그대로 남아 CSS의
+  // x mandatory를 덮어써 스냅이 영구히 풀리는 부작용이 있었다 — 전부 동기로 처리한다.
+  wrap.style.scrollSnapType = 'none';
+  void wrap.offsetHeight;
+  wrap.style.scrollSnapType = '';
+  void wrap.offsetHeight;
 }
 
 export function goToScreen(id) {
@@ -81,9 +53,8 @@ export function goToScreen(id) {
   next.classList.add('active');
   currentScreen = id;
 
-  // 오버레이(.screen)가 뜨면 뒤의 게임 섹션(html) 스크롤 잠금 —
-  // 안 그러면 오버레이 내부에 스크롤이 없을 때 드래그가 배경으로 새어
-  // 다른 섹션(투표 등)이 올라옴
+  // 오버레이(.screen)가 뜨면 뒤의 게임 섹션 스크롤 잠금 — 안 그러면 오버레이 내부에
+  // 스크롤이 없을 때 드래그가 배경으로 새어 다른 섹션이 넘어간다
   document.documentElement.classList.toggle('lock-scroll', id !== 's-game');
 
   // 화면이 바뀌면 열려 있던 FAQ 시트는 닫는다.
@@ -92,57 +63,87 @@ export function goToScreen(id) {
   if (id === 's-game') {
     reengageScrollSnap();
     // iOS WebKit은 lock-scroll 해제와 같은 프레임의 재적용을 무시하는 경우가 있다
-    // (이전 화면의 500ms 퇴장 애니메이션·scrollIntoView와 겹칠 때) — 카드/역할 확인을
-    // 거쳐 처음 게임 화면에 들어온 직후 상하 스냅이 안 걸리는 증상. 전환이 끝난 뒤
-    // 한 번 더 재적용해 확실히 물린다.
+    // (이전 화면의 500ms 퇴장 애니메이션과 겹칠 때) — 전환이 끝난 뒤 한 번 더 물린다.
     setTimeout(reengageScrollSnap, 550);
   }
 
-  const tb     = document.getElementById('global-tabbar');
-  const handle = document.getElementById('tabbar-handle');
-  if (!tb) return;
-
-  tb.classList.remove('open');
-  if (handle) handle.classList.remove('hidden');
+  const wrap = document.getElementById('tabbar-wrap');
+  if (!wrap) return;
 
   if (id === 's-game') {
-    tb.style.display = 'flex';
-    if (handle) handle.style.display = 'flex';
+    wrap.style.display = 'flex';
     setActiveTab('home');
-    // 게임 화면 진입 시 항상 홈(대시보드)에서 시작 — 예전 스크롤 위치가 남아있으면
-    // 엉뚱한 섹션이 먼저 보이는 문제 방지. scrollToSection이 다른 섹션을 원하면
-    // 뒤이어 다시 스크롤하므로 여기서는 무조건 gs-dash로 리셋해도 안전하다.
-    // (behavior 미지정 시 html의 scroll-behavior:smooth가 적용돼 애니메이션이 됨 — instant 필수)
-    document.getElementById('gs-dash')?.scrollIntoView({ behavior: 'instant', block: 'start' });
+    // 게임 화면 진입 시 항상 홈(대시보드)에서 시작 — 예전 위치가 남아 엉뚱한 섹션이
+    // 먼저 보이는 문제 방지. scrollToSection이 다른 섹션을 원하면 뒤이어 다시 옮긴다.
+    jumpToSection('gs-dash', 'instant');
   } else {
-    tb.style.display = 'none';
-    if (handle) handle.style.display = 'none';
+    wrap.style.display = 'none';
   }
+}
+
+// mandatory 스냅 컨테이너에서 네이티브 smooth 스크롤은 스냅 엔진이 애니메이션을
+// 가로채 아무 동작도 하지 않는다(탭을 눌러도 화면이 안 넘어감). rAF로 직접 트윈하고,
+// 그동안만 스냅을 꺼둔다. 도중에 손가락이 닿으면 목표 위치로 즉시 맞추고 제어권을 넘긴다.
+let _tween = null;
+let _tweenTarget = null;
+
+function tweenTo(wrap, endLeft) {
+  const startLeft = wrap.scrollLeft;
+  if (Math.abs(endLeft - startLeft) < 2) return;
+  cancelAnimationFrame(_tween);
+  _tweenTarget = endLeft;
+  wrap.style.scrollSnapType = 'none';
+  const t0 = performance.now();
+  const DUR = 380;
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const step = now => {
+    const p = Math.min(1, (now - t0) / DUR);
+    wrap.scrollLeft = startLeft + (endLeft - startLeft) * ease(p);
+    if (p < 1) _tween = requestAnimationFrame(step);
+    else { _tween = null; _tweenTarget = null; wrap.style.scrollSnapType = ''; }
+  };
+  _tween = requestAnimationFrame(step);
+}
+
+// 트윈 중간에 손가락이 닿으면, 어중간한 위치에서 스냅을 되살리는 대신 목표로 정렬한다 —
+// 그러지 않으면 스냅 엔진이 가까운 쪽(=출발 섹션)으로 되돌리는 동안 스크롤이 씹힌다.
+let _tweenGuardBound = false;
+function bindTweenGuard(wrap) {
+  if (_tweenGuardBound) return;
+  _tweenGuardBound = true;
+  wrap.addEventListener('touchstart', () => {
+    if (_tween === null) return;
+    cancelAnimationFrame(_tween);
+    _tween = null;
+    if (_tweenTarget !== null) { wrap.scrollLeft = _tweenTarget; _tweenTarget = null; }
+    wrap.style.scrollSnapType = '';
+  }, { passive: true });
+}
+
+// 가로 스냅 컨테이너를 해당 섹션 위치로 옮긴다
+function jumpToSection(gsId, behavior) {
+  const wrap = document.getElementById('s-game');
+  const idx = SECTION_IDS.indexOf(gsId);
+  if (!wrap || idx < 0) return;
+  bindTweenGuard(wrap);
+  const left = wrap.clientWidth * idx;
+  if (behavior === 'smooth') tweenTo(wrap, left);
+  else { cancelAnimationFrame(_tween); _tween = null; _tweenTarget = null; wrap.scrollLeft = left; }
 }
 
 export function scrollToSection(gsId) {
   const gameWrap = document.getElementById('s-game');
-  const enter    = !gameWrap.classList.contains('active');
-
-  _programmaticScroll = true;
-  _pendingTarget = gsId;
-  clearTimeout(_scrollTimer);
-  _scrollTimer = setTimeout(() => { _programmaticScroll = false; _pendingTarget = null; }, 800);
+  const enter = !gameWrap.classList.contains('active');
 
   if (enter) {
     goToScreen('s-game');
-    // 동기 + instant로 즉시 목표 섹션에 정렬 — html의 scroll-behavior:smooth 때문에
-    // behavior를 명시하지 않으면 애니메이션 이동이 되어, 스냅·화면 퇴장 애니메이션과
-    // 경합해 엉뚱한 위치에 걸린다(결과 화면 확인 → 번개 화면 이동이 갈피를 못 잡던 원인).
-    document.getElementById(gsId)?.scrollIntoView({ behavior: 'instant', block: 'start' });
-    setActiveTab(SECTION_TAB[gsId] || 'home');
+    // 동기 + instant로 즉시 목표 섹션에 정렬 — 화면 퇴장 애니메이션과 경합하지 않게
+    jumpToSection(gsId, 'instant');
   } else {
-    document.getElementById(gsId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setActiveTab(SECTION_TAB[gsId] || 'home');
+    jumpToSection(gsId, 'smooth');
   }
+  setActiveTab(SECTION_TAB[gsId] || 'home');
 }
-
-let _scrollTimer = null;
 
 export function setActiveTab(tabName) {
   const tb = document.getElementById('global-tabbar');

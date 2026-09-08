@@ -363,18 +363,15 @@ function closeJoinOverlay() {
   setTimeout(() => { document.getElementById('bolt-join-overlay').style.display = 'none'; }, 400);
 }
 
+// 시트가 열린 동안 하단 탭바를 숨긴다 (예전 오른쪽 손잡이 메뉴 → 하단 플로팅 바)
 function hideSidebar() {
-  const tb     = document.getElementById('global-tabbar');
-  const handle = document.getElementById('tabbar-handle');
-  if (tb)     tb.style.display = 'none';
-  if (handle) handle.style.display = 'none';
+  const wrap = document.getElementById('tabbar-wrap');
+  if (wrap) wrap.style.display = 'none';
 }
 
 function showSidebar() {
-  const tb     = document.getElementById('global-tabbar');
-  const handle = document.getElementById('tabbar-handle');
-  if (tb)     tb.style.display = 'flex';
-  if (handle) handle.style.display = 'flex';
+  const wrap = document.getElementById('tabbar-wrap');
+  if (wrap) wrap.style.display = 'flex';
 }
 
 function showToast(msg) {

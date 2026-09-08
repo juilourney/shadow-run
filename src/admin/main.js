@@ -52,11 +52,47 @@ function paint(pos) {
   }
 }
 
+// mandatory 스냅 컨테이너에서 네이티브 smooth 스크롤은 스냅 엔진이 애니메이션을
+// 가로채 아무 동작도 하지 않는다(탭을 눌러도 화면이 안 넘어감). rAF로 직접 트윈하고
+// 그동안만 스냅을 꺼둔다. 도중에 손가락이 닿으면 목표로 즉시 맞추고 제어권을 넘긴다.
+let panelAnim = null;
+let panelTarget = null;
+
+outer.addEventListener('touchstart', () => {
+  if (panelAnim === null) return;
+  cancelAnimationFrame(panelAnim);
+  panelAnim = null;
+  if (panelTarget !== null) { outer.scrollLeft = panelTarget; panelTarget = null; }
+  outer.style.scrollSnapType = '';
+}, { passive: true });
+
 function showPanel(index, instant = false) {
   // 도착할 패널은 항상 맨 위(첫 항목)부터 보이게 — 이전 스크롤 위치가 남지 않도록
   const targetScreen = outer.querySelectorAll('.admin-section')[index]?.querySelector('.admin-screen');
   if (targetScreen) targetScreen.scrollTop = 0;
-  outer.scrollTo({ left: outer.clientWidth * index, behavior: instant ? 'instant' : 'smooth' });
+
+  const endLeft = outer.clientWidth * index;
+  cancelAnimationFrame(panelAnim);
+  panelAnim = null;
+  if (instant || Math.abs(endLeft - outer.scrollLeft) < 2) {
+    panelTarget = null;
+    outer.style.scrollSnapType = '';
+    outer.scrollLeft = endLeft;
+  } else {
+    const startLeft = outer.scrollLeft;
+    panelTarget = endLeft;
+    outer.style.scrollSnapType = 'none';
+    const t0 = performance.now();
+    const DUR = 380;
+    const ease = t => 1 - Math.pow(1 - t, 3);
+    const step = now => {
+      const p = Math.min(1, (now - t0) / DUR);
+      outer.scrollLeft = startLeft + (endLeft - startLeft) * ease(p);
+      if (p < 1) panelAnim = requestAnimationFrame(step);
+      else { panelAnim = null; panelTarget = null; outer.style.scrollSnapType = ''; }
+    };
+    panelAnim = requestAnimationFrame(step);
+  }
   paint(index);
 }
 

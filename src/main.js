@@ -1,7 +1,7 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
-import { goToScreen, syncTabbarOnScroll, isProgrammaticScroll, reengageScrollSnap, settleProgrammaticScroll } from './utils/nav.js';
+import { goToScreen, syncTabbarOnScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
 import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
@@ -60,41 +60,43 @@ createTabbar(app);
 createEdgeBlur(app);
 createFaq(app);
 
-// 수동 스크롤 시 탭 동기화
+// 손가락 스와이프로 섹션이 바뀌면 탭바 동기화 + 알약을 진행도만큼 이동.
+// 예전엔 IntersectionObserver로 '어느 섹션이 화면의 절반을 넘었나'를 봤는데,
+// 가로 스냅에서는 스크롤 위치 하나로 정확히 알 수 있어 더 단순하다.
 const SECTION_IDS = ['gs-dash', 'gs-bolt', 'gs-vote', 'gs-members', 'gs-guide'];
-const gameObserver = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && !isProgrammaticScroll()) {
-      syncTabbarOnScroll(entry.target.id);
+const pill = document.getElementById('tabbar-pill');
+const tabEls = [...document.querySelectorAll('#global-tabbar .tab')];
+
+// 첫/마지막 섹션에서 더 밀면 고무줄 바운스로 scrollLeft가 범위를 벗어난다 —
+// 그 값을 그대로 쓰면 알약이 바 바깥으로 빠져나가므로 가둔다.
+function sectionPos() {
+  const raw = gameWrap.scrollLeft / gameWrap.clientWidth;
+  return Math.max(0, Math.min(SECTION_IDS.length - 1, raw || 0));
+}
+
+let _tabRaf = null;
+gameWrap.addEventListener('scroll', () => {
+  if (_tabRaf) return;
+  _tabRaf = requestAnimationFrame(() => {
+    _tabRaf = null;
+    const pos = sectionPos();
+    syncTabbarOnScroll(SECTION_IDS[Math.round(pos)]);
+    const w = tabEls[0]?.offsetWidth;
+    if (pill && w) {
+      pill.style.width = `${w}px`;
+      pill.style.transform = `translateX(${w * pos}px)`;
     }
   });
-}, { root: null, threshold: 0.5 });
+}, { passive: true });
 
-SECTION_IDS.forEach(id => {
-  const el = document.getElementById(id);
-  if (el) gameObserver.observe(el);
-});
-
-// 사파리(브라우저 모드)에서 주소창/툴바가 접히고 펼쳐질 때 뷰포트 높이가
-// 변하는데(100dvh 섹션 높이도 함께 변함), iOS는 scroll-snap을 다시 정렬해
-// 주지 않아 섹션 경계가 어긋남 → 화면 하단에 다음 섹션 상단이 삐져나옴.
-// 뷰포트 리사이즈가 잦아들면 가장 가까운 섹션 시작점으로 즉시 재스냅.
-// (PWA standalone은 툴바가 없어 리사이즈 자체가 안 일어남 — 영향 없음)
+// 화면 회전이나 주소창 접힘으로 뷰포트 폭이 바뀌면 scrollLeft가 새 폭과 어긋나
+// 섹션이 어중간하게 걸린다 — 리사이즈가 잦아들면 가장 가까운 섹션으로 다시 맞춘다.
 let _resnapTimer = null;
 function resnapNearestSection() {
-  if (!document.getElementById('s-game')?.classList.contains('active')) return;
+  if (!gameWrap.classList.contains('active')) return;
   if (document.documentElement.classList.contains('lock-scroll')) return;
-
-  let nearest = null, minDist = Infinity;
-  for (const id of SECTION_IDS) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    const dist = Math.abs(el.getBoundingClientRect().top);
-    if (dist < minDist) { minDist = dist; nearest = el; }
-  }
-  if (nearest && minDist > 2) {
-    window.scrollTo({ top: window.scrollY + nearest.getBoundingClientRect().top, behavior: 'instant' });
-  }
+  const i = Math.round(sectionPos());
+  gameWrap.scrollLeft = gameWrap.clientWidth * i;
 }
 function onViewportResize() {
   clearTimeout(_resnapTimer);
@@ -139,100 +141,6 @@ function onAppResume(e) {
 document.addEventListener('visibilitychange', onAppResume);
 window.addEventListener('pageshow', onAppResume);
 
-// iOS Safari는 빠르게 스와이프하면 scroll-snap-stop:always를 무시하고
-// 한 번에 여러 섹션을 건너뛰는 경우가 있음 — 스와이프 시작 시점의 섹션을
-// 기억해두고, 관성 스크롤 도중 그보다 2섹션 이상 벗어나면 즉시 1섹션 위치로 되돌린다.
-function nearestSectionIndex() {
-  let idx = -1, minDist = Infinity;
-  SECTION_IDS.forEach((id, i) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const dist = Math.abs(el.getBoundingClientRect().top);
-    if (dist < minDist) { minDist = dist; idx = i; }
-  });
-  return idx;
-}
-
-let swipeStartIndex = null;
-let swipeClearTimer = null;
-document.getElementById('s-game').addEventListener('touchstart', () => {
-  // 탭 이동 애니메이션 중이면 즉시 목표 섹션으로 정렬하고 제어권을 넘긴다 —
-  // 그래야 아래 swipeStartIndex가 '애니메이션 중간 위치'가 아닌 실제 섹션을 잡는다.
-  settleProgrammaticScroll();
-  clearTimeout(swipeClearTimer);
-  swipeStartIndex = nearestSectionIndex();
-}, { passive: true });
-document.getElementById('s-game').addEventListener('touchend', () => {
-  // 손가락을 뗀 직후에도 관성 스크롤이 한동안 이어지므로, 여기서 바로 감시를 끄면
-  // 정작 지켜야 할 관성 구간 내내 안전장치가 꺼진 채로 있게 된다 — 관성이 끝날
-  // 시간만큼 유예를 두고서 끈다.
-  clearTimeout(swipeClearTimer);
-  swipeClearTimer = setTimeout(() => { swipeStartIndex = null; }, 700);
-}, { passive: true });
-
-window.addEventListener('scroll', () => {
-  if (swipeStartIndex === null) return;
-  if (document.documentElement.classList.contains('lock-scroll')) return;
-  // 탭으로 2칸 이상 건너뛰는 '의도된' 이동까지 되돌리면 안 된다 — 이 안전장치는
-  // 손가락 스와이프 전용이다.
-  if (isProgrammaticScroll()) return;
-  const idx = nearestSectionIndex();
-  if (idx === -1) return;
-  const diff = idx - swipeStartIndex;
-  if (Math.abs(diff) > 1) {
-    const clamped = swipeStartIndex + Math.sign(diff);
-    document.getElementById(SECTION_IDS[clamped])?.scrollIntoView({ behavior: 'instant', block: 'start' });
-  }
-}, { passive: true });
-
-// iOS WebKit에서 내부 scroll-body 가 상단/하단 경계에 닿았을 때
-// 외부 scroll-snap으로 touch가 전파되지 않는 문제를 JS로 보완
-document.querySelectorAll('.game-section .scroll-body').forEach(body => {
-  const section = body.closest('.game-section');
-  const PULL = 30;       // 경계에 닿은 뒤 '한 번 더' 당겨야 하는 거리 (가볍게)
-  const DWELL = 120;     // 경계에서 이만큼(ms) 머문 뒤의 당김만 인정 — 플릭 통과 방지
-  let chaining = false;
-  let edgeY = null;      // 위/아래 끝에 처음 닿은 순간의 손가락 위치
-  let edgeAt = 0;        // 그 순간의 시각
-
-  body.addEventListener('touchstart', () => {
-    chaining = false;
-    edgeY = null;
-  }, { passive: true });
-
-  body.addEventListener('touchmove', e => {
-    if (chaining) return;
-
-    // 내용이 화면에 다 들어오는 섹션은 네이티브 scroll-snap이 처리 →
-    // JS 체이닝을 돌리면 이중 스크롤로 튐. 실제 내부 스크롤이 있을 때만 보완.
-    if (body.scrollHeight <= body.clientHeight + 2) return;
-
-    const idx = SECTION_IDS.indexOf(section.id);
-    if (idx === -1) return;
-
-    const y        = e.touches[0].clientY;
-    const atTop    = body.scrollTop <= 0;
-    const atBottom = body.scrollHeight - body.scrollTop <= body.clientHeight + 2;
-
-    // 경계를 벗어나면 기준점 초기화 — 다시 끝에 닿을 때부터 새로 잰다
-    if (!atTop && !atBottom) { edgeY = null; return; }
-    // 끝에 '방금 닿은' 순간을 기준점으로 잡는다. touchstart 기준으로 재면, 긴 화면을
-    // 한 번에 쭉 내려 바닥에 닿는 순간 이미 누적 이동이 커서 곧바로 다음 섹션으로 튕겼다.
-    if (edgeY === null) { edgeY = y; edgeAt = e.timeStamp; return; }
-    // 빠르게 훅 내리는 플릭은 바닥을 스치며 지나가도 손가락이 계속 움직인다 —
-    // 경계에서 잠깐 머문 뒤의 당김만 '섹션 이동 의도'로 본다.
-    if (e.timeStamp - edgeAt < DWELL) return;
-
-    const pull = y - edgeY;
-    if (atTop && pull > PULL && idx > 0) {
-      chaining = true;
-      document.getElementById(SECTION_IDS[idx - 1])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (atBottom && pull < -PULL && idx < SECTION_IDS.length - 1) {
-      chaining = true;
-      document.getElementById(SECTION_IDS[idx + 1])?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, { passive: true });
-});
 
 // iOS는 키보드가 올라와 있는 동안 html의 overflow:hidden(lock-scroll)을 무시하고
 // 배경 문서를 손가락으로 스크롤할 수 있게 풀어버린다 — 번개 만들기 등 입력 화면

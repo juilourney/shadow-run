@@ -10,58 +10,28 @@ const TAB_MARKUP = `
   <div class="tab" data-tab="guide"><div class="tab-icon"><span class="ti-book"></span></div></div>
 `;
 
+// 하단 가운데 플로팅 탭바. 예전엔 오른쪽 가장자리 손잡이를 당겨 여는 사이드 메뉴였는데,
+// 좌우 스와이프로 섹션을 넘기게 되면서 "지금 어느 탭인지"를 항상 보여주는 역할이 커졌다.
+// 열고 닫는 개념이 없어져 손잡이·idle 타이머·바깥 터치 닫기가 전부 사라졌다.
 export function createTabbar(mount) {
+  const wrap = document.createElement('div');
+  wrap.id = 'tabbar-wrap';
+  wrap.style.display = 'none';
+
   const tabbar = document.createElement('div');
   tabbar.id = 'global-tabbar';
   tabbar.className = 'tabbar';
-  tabbar.style.display = 'none';
-  tabbar.innerHTML = TAB_MARKUP;
-  mount.appendChild(tabbar);
+  tabbar.innerHTML = `<div id="tabbar-pill"></div>${TAB_MARKUP}`;
 
-  // 볼록한 손잡이 — 평소엔 이것만 보이고, 누르면 탭바가 나옴
-  const handle = document.createElement('div');
-  handle.id = 'tabbar-handle';
-  handle.style.display = 'none';
-  handle.innerHTML = '<span class="handle-grip"></span>';
-  mount.appendChild(handle);
+  wrap.appendChild(tabbar);
+  mount.appendChild(wrap);
 
-  // 아무 입력 없으면 자동으로 닫힘
-  const IDLE_MS = 3200;
-  let idleTimer = null;
-  const armIdle = () => {
-    clearTimeout(idleTimer);
-    if (tabbar.classList.contains('open')) idleTimer = setTimeout(close, IDLE_MS);
-  };
-
-  const open  = () => { tabbar.classList.add('open');    handle.classList.add('hidden'); armIdle(); };
-  const close = () => { tabbar.classList.remove('open'); handle.classList.remove('hidden'); clearTimeout(idleTimer); };
-
-  // 손잡이 터치 → 탭바 펼침
-  handle.addEventListener('click', e => { e.stopPropagation(); open(); });
-
-  // 열린 상태에서 탭바를 만지면 idle 타이머 리셋 (조작 중엔 안 닫힘)
-  tabbar.addEventListener('pointerdown', armIdle);
-
-  // 탭 선택 → 화면 이동 즉시, 사이드바는 850ms 후 닫힘
   tabbar.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', e => {
       e.stopPropagation();
       scrollToSection(TAB_SECTION_MAP[tab.dataset.tab]);
-      setTimeout(close, 1800);
     });
   });
-
-  // 바깥 터치 → 닫힘
-  document.addEventListener('click', e => {
-    if (tabbar.classList.contains('open') && !tabbar.contains(e.target) && e.target !== handle) {
-      close();
-    }
-  });
-
-  // 손가락으로 위아래 스크롤하는 순간 닫힘 (탭 이동의 자동 스크롤은 touchmove/wheel을 안 일으켜 제외됨)
-  const closeOnUserScroll = () => { if (tabbar.classList.contains('open')) close(); };
-  window.addEventListener('touchmove', closeOnUserScroll, { passive: true });
-  window.addEventListener('wheel',     closeOnUserScroll, { passive: true });
 
   return tabbar;
 }

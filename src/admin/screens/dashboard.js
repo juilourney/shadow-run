@@ -1,4 +1,4 @@
-import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES, loadAdminSecrets, adminSecretOf } from '../../store.js';
+import { subscribe, getGameSettings, getGauge, getPlayers, getVoteHistory, getBolts, getRoster, getAssignment, triggerAssignment, isSettingsLoaded, isVoteWindowNow, getPhase, ROLES, loadAdminSecrets, adminSecretOf, completeExpiredBolt } from '../../store.js';
 
 const TEAM = {
   pacer: { label: '페이서', color: '#38bdf8' },
@@ -141,10 +141,16 @@ function boltRow(b) {
   const s = BOLT_STATUS[b.status] ?? { label: b.status, color: '#a1a1aa' };
   const when = b.startAt ? fmtDate(b.startAt) : (b.time || '시간 미정');
   const open = b.id === expandedBoltId;
+  // 만료 번개는 펼쳤을 때 '수동 인증 처리' 버튼을 준다 — 마감을 놓쳤지만 실제로 뛴 경우 구제.
+  const manualBtn = b.status === 'expired'
+    ? `<button class="btn btn-secondary expired-complete-btn" data-bolt-id="${b.id}"
+        style="width:100%; height:40px; font-size:13px; color:#34d399; margin-top:10px;">✓ 인증 처리 (마일리지·게이지 반영)</button>`
+    : '';
   const detail = open ? `
       <div style="width:100%; margin-top:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06);">
         <p style="font-size:11px; color:#52525b; margin-bottom:7px; letter-spacing:.04em;">참석자 ${b.count}명</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">${participantChips(b)}</div>
+        ${manualBtn}
       </div>` : '';
   return `
     <div class="admin-row bolt-row" data-bolt-id="${b.id}" style="align-items:flex-start; flex-direction:column; gap:4px; cursor:pointer;">
@@ -320,6 +326,27 @@ export function init(goTo) {
     if (e.target.closest('.ended-toggle')) {   // '지난 번개' 섹션 펼치기/접기
       showEnded = !showEnded;
       renderTabBody();
+      return;
+    }
+    const manual = e.target.closest('.expired-complete-btn');   // 만료 번개 수동 인증 처리
+    if (manual) {
+      e.stopPropagation();   // 행 접힘 방지
+      const bolt = getBolts().find(b => b.id === manual.dataset.boltId);
+      if (!bolt) return;
+      const who = (bolt.participants || []).map(pid => getPlayers().find(p => p.id === pid)?.name || '?').join(', ');
+      const input = prompt(`인증 처리할 실제 달린 거리(km)\n\n번개: ${bolt.title}\n참가자: ${who}`, String(bolt.distance ?? ''));
+      if (input === null) return;
+      const km = parseFloat(input);
+      if (!(km > 0)) { alert('거리를 올바르게 입력하세요.'); return; }
+      manual.disabled = true;
+      try {
+        const r = await completeExpiredBolt(bolt.id, km, bolt.participants || []);
+        const f = n => (n > 0 ? '+' : '') + n.toFixed(1);
+        alert(`인증 처리 완료 — ${r.boltTitle}\n\n${km}km · ${r.card}\n게이지 페이서 ${f(r.gaugeDelta.pacer)} / 고스트 ${f(r.gaugeDelta.ghost)}\n참가자 마일리지·완주 수에 반영됐습니다.`);
+      } catch (err) {
+        alert(err.message);
+        manual.disabled = false;
+      }
       return;
     }
     const row = e.target.closest('.bolt-row');   // 번개 행 탭 — 참석자 펼치기/접기

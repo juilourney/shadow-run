@@ -1087,6 +1087,18 @@ export async function rejectBoltCert(boltId) {
 }
 
 // 재인정 — 불인정으로 되돌린 걸 다시 반영(확인 결과 맞는 인증일 때). reject의 정확한 역연산.
+// 만료된 번개를 관리자가 수동으로 완료 처리 — 실제로 뛴 게 확인됐을 때(아침 런 등
+// 인증 마감을 놓친 경우) 뒤늦게 인정한다. 게이지·마일리지 반영은 서버가 계산한다.
+export async function completeExpiredBolt(boltId, distanceKm, participantIds) {
+  const res = await fetch('/api/complete-expired', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...adminAuthHeaders() },
+    body: JSON.stringify({ boltId, distanceKm, participantIds }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (res.status === 401 ? ADMIN_EXPIRED_MSG : '완료 처리에 실패했습니다'));
+  return data;
+}
+
 export async function reapproveBoltCert(boltId) {
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt || bolt.status !== 'done') throw new Error('완료된 번개가 아닙니다');

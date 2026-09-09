@@ -248,8 +248,8 @@ function formatBoltTime(val) {
   return `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// 7:00 ~ 4:00, 30초 단위
-const PACE_OPTIONS = ['7:00', '6:30', '6:00', '5:30', '5:00', '4:30', '4:00'];
+// 8:00 ~ 4:00, 30초 단위
+const PACE_OPTIONS = ['8:00', '7:30', '7:00', '6:30', '6:00', '5:30', '5:00', '4:30', '4:00'];
 
 function initPacePicker() {
   const input = document.getElementById('create-pace');

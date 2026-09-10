@@ -19,7 +19,9 @@ function assignBadges(p) {
     <span style="font-size:11px; font-weight:700; color:${rc}; background:${rbg}; border:1px solid ${rbd}; padding:2px 8px; border-radius:100px;">${roleName}</span>`;
 }
 
-let sortMode = 'name';   // 명단 정렬: 이름순 ↔ 거리순(마일리지)
+let sortMode = 'name';   // 명단 정렬: 이름순 → 거리순 → 팀순 순환(터치)
+const SORT_CYCLE = { name: 'km', km: 'team', team: 'name' };
+const SORT_LABEL = { name: '이름순', km: '거리순', team: '팀순' };
 
 export function render() {
   return `
@@ -110,11 +112,19 @@ function refresh() {
   }
 
   const sortBtn = document.getElementById('roster-sort');
-  if (sortBtn) sortBtn.textContent = sortMode === 'km' ? '거리순' : '이름순';
+  if (sortBtn) sortBtn.textContent = SORT_LABEL[sortMode] ?? '이름순';
   let rows = roster;
+  // 팀순·거리순은 배정(byName)이 있어야 의미가 있다 — 배정 전이면 항상 이름순으로 둔다
   if (sortMode === 'km' && byName) {
     rows = [...roster].sort((a, b) =>
       (byName.get(norm(b.name))?.km ?? -1) - (byName.get(norm(a.name))?.km ?? -1));
+  } else if (sortMode === 'team' && byName) {
+    // 페이서 → 고스트 → 미배정, 팀 안에서는 이름순
+    const rank = t => (t === 'pacer' ? 0 : t === 'ghost' ? 1 : 2);
+    rows = [...roster].sort((a, b) => {
+      const ra = rank(byName.get(norm(a.name))?.team), rb = rank(byName.get(norm(b.name))?.team);
+      return ra !== rb ? ra - rb : a.name.localeCompare(b.name, 'ko');
+    });
   }
   document.getElementById('roster-body').innerHTML = roster.length === 0
     ? `<p style="padding:24px 16px; text-align:center; color:#52525b; font-size:13px;">등록된 참가자가 없습니다.</p>`
@@ -132,7 +142,9 @@ export function init(goTo) {
   const bulkInput = document.getElementById('roster-bulk');
 
   document.getElementById('roster-sort').addEventListener('click', () => {
-    sortMode = sortMode === 'name' ? 'km' : 'name';
+    // 배정 전에는 팀·거리 정렬이 무의미 → 이름순만
+    const next = SORT_CYCLE[sortMode] ?? 'name';
+    sortMode = getAssignment().assigned ? next : 'name';
     refresh();
   });
 

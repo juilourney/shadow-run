@@ -11,7 +11,7 @@
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
 import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
 import { readSecretAssignment } from '../_lib/secrets.js';
-import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
+import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, RUNNING_MATE_CARD, isRunningMateBolt, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -60,7 +60,7 @@ export async function onRequestPost(context) {
     }
     const playerMap = {};
     for (const p of assignment.players || []) {
-      playerMap[p.id] = { team: p.team, role: p.role, ...(penMap[p.id] || {}) };
+      playerMap[p.id] = { team: p.team, role: p.role, runningMate: !!p.runningMate, ...(penMap[p.id] || {}) };
     }
 
     const settingsRes = await fetch(firestoreUrl(env, 'game/settings'), { headers: authHeaders });
@@ -74,6 +74,7 @@ export async function onRequestPost(context) {
     let card;
     if (checkedIds.length <= 1)   card = SOLO_CARD;
     else if (singleTeam)          card = teams[0] === 'pacer' ? PACER_SKILL : GHOST_SKILL;
+    else if (isRunningMateBolt(checkedIds, playerMap, singleTeam)) card = { ...RUNNING_MATE_CARD, multiplier: checkedIds.length };
     else                          card = BUFF_CARDS[Math.floor(Math.random() * BUFF_CARDS.length)];
     const buffMultiplier = card.multiplier;
 

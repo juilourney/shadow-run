@@ -1,4 +1,4 @@
-import { subscribe, getRoster, getAssignment, getPlayers, addRosterMember, updateRosterMember, removeRosterMember, ROLES, loadAdminSecrets, getAdminSecrets, adminSecretOf } from '../../store.js';
+import { subscribe, getRoster, getAssignment, getPlayers, addRosterMember, updateRosterMember, removeRosterMember, ROLES, loadAdminSecrets, getAdminSecrets, adminSecretOf, adminSecretsAction } from '../../store.js';
 
 // 배정 완료 후 관리자 마스터 뷰 — 팀 배지 색상
 const TEAM = {
@@ -60,6 +60,13 @@ function rosterRow(r, player) {
   const km = player && typeof player.km === 'number'
     ? `<span class="num" style="font-size:12px; font-weight:700; color:#a1a1aa;">${player.km.toFixed(1)}km</span>`
     : '';
+  // 러닝메이트 토글 — 배정된 참가자 중 엘리트·앵커가 아닌 사람에게만(마일리지 역할과 중복 금지)
+  const eligible = player && player.team && player.role !== 'elite' && player.role !== 'anchor';
+  const on = eligible && player.runningMate;
+  const rmBtn = eligible
+    ? `<button class="btn btn-secondary rm-toggle" data-pid="${player.id}" data-on="${on ? '1' : ''}"
+        style="height:32px; padding:0 10px; font-size:12px; ${on ? 'color:#34d399; border-color:rgba(52,211,153,.4);' : 'color:#52525b;'}">🤝${on ? ' 지정' : ''}</button>`
+    : '';
   return `
     <div class="admin-row" data-id="${r.id}">
       <span style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
@@ -68,6 +75,7 @@ function rosterRow(r, player) {
         ${km}
       </span>
       <div style="display:flex; gap:6px;">
+        ${rmBtn}
         <button class="btn btn-secondary roster-edit-btn" style="height:32px; padding:0 12px; font-size:12px;">수정</button>
         <button class="btn btn-secondary roster-remove-btn" style="height:32px; padding:0 12px; font-size:12px; color:#fb7185;">삭제</button>
       </div>
@@ -89,9 +97,12 @@ function refresh() {
     const secretPlayers = getAdminSecrets().players;
     const pacer = secretPlayers.filter(p => p.team === 'pacer').length;
     const ghost = secretPlayers.filter(p => p.team === 'ghost').length;
+    const rmP = secretPlayers.filter(p => p.runningMate && p.team === 'pacer').length;
+    const rmG = secretPlayers.filter(p => p.runningMate && p.team === 'ghost').length;
     // 팀 구성은 서버 응답이 와야 알 수 있다 — 도착 전엔 0/0 대신 인원만 보여준다
+    const rmLine = (rmP + rmG > 0) ? ` · 🤝 페이서 ${rmP}/2 · 고스트 ${rmG}/2` : '';
     countEl.textContent = pacer + ghost > 0
-      ? `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}`
+      ? `배정 완료 ${asg.players.length}명 · 페이서 ${pacer} · 고스트 ${ghost}${rmLine}`
       : `배정 완료 ${asg.players.length}명`;
   } else {
     const entered = roster.filter(r => r.enteredAt).length;
@@ -150,6 +161,18 @@ export function init(goTo) {
   });
 
   document.getElementById('roster-body').addEventListener('click', async e => {
+    // 러닝메이트 지정/해제 (player id 기준 — roster id와 다름)
+    const rm = e.target.closest('.rm-toggle');
+    if (rm) {
+      const turningOn = !rm.dataset.on;
+      rm.disabled = true;
+      try {
+        await adminSecretsAction('setRunningMate', { playerId: rm.dataset.pid, value: turningOn });
+        await loadAdminSecrets({ force: true });
+        refresh();
+      } catch (err) { alert(err.message); rm.disabled = false; }
+      return;
+    }
     const row = e.target.closest('[data-id]');
     if (!row) return;
     const id = row.dataset.id;

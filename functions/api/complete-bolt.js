@@ -8,7 +8,7 @@
 //  certPhoto: 관리자 심사용, certPhotos 컬렉션에 별도 저장(참가자 기기는 안 받음)
 //  certAt: 사진 속 기록 시각(ms) — result에 저장, 관리자 심사에서 일정 대조에 사용
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
-import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
+import { RULES, BUFF_CARDS, PACER_SKILL, GHOST_SKILL, SOLO_CARD, RUNNING_MATE_CARD, isRunningMateBolt, computeIsTug, computeCompletion } from '../_lib/game-rules.js';
 import { readSecretAssignment } from '../_lib/secrets.js';
 
 const json = (body, status = 200) =>
@@ -66,7 +66,7 @@ export async function onRequestPost(context) {
     }
     const playerMap = {};
     for (const p of assignment.players || []) {
-      playerMap[p.id] = { team: p.team, role: p.role, penalized: penMap[p.id]?.penalized || false, abilityStripped: penMap[p.id]?.abilityStripped || false };
+      playerMap[p.id] = { team: p.team, role: p.role, runningMate: !!p.runningMate, penalized: penMap[p.id]?.penalized || false, abilityStripped: penMap[p.id]?.abilityStripped || false };
     }
 
     // settings에서 줄다리기 단계 판정
@@ -75,7 +75,7 @@ export async function onRequestPost(context) {
     const isTug = computeIsTug(settings.startDate);
 
     // 카드 결정: 혼자(참가자 1명) → 버프 없음(×1) / 단일팀(같은 팀 3~4명) → 팀 스킬 /
-    // 그 외(혼합·2명) → 랜덤 버프(서버 draw로 ×3 우회 차단).
+    // 러닝메이트 낀 혼합 → 인원수 배수 / 그 외(혼합·2명) → 랜덤 버프(서버 draw로 ×3 우회 차단).
     //
     // 판정 기준은 '등록 인원'이 아니라 **실제로 뛰고 인증한 사람(checkedIds)**이다.
     // 등록만 2명이고 한 명만 인증한 번개가 혼자 달림이 아닌 것으로 처리돼,
@@ -87,6 +87,8 @@ export async function onRequestPost(context) {
       card = SOLO_CARD;                                  // 혼자 달림 → 버프 미적용
     } else if (singleTeam) {
       card = teams[0] === 'pacer' ? PACER_SKILL : GHOST_SKILL;
+    } else if (isRunningMateBolt(checkedIds, playerMap, singleTeam)) {
+      card = { ...RUNNING_MATE_CARD, multiplier: checkedIds.length };   // 인원수 배수, 버프카드 대체
     } else {
       card = BUFF_CARDS[Math.floor(Math.random() * BUFF_CARDS.length)];
     }

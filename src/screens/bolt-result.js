@@ -109,6 +109,8 @@ export function openResultView() {
   } else if (singleTeam && card) {
     const skillDesc = buildSkillEffect(boltTeam, participantCount, distanceKm);
     buffEl.innerHTML = singleTeamBlock(card, skillDesc);
+  } else if (card && card.name === '러닝메이트') {
+    buffEl.innerHTML = runningMateBlock(card, distanceKm, participantCount);   // 누가 러닝메이트인지는 비공개
   } else if (!singleTeam && card) {
     buffEl.innerHTML = buffCardBlock(card, distanceKm);
   } else {
@@ -175,6 +177,25 @@ function buffCardBlock(card, distanceKm) {
     <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <p style="font-size:12px;color:#52525b;">버프 적용 마일리지</p>
+      <p class="num" style="font-size:18px;font-weight:700;color:${card.color};">+${buffedKm.toFixed(1)} km</p>
+    </div>
+  </div>`;
+}
+
+// 러닝메이트 발동 — 인원수 배수. 누가 러닝메이트인지·상세 계산은 공개하지 않는다.
+function runningMateBlock(card, distanceKm, count) {
+  const buffedKm = distanceKm * count;
+  return `
+  <div style="background:${card.bg};border:1px solid ${card.border};border-radius:20px;padding:14px 18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <p style="font-size:12px;color:#52525b;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">함께 달리기</p>
+      <span class="chip" style="background:${card.bg};color:${card.color};font-size:10px;">러닝메이트 발동</span>
+    </div>
+    <p style="font-size:16px;font-weight:700;color:${card.color};">${card.icon} 러닝메이트가 함께 달렸습니다</p>
+    <p style="font-size:12px;color:${card.color};opacity:.65;margin-top:3px;">함께 달린 ${count}명 × ${count}배 적립</p>
+    <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <p style="font-size:12px;color:#52525b;">적용 마일리지 (1인당)</p>
       <p class="num" style="font-size:18px;font-weight:700;color:${card.color};">+${buffedKm.toFixed(1)} km</p>
     </div>
   </div>`;

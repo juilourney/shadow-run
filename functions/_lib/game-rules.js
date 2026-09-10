@@ -44,6 +44,15 @@ export const PACER_SKILL = { name: '시너지 스킬', icon: '🔥', multiplier:
 export const GHOST_SKILL = { name: '게이지 스킬', icon: '⚔️', multiplier: 1, color: '#fb7185', bg: 'rgba(251,113,133,.15)', border: 'rgba(251,113,133,.35)', desc: '달린 거리만큼 상대 게이지 직접 감소 · 전략형 스킬' };
 // 혼자 달린 번개(참가자 1명) — 버프 미적용, 실제 거리만 ×1 적립.
 export const SOLO_CARD = { name: '혼자 달림', icon: '×1', multiplier: 1, color: '#71717a', bg: 'rgba(113,113,122,.12)', border: 'rgba(113,113,122,.25)', desc: '혼자 달린 번개는 버프 없이 실제 거리만 적립됩니다' };
+// 러닝메이트가 낀 번개 — 참가자 수만큼 배수(multiplier는 complete-bolt가 인원수로 채움).
+export const RUNNING_MATE_CARD = { name: '러닝메이트', icon: '🤝', multiplier: 1, color: '#34d399', bg: 'rgba(52,211,153,.15)', border: 'rgba(52,211,153,.4)', desc: '러닝메이트가 함께 달렸습니다 · 함께 달린 인원만큼 배수 적립' };
+
+// 이 번개에서 러닝메이트 효과가 발동하는가 — 단일팀이 아니고, 인증 2명 이상,
+// 그중 러닝메이트가 1명 이상. (엘리트·앵커에는 태그가 안 붙으므로 그들은 러닝메이트가 아님)
+export function isRunningMateBolt(ids, playerMap, singleTeam) {
+  if (singleTeam || !ids || ids.length < 2) return false;
+  return ids.some(id => playerMap[id]?.runningMate);
+}
 
 const opponentOf = team => (team === 'pacer' ? 'ghost' : 'pacer');
 
@@ -85,6 +94,9 @@ export function isSingleTeamBolt(ids, playerMap) {
 //  반환: { gaugeDelta:{pacer,ghost}, perPlayerKmInc(=distanceKm), singleTeam, boltTeam }
 export function computeCompletion({ bolt, playerMap, distanceKm, participantIds, buffMultiplier, isTug }) {
   const singleTeam = isSingleTeamBolt(participantIds, playerMap);
+  // 러닝메이트가 발동하면 인원수 배수(buffMultiplier에 인원수가 담겨 옴)가 적용되고,
+  // 엘리트 ×2·앵커 양방향 능력은 무효가 된다. 단 적발 −50%와 줄다리기 양방향은 유지.
+  const runningMate = isRunningMateBolt(participantIds, playerMap, singleTeam);
   const delta = { pacer: 0, ghost: 0 };
 
   for (const pid of participantIds) {
@@ -92,10 +104,13 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
     if (!p) continue;
     const stripped = !!p.abilityStripped;
     let km = distanceKm * (singleTeam ? 1 : buffMultiplier);
-    if (p.role === 'elite' && !stripped) km *= RULES.eliteMultiplier;
+    if (!runningMate && p.role === 'elite' && !stripped) km *= RULES.eliteMultiplier;
     if (p.penalized) km *= RULES.votePenalty;
 
-    if (isTug || (p.role === 'anchor' && !stripped)) {
+    // 앵커 양방향은 러닝메이트 발동 시 무효(러닝메이트 우선). 줄다리기 기간 양방향은 기간
+    // 규칙이라 러닝메이트와 무관하게 유지된다.
+    const bidirectional = isTug || (!runningMate && p.role === 'anchor' && !stripped);
+    if (bidirectional) {
       // 줄다리기 기간엔 "게이지 줄다리기"라는 이름 그대로 전원이 양방향(내 팀 +, 상대 −)으로 움직인다.
       // 앵커는 탐색 기간에도 항상 양방향이라, 탐색 기간에만 일반 러너 대비 차별점을 갖는다.
       delta[p.team] += km;

@@ -133,12 +133,39 @@ export async function onRequestPost(context) {
       const identities = await readIdentities(env, authHeaders);
       const players = (migrated ? secrets.players : (publicAsg?.players || [])).map(p => ({
         id: p.id, name: p.name, team: p.team ?? null, role: p.role ?? null,
+        runningMate: !!p.runningMate,
         code: identities[p.id]?.code ?? null,
         bound: !!identities[p.id]?.deviceId,
         boundAt: identities[p.id]?.boundAt ?? null,
       }));
       const cfg = await readDoc(env, authHeaders, 'secrets/config');
       return json({ players, requireCode: !!cfg?.requireCode, migrated });
+    }
+
+    // 러닝메이트 지정/해제 — secrets/assignment.players[].runningMate 토글.
+    // 규칙: 팀당 최대 2명, 엘리트·앵커에는 지정 불가(마일리지 영향 역할과 중복 금지).
+    if (action === 'setRunningMate') {
+      if (!playerId) return json({ error: 'playerId가 필요합니다' }, 400);
+      if (!migrated) return json({ error: '먼저 팀·역할 숨기기(마이그레이션)를 실행하세요' }, 409);
+      const players = secrets.players.map(p => ({ ...p }));
+      const target = players.find(p => p.id === playerId);
+      if (!target) return json({ error: '참가자를 찾을 수 없습니다' }, 404);
+      const on = value !== false;   // 기본 지정, value:false면 해제
+      if (on) {
+        if (target.role === 'elite' || target.role === 'anchor') {
+          return json({ error: '엘리트·앵커에게는 러닝메이트를 지정할 수 없습니다' }, 409);
+        }
+        const teamCount = players.filter(p => p.runningMate && p.team === target.team && p.id !== playerId).length;
+        if (teamCount >= 2) {
+          return json({ error: `${target.team === 'pacer' ? '페이서' : '고스트'}팀 러닝메이트는 이미 2명입니다` }, 409);
+        }
+      }
+      target.runningMate = on;
+      await commit(env, authHeaders, [{
+        update: { name: docName(env, 'secrets/assignment'), fields: toFirestoreFields({ players }) },
+        updateMask: { fieldPaths: ['players'] },
+      }]);
+      return json({ ok: true, runningMate: on });
     }
 
     if (action === 'resetBinding') {

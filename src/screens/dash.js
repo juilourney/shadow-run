@@ -11,6 +11,62 @@ const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFr
 // 번개) 완료 직후 바 방향으로 참가자 팀이 역추적되는 것을 막기 위해.
 const GAUGE_REVEAL_BOLTS = 3;
 
+const TEAM_KO = { pacer: '페이서', ghost: '고스트' };
+
+// 가장 최근에 끝난 줄다리기 기간(목·금·토)의 우리 팀 순이동을 계산한다.
+// 줄다리기 기간에 완료된 번개들의 게이지 증감(result.gaugeDelta)을 합치면,
+// 그 기간에 우리 팀이 얼마나 당겼는지(+)/끌려갔는지(−)가 나온다.
+function latestTugSummary(me) {
+  const cal = getCalendar();
+  if (!me.team || !cal.started) return null;
+  const start = cal.start;
+  const dayMs = 86400000;
+  let win = null;   // 완료된 줄다리기 중 가장 최근 것
+  for (let w = 0; w < cal.weeks; w++) {
+    const s = new Date(start); s.setDate(start.getDate() + w * 7 + 4);   // 목요일 00:00
+    const e = new Date(start); e.setDate(start.getDate() + w * 7 + 7);   // 다음 일요일 00:00
+    if (e.getTime() <= Date.now()) win = { week: w + 1, from: s.getTime(), to: e.getTime() };
+  }
+  if (!win) return null;
+
+  const opp = me.team === 'pacer' ? 'ghost' : 'pacer';
+  let net = 0;
+  for (const b of getBolts()) {
+    if (b.status !== 'done' || b.reviewStatus === 'rejected') continue;
+    if (!(b.startAt >= win.from && b.startAt < win.to)) continue;
+    net += Number(b.result?.gaugeDelta?.[me.team] ?? 0);
+  }
+  return { week: win.week, team: me.team, opp, net };
+}
+
+function renderTugResult(me) {
+  const el = document.getElementById('dash-tug-result');
+  if (!el) return;
+  const s = latestTugSummary(me);
+  if (!s) { el.style.display = 'none'; return; }
+
+  const pulled = s.net >= 0;   // 당겼나(순증) / 끌려갔나(순감)
+  const color  = pulled ? '#34d399' : '#fb7185';
+  const teamColor = s.team === 'pacer' ? '#38bdf8' : '#a78bfa';
+  const abs = Math.abs(s.net);
+  el.style.display = 'block';
+  el.innerHTML = `
+    <p class="eyebrow" style="color:#3f3f46; margin:0 0 10px;">지난 줄다리기 결과 · ${s.week}주차</p>
+    <div class="bezel" style="padding:16px 18px; border-radius:20px; border:1px solid ${color}33;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="font-size:30px;">${pulled ? '💪' : '🪢'}</div>
+        <div style="flex:1; min-width:0;">
+          <p style="font-size:13px; color:#a1a1aa; line-height:1.4;">
+            <b style="color:${teamColor};">${TEAM_KO[s.team]}</b> 팀이 목·금·토 줄다리기 동안
+          </p>
+          <p style="font-size:20px; font-weight:800; color:${color}; line-height:1.3; margin-top:2px;">
+            ${pulled ? '+' : '−'}${abs.toFixed(1)} km ${pulled ? '당겼어요' : '끌려갔어요'}
+          </p>
+        </div>
+      </div>
+    </div>`;
+}
+
 export function render() {
   const cal = getCalendar();
   return `
@@ -106,6 +162,8 @@ export function render() {
       <p id="dash-penalty-left" style="font-size:11px; color:#fbbf24; font-weight:700; margin-top:3px; line-height:1.4;"></p>
       <p style="font-size:11px; color:#52525b; margin-top:2px; line-height:1.4;">달린 거리(순수 기여)는 그대로 기록돼요</p>
     </div>
+
+    <div id="dash-tug-result" class="anim-up-4" style="display:none; margin-top:16px;"></div>
 
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">나의 번개 일정</p>
     <div id="dash-my-bolt" class="anim-up-4"></div>
@@ -459,6 +517,8 @@ function renderFromStore() {
     document.getElementById('dash-penalty-left').textContent =
       `번개 ${me.penaltyBoltsLeft}번 더 완주하면 해제돼요`;
   }
+
+  renderTugResult(me);
 
   // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
   document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';

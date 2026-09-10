@@ -246,8 +246,25 @@ onSnapshot(settingsDocRef, snap => {
     writeGameSettings();
   }
   state.settingsLoaded = true;
+  maybeTriggerReassign();
   notify();
 }, err => console.warn('게임 설정 실시간 동기화 실패:', err.message));
+
+// 2주차 시작(일요일 00:00 KST) 이후 첫 접속 때 서버 재배정을 한 번 트리거한다.
+// 서버가 시각·1회 게이트로 실제 실행 여부를 정하므로, 여기선 세션당 1회만 쏘면 된다.
+// (재배정 자체는 서버가 랜덤으로 처리 — 클라는 결과에 관여하지 않는다)
+let _reassignTried = false;
+function maybeTriggerReassign() {
+  if (_reassignTried) return;
+  const { startDate } = state.game;
+  if (!startDate) return;
+  const [y, m, d] = startDate.split('-').map(Number);
+  const week2Start = Date.UTC(y, m - 1, d + 7) - 9 * 3600 * 1000;   // 2주차 시작 00:00 KST
+  if (Date.now() < week2Start) return;
+  _reassignTried = true;
+  fetch('/api/reassign-roles', { method: 'POST', headers: { 'content-type': 'application/json' } })
+    .catch(() => {});
+}
 
 function writeGameSettings() {
   return fetch('/api/set-game-settings', {
@@ -610,6 +627,24 @@ export function applyServerMe(data) {
   identity.name = data.name || identity.name;
   identity.team = data.team ?? null;
   identity.role = data.role ?? null;
+
+  // 재배정 감지 — 이 기기에서 확인했던 역할과 서버 역할이 달라졌으면(같은 배정 안에서),
+  // 앱에서 "역할이 재배정됐다"는 알림을 띄우고 확인 기록을 새 역할로 갱신한다.
+  // 확인 기록은 assignedAt·team을 그대로 보존하고 role만 갱신한다 — 부팅 초기엔 배정
+  // 스냅샷이 아직 안 왔을 수 있어 markRoleConfirmed(state.assignment.assignedAt 사용)를
+  // 쓰면 assignedAt이 깨질 수 있기 때문(카드 재노출 유발).
+  try {
+    const confirmed = getConfirmedRecord();
+    if (confirmed && confirmed.role && data.role
+        && confirmed.role !== data.role
+        && confirmed.assignedAt === (data.assignedAt ?? confirmed.assignedAt)) {
+      _reassignNotice = { from: confirmed.role, to: data.role };
+      localStorage.setItem(CONFIRMED_KEY, JSON.stringify({
+        name: confirmed.name, assignedAt: confirmed.assignedAt, team: confirmed.team, role: data.role,
+      }));
+    }
+  } catch {}
+
   ensureMeLoaded();
   if (data.ability) {
     state.me.abilityUsed = Number(data.ability.used) || 0;
@@ -619,6 +654,14 @@ export function applyServerMe(data) {
     persistMe();
   }
   notify();
+}
+
+// 역할 재배정 알림 — applyServerMe가 감지하면 담아두고, 화면이 한 번 꺼내 표시한다.
+let _reassignNotice = null;
+export function takeReassignNotice() {
+  const n = _reassignNotice;
+  _reassignNotice = null;
+  return n;
 }
 
 // 서버가 준 사용량이 정답. 아직 한 번도 못 받은 기기는 예전 로컬 기록으로 표시만 채운다.

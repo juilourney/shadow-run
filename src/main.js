@@ -3,7 +3,7 @@ import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, reengageScrollSnap } from './utils/nav.js';
 import { state } from './state.js';
-import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe } from './store.js';
+import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe, takeReassignNotice, ROLES } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
 import { initPhase } from './utils/phase.js';
 
@@ -283,3 +283,42 @@ if (confirmed && confirmed.team && confirmed.role) {
   unsub = subscribe(decide);
   decide();
 }
+
+// ── 역할 재배정 알림 ───────────────────────────────────────
+// 2주차 엘리트·앵커 재배정으로 내 역할이 바뀌면(applyServerMe가 감지), 앱에서 한 번 알린다.
+const ROLE_ABILITY = {
+  elite: '번개 마일리지가 2배로 적립됩니다.',
+  anchor: '번개 마일리지만큼 상대 게이지를 깎아옵니다(양방향).',
+  double: '투표에서 2표를 행사합니다.',
+  detective: '주 3회, 누군가의 팀을 확인할 수 있습니다.',
+  spy: '주 3회, 누군가의 역할을 확인할 수 있습니다.',
+  runner: '이번 재배정으로 특수 능력이 없는 러너가 되었습니다.',
+};
+function showReassignModal({ to }) {
+  if (document.getElementById('reassign-modal')) return;
+  const roleName = ROLES[to]?.name ?? to;
+  const gained = to !== 'runner';
+  const wrap = document.createElement('div');
+  wrap.id = 'reassign-modal';
+  wrap.style.cssText = `position:fixed; inset:0; z-index:9999; display:flex; align-items:center;
+    justify-content:center; padding:28px; background:rgba(0,0,0,.72); backdrop-filter:blur(6px);`;
+  wrap.innerHTML = `
+    <div style="max-width:340px; width:100%; background:#141416; border:1px solid ${gained ? 'rgba(250,204,21,.35)' : 'rgba(255,255,255,.1)'};
+      border-radius:24px; padding:26px 24px; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6);">
+      <div style="font-size:40px; margin-bottom:10px;">${gained ? '✨' : '🔔'}</div>
+      <p style="font-size:12px; color:#71717a; letter-spacing:.06em; margin-bottom:6px;">2주차 역할 재배정</p>
+      <h2 style="font-size:22px; font-weight:800; margin-bottom:10px; color:${gained ? '#facc15' : '#fafafa'};">
+        ${gained ? `당신은 이제 <span style="color:${gained ? '#facc15' : '#fafafa'};">${roleName}</span>!` : '역할이 바뀌었어요'}
+      </h2>
+      <p style="font-size:14px; color:#a1a1aa; line-height:1.6; margin-bottom:22px;">${ROLE_ABILITY[to] ?? ''}</p>
+      <button id="reassign-ok" style="width:100%; height:50px; border:none; border-radius:15px; cursor:pointer;
+        font-size:16px; font-weight:700; color:#fff;
+        background:${gained ? 'linear-gradient(135deg,#eab308,#f59e0b)' : 'rgba(255,255,255,.1)'};">확인</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector('#reassign-ok').addEventListener('click', () => wrap.remove());
+}
+subscribe(() => {
+  const notice = takeReassignNotice();
+  if (notice) showReassignModal(notice);
+});

@@ -16,7 +16,7 @@
 import { ROLES, SPECIAL_ROLES, state as identity } from './state.js';
 import { playerAuthHeaders, clearPlayerAuth } from './auth.js';
 import {
-  doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
+  doc, collection, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDocs,
   arrayUnion, arrayRemove, increment, disableNetwork, enableNetwork,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
@@ -348,6 +348,15 @@ onSnapshot(collection(db, 'timeline'), snap => {
 function pushTimelineEvent(entry) {
   addDoc(collection(db, 'timeline'), { ...entry, at: Date.now() })
     .catch(err => console.warn('타임라인 기록 실패:', err.message));
+}
+
+// 줄다리기 기간 결과를 타임라인에 영구 기록한다. 팀 중립(주차만 저장)이라 보는 사람의
+// 팀 기준으로 탭 시 계산한다. 시즌·주차로 만든 고정 id로 setDoc하므로 여러 기기가
+// 동시에 써도 같은 문서에 겹쳐 써 중복이 생기지 않고, at=기간종료시각이라 값도 항상 같다.
+export function recordTugResult(week, endMs) {
+  const id = `tug-${state.assignment.seasonId ?? 's'}-w${week}`;
+  setDoc(doc(db, 'timeline', id), { kind: 'tug', week, at: endMs })
+    .catch(err => console.warn('줄다리기 기록 실패:', err.message));
 }
 
 // ═══════════════════════════════════════════════════════════

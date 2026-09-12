@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getGauge, getMe, getCalendar, getPhase, getBolts, getTimeline, isGaugeNumbersPublic, ROLES } from '../store.js';
+import { subscribe, getGauge, getMe, getCalendar, getPhase, getBolts, getTimeline, isGaugeNumbersPublic, ROLES, getAssignment, recordTugResult } from '../store.js';
 import { initPhase } from '../utils/phase.js';
 import { openEndView } from './end.js';
 import { openHostView } from './bolt-detail.js';
@@ -13,58 +13,99 @@ const GAUGE_REVEAL_BOLTS = 3;
 
 const TEAM_KO = { pacer: '페이서', ghost: '고스트' };
 
-// 가장 최근에 끝난 줄다리기 기간(목·금·토)의 우리 팀 순이동을 계산한다.
-// 줄다리기 기간에 완료된 번개들의 게이지 증감(result.gaugeDelta)을 합치면,
-// 그 기간에 우리 팀이 얼마나 당겼는지(+)/끌려갔는지(−)가 나온다.
-function latestTugSummary(me) {
+// 완료된 줄다리기 기간(목 00:00 ~ 다음 일 00:00) 목록. 각 window는 주차와 시작·종료 시각.
+function tugWindows(cal) {
+  const out = [];
+  for (let w = 0; w < cal.weeks; w++) {
+    const s = new Date(cal.start); s.setDate(cal.start.getDate() + w * 7 + 4);   // 목요일 00:00
+    const e = new Date(cal.start); e.setDate(cal.start.getDate() + w * 7 + 7);   // 다음 일요일 00:00
+    if (e.getTime() <= Date.now()) out.push({ week: w + 1, from: s.getTime(), to: e.getTime() });
+  }
+  return out;
+}
+
+// 특정 주차 줄다리기 기간의 '우리 팀' 순이동. 그 기간 완료 번개의 게이지 증감(result.gaugeDelta)
+// 합 = 당겼는지(+)/끌려갔는지(−). 팀 기준으로 계산하므로 보는 사람마다 부호가 맞다.
+function tugSummaryForWeek(me, week) {
   const cal = getCalendar();
   if (!me.team || !cal.started) return null;
-  const start = cal.start;
-  const dayMs = 86400000;
-  let win = null;   // 완료된 줄다리기 중 가장 최근 것
-  for (let w = 0; w < cal.weeks; w++) {
-    const s = new Date(start); s.setDate(start.getDate() + w * 7 + 4);   // 목요일 00:00
-    const e = new Date(start); e.setDate(start.getDate() + w * 7 + 7);   // 다음 일요일 00:00
-    if (e.getTime() <= Date.now()) win = { week: w + 1, from: s.getTime(), to: e.getTime() };
-  }
+  const win = tugWindows(cal).find(w => w.week === week);
   if (!win) return null;
-
-  const opp = me.team === 'pacer' ? 'ghost' : 'pacer';
   let net = 0;
   for (const b of getBolts()) {
     if (b.status !== 'done' || b.reviewStatus === 'rejected') continue;
     if (!(b.startAt >= win.from && b.startAt < win.to)) continue;
     net += Number(b.result?.gaugeDelta?.[me.team] ?? 0);
   }
-  return { week: win.week, team: me.team, opp, net };
+  return { week, team: me.team, net };
 }
 
-function renderTugResult(me) {
-  const el = document.getElementById('dash-tug-result');
-  if (!el) return;
-  const s = latestTugSummary(me);
-  if (!s) { el.style.display = 'none'; return; }
-
+// 줄다리기 결과 팝업 — 확인/배경 탭으로 닫힌다.
+function showTugModal(s) {
+  if (document.getElementById('tug-modal')) return;
   const pulled = s.net >= 0;   // 당겼나(순증) / 끌려갔나(순감)
   const color  = pulled ? '#34d399' : '#fb7185';
   const teamColor = s.team === 'pacer' ? '#38bdf8' : '#a78bfa';
   const abs = Math.abs(s.net);
-  el.style.display = 'block';
-  el.innerHTML = `
-    <p class="eyebrow" style="color:#3f3f46; margin:0 0 10px;">지난 줄다리기 결과 · ${s.week}주차</p>
-    <div class="bezel" style="padding:16px 18px; border-radius:20px; border:1px solid ${color}33;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="font-size:30px;">${pulled ? '💪' : '🪢'}</div>
-        <div style="flex:1; min-width:0;">
-          <p style="font-size:13px; color:#a1a1aa; line-height:1.4;">
-            <b style="color:${teamColor};">${TEAM_KO[s.team]}</b> 팀이 목·금·토 줄다리기 동안
-          </p>
-          <p style="font-size:20px; font-weight:800; color:${color}; line-height:1.3; margin-top:2px;">
-            ${pulled ? '+' : '−'}${abs.toFixed(1)} km ${pulled ? '당겼어요' : '끌려갔어요'}
-          </p>
-        </div>
-      </div>
+  const wrap = document.createElement('div');
+  wrap.id = 'tug-modal';
+  wrap.style.cssText = `position:fixed; inset:0; z-index:9999; display:flex; align-items:center;
+    justify-content:center; padding:28px; background:rgba(0,0,0,.72); backdrop-filter:blur(6px);`;
+  wrap.innerHTML = `
+    <div style="max-width:340px; width:100%; background:#141416; border:1px solid ${color}55;
+      border-radius:24px; padding:26px 24px; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6);">
+      <p style="font-size:12px; color:#71717a; letter-spacing:.06em; margin-bottom:10px;">${s.week}주차 줄다리기 결과</p>
+      <div style="font-size:44px; margin-bottom:8px;">${pulled ? '💪' : '🪢'}</div>
+      <p style="font-size:14px; color:#a1a1aa; line-height:1.5; margin-bottom:4px;">
+        <b style="color:${teamColor};">${TEAM_KO[s.team]}</b> 팀이 목·금·토 줄다리기 동안</p>
+      <p style="font-size:26px; font-weight:800; color:${color}; line-height:1.3; margin-bottom:22px;">
+        ${pulled ? '+' : '−'}${abs.toFixed(1)} km ${pulled ? '당겼어요' : '끌려갔어요'}</p>
+      <button id="tug-ok" style="width:100%; height:50px; border:none; border-radius:15px; cursor:pointer;
+        font-size:16px; font-weight:700; color:#fff;
+        background:${pulled ? 'linear-gradient(135deg,#10b981,#34d399)' : 'rgba(255,255,255,.1)'};">확인</button>
     </div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('#tug-ok').addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+}
+
+// 타임라인 기록(주차)에서 내 팀 기준으로 결과 팝업을 연다.
+function openTugFromWeek(week) {
+  const s = tugSummaryForWeek(getMe(), week);
+  if (s) showTugModal(s);
+}
+
+const _tugWrote = new Set();   // 같은 주차 기록을 세션 내 여러 번 쓰지 않도록(스냅샷 지연 대비)
+
+// 매 갱신마다: 완료된 줄다리기 window를 타임라인에 영구 기록하고, 아직 이 기기에서
+// 확인 안 한 가장 최근 결과를 1회 자동 팝업한다. 확인 여부는 기기별 localStorage로 기억.
+function syncTugResult(me) {
+  const cal = getCalendar();
+  if (!me.team || !cal.started) return;
+  const wins = tugWindows(cal);
+  if (!wins.length) return;
+  const seasonId = getAssignment().seasonId ?? '';
+
+  // 1) 타임라인 기록 보장(고정 id·멱등 — 없을 때만 쓴다)
+  const tl = getTimeline();
+  for (const w of wins) {
+    const id = `tug-${seasonId || 's'}-w${w.week}`;
+    if (!_tugWrote.has(id) && !tl.some(e => e.id === id)) {
+      _tugWrote.add(id);
+      recordTugResult(w.week, w.to);
+    }
+  }
+
+  // 2) 가장 최근 결과를 이 기기에서 아직 안 봤으면 1회 자동 팝업
+  const latest = wins[wins.length - 1];
+  const seenKey = `tugSeen:${seasonId}:${latest.week}`;
+  let seen = true;
+  try { seen = localStorage.getItem(seenKey) === '1'; } catch {}
+  if (!seen) {
+    const s = tugSummaryForWeek(me, latest.week);
+    if (s) { showTugModal(s); try { localStorage.setItem(seenKey, '1'); } catch {} }
+  }
 }
 
 export function render() {
@@ -163,8 +204,6 @@ export function render() {
       <p style="font-size:11px; color:#52525b; margin-top:2px; line-height:1.4;">달린 거리(순수 기여)는 그대로 기록돼요</p>
     </div>
 
-    <div id="dash-tug-result" class="anim-up-4" style="display:none; margin-top:16px;"></div>
-
     <p class="eyebrow anim-up-4" style="color:#3f3f46; margin:16px 0 10px;">나의 번개 일정</p>
     <div id="dash-my-bolt" class="anim-up-4"></div>
 
@@ -232,7 +271,17 @@ export function init() {
     goToScreen('s-end');
   });
 
-  document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
+  // 미리보기 탭 — 줄다리기 기록을 누르면 결과 팝업, 그 외엔 전체 목록 오버레이
+  document.getElementById('dash-timeline-preview').addEventListener('click', ev => {
+    const row = ev.target.closest('[data-tug-week]');
+    if (row) { openTugFromWeek(Number(row.dataset.tugWeek)); return; }
+    openTimelineOverlay();
+  });
+  // 전체 목록 안의 줄다리기 기록 탭 → 결과 팝업(오버레이 위에 뜬다)
+  document.getElementById('timeline-list').addEventListener('click', ev => {
+    const row = ev.target.closest('[data-tug-week]');
+    if (row) openTugFromWeek(Number(row.dataset.tugWeek));
+  });
   document.getElementById('timeline-backdrop').addEventListener('click', closeTimelineOverlay);
 
   // 분류 필터 칩 — 누르면 그 분류만 남기고 다시 그린다(시간순 유지)
@@ -381,6 +430,9 @@ function timelineRow(e) {
   } else if (e.kind === 'reject') {
     icon = '🚫'; tint = 'rgba(251,113,133,.06)'; textColor = '#a1a1aa';
     body = `<b style="color:#e4e4e7;">${e.title}</b> 번개 기록이 관리자 심사로 취소됐습니다`;
+  } else if (e.kind === 'tug') {
+    icon = '🪢'; tint = 'rgba(251,113,133,.05)'; textColor = '#e4e4e7';
+    body = `<b>${e.week}주차 줄다리기</b> 결과가 나왔어요 · <span style="color:#71717a;">탭하여 보기</span>`;
   } else if (e.kind === 'ability') {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';
@@ -404,8 +456,9 @@ function timelineRow(e) {
     : `<div class="num" style="font-size:10px; color:#52525b;">${date}</div>
        <div class="num" style="font-size:11px; color:#71717a;">${time}</div>`;
 
+  const tappable = e.kind === 'tug';
   return `
-  <div class="bezel" style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};">
+  <div class="bezel"${tappable ? ` data-tug-week="${e.week}"` : ''} style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};${tappable ? ' cursor:pointer;' : ''}">
     <span style="font-size:18px; flex-shrink:0;">${icon}</span>
     <p style="flex:1; min-width:0; font-size:13px; color:${textColor}; line-height:1.5;">${body}</p>
     <div style="flex-shrink:0; text-align:right; line-height:1.35;">${meta}</div>
@@ -518,7 +571,7 @@ function renderFromStore() {
       `번개 ${me.penaltyBoltsLeft}번 더 완주하면 해제돼요`;
   }
 
-  renderTugResult(me);
+  syncTugResult(me);
 
   // 게임이 실제로 종료됐을 때만 결과 보기 버튼 노출
   document.getElementById('dash-end-btn').style.display = getCalendar().ended ? 'block' : 'none';

@@ -296,6 +296,7 @@ const ROLE_ABILITY = {
 };
 function showReassignModal({ to }) {
   if (document.getElementById('reassign-modal')) return;
+  dash.stashTugForReassign();   // 줄다리기 팝업이 먼저 떠 있으면 치우고 재배정 카드를 앞세운다
   const roleName = ROLES[to]?.name ?? to;
   const gained = to !== 'runner';
   const wrap = document.createElement('div');
@@ -316,7 +317,7 @@ function showReassignModal({ to }) {
         background:${gained ? 'linear-gradient(135deg,#eab308,#f59e0b)' : 'rgba(255,255,255,.1)'};">확인</button>
     </div>`;
   document.body.appendChild(wrap);
-  wrap.querySelector('#reassign-ok').addEventListener('click', () => wrap.remove());
+  wrap.querySelector('#reassign-ok').addEventListener('click', () => { wrap.remove(); dash.flushPendingTug(); });
 }
 subscribe(() => {
   const notice = takeReassignNotice();

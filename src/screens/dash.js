@@ -41,8 +41,12 @@ function tugSummaryForWeek(me, week) {
 }
 
 // 줄다리기 결과 팝업 — 확인/배경 탭으로 닫힌다.
+let _currentTug = null;   // 지금 떠 있는 줄다리기 팝업의 결과(재배정 카드에 양보할 때 대기열로)
+let _tugPending = null;   // 재배정 카드에 밀려 대기 중인 줄다리기 결과(확인 후 표시)
+
 function showTugModal(s) {
   if (document.getElementById('tug-modal')) return;
+  _currentTug = s;
   const pulled = s.net >= 0;   // 당겼나(순증) / 끌려갔나(순감)
   const color  = pulled ? '#34d399' : '#fb7185';
   const teamColor = s.team === 'pacer' ? '#38bdf8' : '#a78bfa';
@@ -65,9 +69,23 @@ function showTugModal(s) {
         background:${pulled ? 'linear-gradient(135deg,#10b981,#34d399)' : 'rgba(255,255,255,.1)'};">확인</button>
     </div>`;
   document.body.appendChild(wrap);
-  const close = () => wrap.remove();
+  const close = () => { wrap.remove(); _currentTug = null; };
   wrap.querySelector('#tug-ok').addEventListener('click', close);
   wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+}
+
+// 2주차 재배정 카드가 우선한다 — 같은 날(일요일) 둘 다 뜰 때 순서를 "재배정 → 줄다리기"로
+// 고정하기 위한 두 훅. 어느 쪽이 먼저 발동하든 안전하게 재배정 카드를 앞세운다.
+//  - stashTugForReassign: 재배정 카드가 뜰 때 이미 열린 줄다리기 팝업을 치워 대기열로.
+//  - flushPendingTug: 재배정 카드 확인 후 대기 중이던 줄다리기 결과를 표시.
+export function stashTugForReassign() {
+  const open = document.getElementById('tug-modal');
+  if (open && _currentTug) { open.remove(); _tugPending = _currentTug; _currentTug = null; }
+}
+export function flushPendingTug() {
+  if (!_tugPending) return;
+  const s = _tugPending; _tugPending = null;
+  showTugModal(s);
 }
 
 // 타임라인 기록(주차)에서 내 팀 기준으로 결과 팝업을 연다.
@@ -104,7 +122,12 @@ function syncTugResult(me) {
   try { seen = localStorage.getItem(seenKey) === '1'; } catch {}
   if (!seen) {
     const s = tugSummaryForWeek(me, latest.week);
-    if (s) { showTugModal(s); try { localStorage.setItem(seenKey, '1'); } catch {} }
+    if (s) {
+      // 2주차 재배정 카드가 떠 있으면 양보 — 확인 후 flushPendingTug로 표시(재배정 우선)
+      if (document.getElementById('reassign-modal')) _tugPending = s;
+      else showTugModal(s);
+      try { localStorage.setItem(seenKey, '1'); } catch {}
+    }
   }
 }
 

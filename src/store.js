@@ -351,10 +351,12 @@ function pushTimelineEvent(entry) {
 }
 
 // 줄다리기 기간 결과를 타임라인에 영구 기록한다. 팀 중립(주차만 저장)이라 보는 사람의
-// 팀 기준으로 탭 시 계산한다. 시즌·주차로 만든 고정 id로 setDoc하므로 여러 기기가
-// 동시에 써도 같은 문서에 겹쳐 써 중복이 생기지 않고, at=기간종료시각이라 값도 항상 같다.
+// 팀 기준으로 탭 시 계산한다. 고정 id로 setDoc하므로 여러 기기가 동시에 써도 같은 문서에
+// 겹쳐 써 중복이 안 생기고, at=기간종료시각이라 값도 항상 같다.
+// id는 startDate 기반 — seasonId는 부팅 시점에 따라 아직 안 실려(undefined) 기기마다 id가
+// 갈려 중복 문서가 생긴 사고가 있었다. startDate는 줄다리기 window가 존재하는 한 항상 있다.
 export function recordTugResult(week, endMs) {
-  const id = `tug-${state.assignment.seasonId ?? 's'}-w${week}`;
+  const id = `tug-${state.game.startDate ?? 's'}-w${week}`;
   setDoc(doc(db, 'timeline', id), { kind: 'tug', week, at: endMs })
     .catch(err => console.warn('줄다리기 기록 실패:', err.message));
 }

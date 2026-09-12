@@ -105,12 +105,12 @@ function syncTugResult(me) {
   if (!wins.length) return;
   const seasonId = getAssignment().seasonId ?? '';
 
-  // 1) 타임라인 기록 보장(고정 id·멱등 — 없을 때만 쓴다)
+  // 1) 타임라인 기록 보장 — 주차당 1개만. id가 아니라 kind+week로 판정해, 혹시 id가
+  //    갈려도(기기별 로드 시점 차이) 이미 그 주차 기록이 있으면 새로 만들지 않는다.
   const tl = getTimeline();
   for (const w of wins) {
-    const id = `tug-${seasonId || 's'}-w${w.week}`;
-    if (!_tugWrote.has(id) && !tl.some(e => e.id === id)) {
-      _tugWrote.add(id);
+    if (!_tugWrote.has(w.week) && !tl.some(e => e.kind === 'tug' && e.week === w.week)) {
+      _tugWrote.add(w.week);
       recordTugResult(w.week, w.to);
     }
   }
@@ -294,12 +294,9 @@ export function init() {
     goToScreen('s-end');
   });
 
-  // 미리보기 탭 — 줄다리기 기록을 누르면 결과 팝업, 그 외엔 전체 목록 오버레이
-  document.getElementById('dash-timeline-preview').addEventListener('click', ev => {
-    const row = ev.target.closest('[data-tug-week]');
-    if (row) { openTugFromWeek(Number(row.dataset.tugWeek)); return; }
-    openTimelineOverlay();
-  });
+  // 미리보기 탭 — 항상 전체 목록 오버레이를 연다. (미리보기 2칸이 전부 줄다리기 기록이어도
+  // 목록에 진입할 수 있게. 줄다리기 결과 재오픈은 목록 안에서 해당 기록을 탭해서 연다.)
+  document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
   // 전체 목록 안의 줄다리기 기록 탭 → 결과 팝업(오버레이 위에 뜬다)
   document.getElementById('timeline-list').addEventListener('click', ev => {
     const row = ev.target.closest('[data-tug-week]');

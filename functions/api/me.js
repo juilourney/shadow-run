@@ -38,6 +38,7 @@ export async function onRequestPost(context) {
       team: me.team ?? null, role: me.role ?? null,
       assignedAt: assignment.assignedAt ?? null,
       seasonId: assignment.seasonId ?? null,
+      revealsResetAt: assignment.revealsResetAt ?? null,   // 역할 재배정 시 낡은 역할 조사 초기화 신호
       ability: {
         week,
         used: Number(usage[String(week)]) || 0,

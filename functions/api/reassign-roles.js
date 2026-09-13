@@ -38,6 +38,35 @@ function weightedPick(pool) {
   return pool[pool.length - 1];
 }
 
+// 역할 재배정으로 낡은 '역할' 조사 결과를 초기화한다. 모든 identities의 investigated 맵에서
+// 역할 조사({role})만 지우고 팀 조사({team})는 남긴다 — 재배정은 역할만 바꾸고 팀은 그대로라
+// 밀정의 역할 조사만 낡고 탐정의 팀 조사는 유효하기 때문. 반환값은 실제로 지운 identity 수.
+async function clearRoleReveals(env, authHeaders) {
+  const res = await fetch(`${firestoreUrl(env, 'identities')}?pageSize=300`, { headers: authHeaders });
+  if (!res.ok) return 0;
+  const data = await res.json();
+  let count = 0;
+  for (const doc of data.documents || []) {
+    const f = fromFirestoreFields(doc.fields);
+    const inv = f.investigated;
+    if (!inv || typeof inv !== 'object') continue;
+    const kept = {};
+    let removed = false;
+    for (const [tid, v] of Object.entries(inv)) {
+      if (v && v.role !== undefined) removed = true;   // 역할 조사 → 제거
+      else kept[tid] = v;                              // 팀 조사 → 유지
+    }
+    if (!removed) continue;
+    const id = doc.name.split('/').pop();
+    await fetch(`${firestoreUrl(env, `identities/${id}`)}?updateMask.fieldPaths=investigated`, {
+      method: 'PATCH', headers: authHeaders,
+      body: JSON.stringify({ fields: toFirestoreFields({ investigated: kept }) }),
+    }).catch(() => {});
+    count++;
+  }
+  return count;
+}
+
 export async function onRequestPost(context) {
   try {
     const env = context.env;
@@ -51,78 +80,97 @@ export async function onRequestPost(context) {
       return json({ done: false, reason: 'not_yet' });
     }
 
-    // 배정 + 1회 게이트(선점용 updateTime)
+    // 배정 읽기
     const asgRes = await fetch(firestoreUrl(env, 'secrets/assignment'), { headers: authHeaders });
     if (!asgRes.ok) return json({ done: false, reason: 'no_assignment' });
     const asgDoc = await asgRes.json();
     const assignment = fromFirestoreFields(asgDoc.fields);
-    if (assignment.rolesReassignedAt) return json({ done: false, reason: 'already' });
     const updateTime = asgDoc.updateTime;
 
-    // km(마일리지) — players 컬렉션
-    const pRes = await fetch(firestoreUrl(env, 'players'), { headers: authHeaders });
-    const pData = await pRes.json();
-    const kmById = {};
-    for (const d of pData.documents || []) {
-      const pf = fromFirestoreFields(d.fields);
-      kmById[d.name.split('/').pop()] = Number(pf.km) || 0;
-    }
+    let changedCount = 0;
 
-    const players = (assignment.players || []).map(p => ({ ...p }));
-    const changes = [];   // { id, from, to } — 로그용(응답엔 안 실음)
+    // ── 1) 엘리트·앵커 재배정 (rolesReassignedAt로 정확히 1회, updateTime 선점) ──
+    if (!assignment.rolesReassignedAt) {
+      // km(마일리지) — players 컬렉션
+      const pRes = await fetch(firestoreUrl(env, 'players'), { headers: authHeaders });
+      const pData = await pRes.json();
+      const kmById = {};
+      for (const d of pData.documents || []) {
+        const pf = fromFirestoreFields(d.fields);
+        kmById[d.name.split('/').pop()] = Number(pf.km) || 0;
+      }
 
-    for (const team of ['pacer', 'ghost']) {
-      const members = players.filter(p => p.team === team);
-      // 후보 풀: km>0, 역할이 러너·엘리트·앵커(밀정·탐정·더블 제외), 러닝메이트 아님
-      const pool = members
-        .filter(p => (kmById[p.id] || 0) > 0
-          && (p.role === 'runner' || p.role === 'elite' || p.role === 'anchor')
-          && !p.runningMate)
-        .map(p => ({ p, w: (p.role === 'elite' || p.role === 'anchor') ? FORMER_WEIGHT : 1 }));
+      const players = (assignment.players || []).map(p => ({ ...p }));
+      const changes = [];   // { id, from, to } — 로그용(응답엔 안 실음)
 
-      if (pool.length < 2) continue;   // 뽑을 사람이 부족하면 이 팀은 그대로 둔다
+      for (const team of ['pacer', 'ghost']) {
+        const members = players.filter(p => p.team === team);
+        // 후보 풀: km>0, 역할이 러너·엘리트·앵커(밀정·탐정·더블 제외), 러닝메이트 아님
+        const pool = members
+          .filter(p => (kmById[p.id] || 0) > 0
+            && (p.role === 'runner' || p.role === 'elite' || p.role === 'anchor')
+            && !p.runningMate)
+          .map(p => ({ p, w: (p.role === 'elite' || p.role === 'anchor') ? FORMER_WEIGHT : 1 }));
 
-      const eliteWin = weightedPick(pool);
-      const anchorWin = weightedPick(pool.filter(x => x.p.id !== eliteWin.p.id));
+        if (pool.length < 2) continue;   // 뽑을 사람이 부족하면 이 팀은 그대로 둔다
 
-      // 현재 엘리트·앵커를 러너로 되돌린 뒤 새로 지정 (새 사람이 옛 사람과 같아도 안전)
-      for (const p of members) {
-        if (p.role === 'elite' || p.role === 'anchor') {
-          if (p.role !== 'runner') changes.push({ id: p.id, from: p.role, to: 'runner' });
-          p.role = 'runner';
+        const eliteWin = weightedPick(pool);
+        const anchorWin = weightedPick(pool.filter(x => x.p.id !== eliteWin.p.id));
+
+        // 현재 엘리트·앵커를 러너로 되돌린 뒤 새로 지정 (새 사람이 옛 사람과 같아도 안전)
+        for (const p of members) {
+          if (p.role === 'elite' || p.role === 'anchor') {
+            if (p.role !== 'runner') changes.push({ id: p.id, from: p.role, to: 'runner' });
+            p.role = 'runner';
+          }
         }
+        const setRole = (winId, role) => {
+          const t = players.find(p => p.id === winId);
+          if (t && t.role !== role) { changes.push({ id: t.id, from: t.role, to: role }); t.role = role; }
+        };
+        setRole(eliteWin.p.id, 'elite');
+        setRole(anchorWin.p.id, 'anchor');
       }
-      const setRole = (winId, role) => {
-        const t = players.find(p => p.id === winId);
-        if (t && t.role !== role) { changes.push({ id: t.id, from: t.role, to: role }); t.role = role; }
-      };
-      setRole(eliteWin.p.id, 'elite');
-      setRole(anchorWin.p.id, 'anchor');
+
+      // 원자 커밋: 새 배정 + 1회 플래그 (updateTime 선점 — 동시 호출 시 하나만 성공)
+      const commitUrl = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:commit`;
+      const res = await fetch(commitUrl, {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({
+          writes: [{
+            update: {
+              name: docName(env, 'secrets/assignment'),
+              fields: toFirestoreFields({ ...assignment, players, rolesReassignedAt: Date.now() }),
+            },
+            currentDocument: { updateTime },
+          }],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        // 409/선점 실패 = 다른 요청이 재배정을 먼저 처리 → 아래 조사 초기화는 이어서 시도한다
+        if (!(res.status === 409 || /FAILED_PRECONDITION/.test(JSON.stringify(err)))) {
+          return json({ error: err.error?.message || '재배정 실패' }, 502);
+        }
+      } else {
+        changedCount = changes.length;
+      }
     }
 
-    // 원자 커밋: 새 배정 + 1회 플래그 (updateTime 선점 — 동시 호출 시 하나만 성공)
-    const commitUrl = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:commit`;
-    const res = await fetch(commitUrl, {
-      method: 'POST', headers: authHeaders,
-      body: JSON.stringify({
-        writes: [{
-          update: {
-            name: docName(env, 'secrets/assignment'),
-            fields: toFirestoreFields({ ...assignment, players, rolesReassignedAt: Date.now() }),
-          },
-          currentDocument: { updateTime },
-        }],
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      if (res.status === 409 || /FAILED_PRECONDITION/.test(JSON.stringify(err))) {
-        return json({ done: false, reason: 'already' });   // 다른 요청이 먼저 처리함
-      }
-      return json({ error: err.error?.message || '재배정 실패' }, 502);
+    // ── 2) 낡은 '역할' 조사 결과 초기화 (revealsResetAt로 1회) ──
+    // rolesReassignedAt와 별개 게이트라, 재배정이 이미 끝난 뒤 이 코드가 배포돼도 이번 호출에 실행된다.
+    // 팀은 재배정으로 안 바뀌므로 팀 조사(탐정)는 남기고 역할 조사(밀정)만 지운다.
+    let revealsCleared = -1;   // -1 = 이미 초기화되어 스킵
+    if (!assignment.revealsResetAt) {
+      revealsCleared = await clearRoleReveals(env, authHeaders);
+      // revealsResetAt 기록 — 단일 필드 PATCH라 다른 필드 보존, 멱등(동시 호출도 안전)
+      await fetch(`${firestoreUrl(env, 'secrets/assignment')}?updateMask.fieldPaths=revealsResetAt`, {
+        method: 'PATCH', headers: authHeaders,
+        body: JSON.stringify({ fields: toFirestoreFields({ revealsResetAt: Date.now() }) }),
+      }).catch(() => {});
     }
 
-    return json({ done: true, changedCount: changes.length });
+    return json({ done: true, changedCount, revealsCleared });
   } catch (e) {
     return json({ error: e.message }, 500);
   }

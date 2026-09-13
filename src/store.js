@@ -601,6 +601,7 @@ export function getVote() {
 // 초기화되고(사실상 무제한 사용) 애써 알아낸 조사 결과도 사라진다.
 // 이름·배정(assignedAt)이 함께 저장돼, 재배정·새 시즌·다른 이름 입장 시엔 자동 폐기.
 const ME_PERSIST_KEY = 'sr_me';
+const REVEALS_RESET_KEY = 'sr_reveals_reset';   // 서버가 마지막으로 알린 역할 조사 초기화 시각(기기별 반영 기록)
 let _meLoadedFor = null;
 
 function ensureMeLoaded() {
@@ -664,6 +665,23 @@ export function applyServerMe(data) {
     }
     persistMe();
   }
+
+  // 역할 재배정 시 서버가 낡은 '역할' 조사 결과를 지우고 revealsResetAt를 올린다. 클라이언트도
+  // 이 신호가 오르면(기기별 1회) 로컬 revealed에서 역할 조사만 지워(팀 조사는 유지) 재조사 가능하게 한다.
+  // 서버는 머지(merge)라 서버가 비워도 로컬에 남으므로, 이 prune이 실제로 로컬 캐시를 지운다.
+  try {
+    const serverReset = data.revealsResetAt ?? null;
+    if (serverReset && String(serverReset) !== localStorage.getItem(REVEALS_RESET_KEY)) {
+      const kept = {};
+      for (const [tid, v] of Object.entries(state.me.revealed || {})) {
+        if (!(v && v.role !== undefined)) kept[tid] = v;   // 팀 조사만 유지, 역할 조사는 제거
+      }
+      state.me.revealed = kept;
+      localStorage.setItem(REVEALS_RESET_KEY, String(serverReset));
+      persistMe();
+    }
+  } catch {}
+
   notify();
 }
 

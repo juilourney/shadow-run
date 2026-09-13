@@ -297,8 +297,16 @@ export function init() {
   // 미리보기 탭 — 항상 전체 목록 오버레이를 연다. (미리보기 2칸이 전부 줄다리기 기록이어도
   // 목록에 진입할 수 있게. 줄다리기 결과 재오픈은 목록 안에서 해당 기록을 탭해서 연다.)
   document.getElementById('dash-timeline-preview').addEventListener('click', openTimelineOverlay);
-  // 전체 목록 안의 줄다리기 기록 탭 → 결과 팝업(오버레이 위에 뜬다)
+  // 전체 목록 탭: 주차 헤더 → 펼치기/접기 / 줄다리기 기록 → 결과 팝업(오버레이 위에 뜬다)
   document.getElementById('timeline-list').addEventListener('click', ev => {
+    const head = ev.target.closest('[data-week]');
+    if (head) {
+      const w = Number(head.dataset.week);
+      if (!_openWeeks) _openWeeks = new Set();
+      if (_openWeeks.has(w)) _openWeeks.delete(w); else _openWeeks.add(w);
+      renderTimelineList();
+      return;
+    }
     const row = ev.target.closest('[data-tug-week]');
     if (row) openTugFromWeek(Number(row.dataset.tugWeek));
   });
@@ -413,21 +421,65 @@ function paintTimelineChips() {
 }
 
 // 전체 타임라인 목록 렌더 — 현재 필터를 적용하되 시간순(getTimeline: 최신순)은 유지.
+let _openWeeks = null;   // 사용자가 펼친 주차 Set (null=기본: 현재 주만 펼침)
+
+// 타임라인 항목의 게임 주차. 줄다리기는 저장된 week(종료 경계 시각이라 at 기준이면 다음 주로
+// 밀린다)로, 그 외엔 at 기준으로 계산한다.
+function weekOfEntry(e, cal) {
+  if (e.kind === 'tug' && e.week) return Math.min(cal.weeks, Math.max(1, e.week));
+  const idx = Math.floor((e.at - cal.start.getTime()) / (7 * 86400000));
+  return Math.min(cal.weeks, Math.max(1, idx + 1));
+}
+
+// 소식 전체 목록 — 현재 필터 적용 후 주차별 아코디언으로 묶는다. 현재 주는 펼치고 지난 주는
+// 접어둔다(헤더 탭으로 펼침·접기). 다음 주 진입 시 이전 주는 다음 세션부터 자동으로 접힌다.
+// 필터는 주차와 무관하게 전체에 적용되므로, 펼친 지난 주 항목도 분류돼 보인다.
 function renderTimelineList(timeline = getTimeline()) {
   const el = document.getElementById('timeline-list');
   if (!el) return;
+  const cal = getCalendar();
+  const curWeek = cal.week || 1;
+  if (_openWeeks === null) _openWeeks = new Set([curWeek]);
+
   const rows = timelineFilter === 'all'
     ? timeline
     : timeline.filter(e => TIMELINE_CATEGORY[e.kind] === timelineFilter);
-  if (rows.length) {
-    el.innerHTML = rows.map(timelineRow).join('');
-  } else {
+
+  const byWeek = new Map();
+  for (const e of rows) {
+    const w = weekOfEntry(e, cal);
+    if (!byWeek.has(w)) byWeek.set(w, []);
+    byWeek.get(w).push(e);
+  }
+  const weeks = [...byWeek.keys()].sort((a, b) => b - a);   // 최신 주 먼저
+
+  if (!weeks.length) {
     const msg = timelineFilter === 'all' ? '아직 새로운 소식이 없어요' : '이 분류의 소식이 아직 없어요';
     el.innerHTML = `
       <div class="bezel" style="padding:18px 16px; border-radius:20px; text-align:center;">
         <p style="font-size:13px; color:#52525b;">${msg}</p>
       </div>`;
+    return;
   }
+
+  el.innerHTML = weeks.map(w => {
+    const open = _openWeeks.has(w);
+    const items = byWeek.get(w);
+    const cur = w === curWeek;
+    return `
+      <div style="margin-bottom:14px;">
+        <button data-week="${w}" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+          padding:12px 14px; border-radius:14px; cursor:pointer; font-size:14px; font-weight:700; color:#e4e4e7;
+          border:1px solid ${cur ? 'rgba(52,211,153,.35)' : 'rgba(255,255,255,.08)'};
+          background:${cur ? 'rgba(52,211,153,.06)' : 'rgba(255,255,255,.03)'};">
+          <span>${w}주차${cur ? ' · 진행 중' : ''}</span>
+          <span style="color:#71717a; font-size:12px; font-weight:600;">${items.length}건 ${open ? '▾' : '▸'}</span>
+        </button>
+        <div style="display:${open ? 'flex' : 'none'}; flex-direction:column; gap:6px; margin-top:6px;">
+          ${items.map(timelineRow).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function timelineRow(e) {
@@ -435,7 +487,7 @@ function timelineRow(e) {
   const date = `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`;
   const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
-  let icon, tint, textColor, body;
+  let icon, tint, textColor, body, sub = '';
   if (e.kind === 'team') {
     const color = TIMELINE_TEAM_COLOR[e.team];
     icon = '🎯'; tint = 'rgba(251,113,133,.06)'; textColor = '#e4e4e7';
@@ -444,9 +496,11 @@ function timelineRow(e) {
     icon = '🎭'; tint = 'rgba(52,211,153,.06)'; textColor = '#e4e4e7';
     body = `<b>${e.name}</b> 님의 역할이 공개됐습니다 (<span style="color:#34d399; font-weight:700;">${ROLES[e.role].name}</span>)`;
   } else if (e.kind === 'bolt') {
-    // km·버프 수치는 비공개(게이지 숫자 비공개 설계와 일관) — 참가자는 결과 화면에서 상세 확인
+    // km·버프 수치는 비공개(게이지 숫자 비공개 설계와 일관) — 참가자는 결과 화면에서 상세 확인.
+    // 제목은 첫 줄, 완주 인원은 둘째 줄에 고정(제목 길이와 무관하게 일관된 2줄).
     icon = '⚡'; tint = 'rgba(56,189,248,.05)'; textColor = '#a1a1aa';
-    body = `<b style="color:#e4e4e7;">${e.title}</b> 번개가 완료됐습니다 · ${e.count}명 완주`;
+    body = `<b style="color:#e4e4e7;">${e.title}</b> 번개가 완료됐습니다`;
+    sub = `${e.count}명 완주`;
   } else if (e.kind === 'reject') {
     icon = '🚫'; tint = 'rgba(251,113,133,.06)'; textColor = '#a1a1aa';
     body = `<b style="color:#e4e4e7;">${e.title}</b> 번개 기록이 관리자 심사로 취소됐습니다`;
@@ -477,11 +531,14 @@ function timelineRow(e) {
        <div class="num" style="font-size:11px; color:#71717a;">${time}</div>`;
 
   const tappable = e.kind === 'tug';
+  const subHtml = sub ? `<p style="margin:0; font-size:11px; color:#52525b; line-height:1.25;">${sub}</p>` : '';
   return `
-  <div class="bezel"${tappable ? ` data-tug-week="${e.week}"` : ''} style="padding:14px 16px; border-radius:18px; display:flex; align-items:center; gap:12px; background:${tint};${tappable ? ' cursor:pointer;' : ''}">
-    <span style="font-size:18px; flex-shrink:0;">${icon}</span>
-    <p style="flex:1; min-width:0; font-size:13px; color:${textColor}; line-height:1.5;">${body}</p>
-    <div style="flex-shrink:0; text-align:right; line-height:1.35;">${meta}</div>
+  <div class="bezel"${tappable ? ` data-tug-week="${e.week}"` : ''} style="min-height:44px; box-sizing:border-box; padding:5px 12px; border-radius:14px; display:flex; align-items:center; gap:10px; background:${tint};${tappable ? ' cursor:pointer;' : ''}">
+    <span style="font-size:16px; flex-shrink:0;">${icon}</span>
+    <div style="flex:1; min-width:0;">
+      <p style="margin:0; font-size:12.5px; color:${textColor}; line-height:1.3; word-break:keep-all;">${body}</p>${subHtml}
+    </div>
+    <div style="flex-shrink:0; text-align:right; line-height:1.25;">${meta}</div>
   </div>`;
 }
 

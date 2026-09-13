@@ -1,5 +1,5 @@
 import { goToScreen, setScrollLock } from '../utils/nav.js';
-import { subscribe, getBolts, getJoinedBoltId, getCalendar,
+import { subscribe, getBolts, getJoinedBoltId, getCalendar, boltDeadline,
          createBolt as storeCreateBolt, joinBolt as storeJoinBolt, leaveBolt } from '../store.js';
 import { openHostView } from './bolt-detail.js';
 
@@ -104,6 +104,8 @@ export function render() {
           <input class="input" type="datetime-local" id="create-datetime" style="color-scheme:dark;" />
         </div>
 
+        <p id="create-deadline-preview" style="font-size:11px; color:#52525b; margin:-2px 2px 0; min-height:14px; line-height:1.3;"></p>
+
         <button class="btn btn-primary" id="create-submit-btn"
           style="width:100%; height:56px; font-size:16px; margin-top:8px;">
           번개 등록하기
@@ -188,6 +190,10 @@ export function init() {
       showToast(e.message);
     }
   });
+
+  // 거리·시각 바뀔 때마다 인증 마감 미리보기 갱신 (페이스는 피커에서 선택 시 갱신)
+  document.getElementById('create-distance').addEventListener('input', updateDeadlinePreview);
+  document.getElementById('create-datetime').addEventListener('input', updateDeadlinePreview);
 
   // 페이스 선택 피커
   initPacePicker();
@@ -275,9 +281,26 @@ function initPacePicker() {
   opts.querySelectorAll('.pace-opt').forEach(btn => {
     btn.addEventListener('click', () => {
       input.value = `${btn.dataset.pace}/km`;
+      updateDeadlinePreview();
       closePacePicker();
     });
   });
+}
+
+// 거리·페이스·시작시각으로 인증 마감 시각을 미리 계산해 작게 보여준다.
+// 마감 계산은 store.boltDeadline 단일 출처를 그대로 쓴다(페이스 미선택 시 7:00 가정).
+function updateDeadlinePreview() {
+  const el = document.getElementById('create-deadline-preview');
+  if (!el) return;
+  const distance = Number(document.getElementById('create-distance').value);
+  const pace = document.getElementById('create-pace').value.trim();
+  const rawDatetime = document.getElementById('create-datetime').value;
+  const startAt = rawDatetime ? new Date(rawDatetime).getTime() : null;
+  if (!startAt || !distance || distance <= 0) { el.textContent = ''; return; }
+  const d = new Date(boltDeadline({ startAt, distance, pace }));
+  const date = `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`;
+  const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  el.textContent = `⏱ 인증 마감 ${date} ${time}까지 (예상 완주 + 2시간)`;
 }
 
 function openPacePicker() {
@@ -324,6 +347,7 @@ function openCreateOverlay() {
   dt.min = toLocalDatetimeValue(minDate);
   dt.max = toLocalDatetimeValue(lastDay);
   dt.value = '';
+  updateDeadlinePreview();   // 초기화된 필드에 맞춰 미리보기 비움
 
   overlay.style.display = 'block';
   // setScrollLock — overflow만 인라인으로 잠그면 scroll-snap이 살아 있어, iOS에서

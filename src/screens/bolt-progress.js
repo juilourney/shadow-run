@@ -1,5 +1,5 @@
 import { goToScreen } from '../utils/nav.js';
-import { subscribe, getBolts, getPlayers, boltEstimatedFinish } from '../store.js';
+import { subscribe, getBolts, getPlayers, boltEstimatedFinish, boltDeadline } from '../store.js';
 import { enterChecklist } from './bolt-detail.js';
 
 let currentBoltId = null;
@@ -31,6 +31,7 @@ export function render() {
       <p style="font-size:11px; color:#52525b; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">경과 시간</p>
       <p class="num" id="bp-elapsed" style="font-size:40px; font-weight:800; color:var(--accent);">00:00</p>
       <p id="bp-eta" style="font-size:12px; color:#52525b; margin-top:8px;"></p>
+      <p id="bp-deadline" style="font-size:12px; color:#fbbf24; margin-top:10px; font-weight:600;"></p>
     </div>
 
     <p class="eyebrow anim-up-2" style="color:#3f3f46; margin:20px 0 10px;">참가자</p>
@@ -108,6 +109,13 @@ function refresh() {
   }).join('');
 
   document.getElementById('bp-host-action').style.display = bolt.isHost ? 'block' : 'none';
+
+  // 인증 마감 — 일찍 시작한 경우 startAt이 누른 시각으로 갱신돼(startBolt) 마감도 그 기준.
+  // 이 시각까지 인증(사진 업로드)을 마쳐야 하며, 지나면 자동 만료된다.
+  const dl = new Date(boltDeadline(bolt));
+  const dlDate = `${dl.getMonth() + 1}.${String(dl.getDate()).padStart(2, '0')}`;
+  const dlTime = dl.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('bp-deadline').textContent = `⏱ ${dlDate} ${dlTime}까지 인증해야 해요`;
 
   startTicking(bolt);
 }

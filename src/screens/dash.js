@@ -510,7 +510,7 @@ function timelineRow(e) {
   } else if (e.kind === 'runmate') {
     // 러닝메이트 축포 — 단일팀 번개에서 발동. 누가 러닝메이트인지는 비공개.
     icon = '🎆'; tint = 'rgba(251,191,36,.08)'; textColor = '#e4e4e7';
-    body = `<b style="color:#fbbf24;">${e.title}</b> 번개에 러닝메이트의 기운이 터졌다! 팀 스킬 폭발 🔥`;
+    body = `<b style="color:#fbbf24;">${e.title}</b>에 러닝메이트의 기운이 터졌다! 🔥`;
   } else if (e.kind === 'ability') {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';

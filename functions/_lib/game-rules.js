@@ -47,7 +47,7 @@ export const GHOST_SKILL = { name: '게이지 스킬', icon: '⚔️', multiplie
 export const SOLO_CARD = { name: '혼자 달림', icon: '×1', multiplier: 1, color: '#71717a', bg: 'rgba(113,113,122,.12)', border: 'rgba(113,113,122,.25)', desc: '혼자 달린 번개는 버프 없이 실제 거리만 적립됩니다' };
 // 러닝메이트가 낀 단일팀 번개 — 팀 스킬 ×N 발동. 결과 화면엔 '축포' 카드로 뜨고(발동은 공개·축하),
 // 누가 러닝메이트인지는 드러내지 않는다(정체만 비공개).
-export const RUNNING_MATE_CARD = { name: '러닝메이트', icon: '🎆', multiplier: 1, color: '#fbbf24', bg: 'rgba(251,191,36,.15)', border: 'rgba(251,191,36,.4)', desc: '러닝메이트의 기운이 터졌다! 팀 스킬이 폭발합니다' };
+export const RUNNING_MATE_CARD = { name: '러닝메이트', icon: '🎆', multiplier: 1, color: '#fbbf24', bg: 'rgba(251,191,36,.15)', border: 'rgba(251,191,36,.4)', desc: '러닝메이트의 기운이 터졌다!' };
 // 러닝메이트가 낀 혼합팀 번개 — 참가자 수만큼 배수(multiplier는 complete-bolt가 인원수로 채움).
 export const RUNNING_MATE_MIX_CARD = { name: '러닝메이트', icon: '🤝', multiplier: 1, color: '#34d399', bg: 'rgba(52,211,153,.15)', border: 'rgba(52,211,153,.4)', desc: '러닝메이트가 함께 달렸습니다 · 함께 달린 인원만큼 배수 적립' };
 

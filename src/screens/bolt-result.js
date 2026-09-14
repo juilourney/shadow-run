@@ -178,7 +178,7 @@ function buffCardBlock(card, distanceKm) {
       <span class="chip" style="background:${card.bg};color:${card.color};font-size:10px;">랜덤 카드</span>
     </div>
     <p style="font-size:16px;font-weight:700;color:${card.color};">${card.icon} ${card.name}</p>
-    <p style="font-size:12px;color:${card.color};opacity:.65;margin-top:3px;">${card.desc}</p>
+    <p style="font-size:12px;color:${card.color};opacity:.65;margin-top:3px;word-break:keep-all;">${card.desc}</p>
     <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <p style="font-size:12px;color:#52525b;">버프 적용 마일리지</p>
@@ -214,11 +214,11 @@ function runningMateSkillBlock(card, skillDesc) {
       <p style="font-size:12px;color:#52525b;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">러닝메이트 발동</p>
       <span class="chip" style="background:${card.bg};color:${card.color};font-size:10px;">팀 스킬 폭발</span>
     </div>
-    <p style="font-size:16px;font-weight:700;color:${card.color};">${card.icon} ${card.desc}</p>
+    <p style="font-size:16px;font-weight:700;color:${card.color};word-break:keep-all;">${card.icon} ${card.desc}</p>
     <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <p style="font-size:12px;color:#52525b;">스킬 효과</p>
-      <p style="font-size:13px;font-weight:700;color:${card.color};text-align:right;">${skillDesc}</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <p style="font-size:12px;color:#52525b;flex-shrink:0;">스킬 효과</p>
+      <p style="font-size:13px;font-weight:700;color:${card.color};text-align:right;word-break:keep-all;">${skillDesc}</p>
     </div>
   </div>`;
 }
@@ -231,7 +231,7 @@ function singleTeamBlock(card, skillDesc) {
       <span class="chip" style="background:${card.bg};color:${card.color};font-size:10px;">단일팀 발동</span>
     </div>
     <p style="font-size:16px;font-weight:700;color:${card.color};">${card.icon} ${card.name}</p>
-    <p style="font-size:12px;color:${card.color};opacity:.65;margin-top:3px;">${card.desc}</p>
+    <p style="font-size:12px;color:${card.color};opacity:.65;margin-top:3px;word-break:keep-all;">${card.desc}</p>
     <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <p style="font-size:12px;color:#52525b;">스킬 효과</p>

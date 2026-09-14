@@ -45,6 +45,15 @@ function fmtGaugeEffect(d) {
   return seg.length ? ` · 게이지 ${seg.join(' / ')}km` : '';
 }
 
+// 버프/스킬 요약 — 러닝메이트 발동이면 팀 구성별로 구분해 표시(관리자 확인용).
+function buffSkillLabel(r) {
+  const isRM = r.card?.name === '러닝메이트';
+  if (isRM && r.singleTeam) return '🎆 러닝메이트 · 팀 스킬 ×2';
+  if (isRM)                 return `🤝 러닝메이트 · 인원수 배수 ×${r.buffMultiplier}`;
+  if (r.singleTeam)         return '단일팀 스킬 발동';
+  return `버프 ×${r.buffMultiplier}`;
+}
+
 function certCard(c) {
   const status = STATUS_META[c.reviewStatus] ?? { label: '심사 도입 전', color: '#71717a', bg: 'rgba(113,113,122,.12)' };
   const r = c.result;
@@ -57,14 +66,15 @@ function certCard(c) {
   const participantsHtml = (c.participants && c.participants.length)
     ? c.participants.map(p => {
         const color = p.team === 'pacer' ? '#38bdf8' : p.team === 'ghost' ? '#a78bfa' : '#52525b';
-        return `<span style="display:inline-flex; align-items:center; gap:5px; margin:0 12px 4px 0; white-space:nowrap;"><span style="width:8px; height:8px; border-radius:50%; background:${color};"></span>${p.name}</span>`;
+        const rmTag = p.runningMate ? ' <span style="color:#fbbf24;">🤝</span>' : '';   // 러닝메이트(관리자만 보임)
+        return `<span style="display:inline-flex; align-items:center; gap:5px; margin:0 12px 4px 0; white-space:nowrap;"><span style="width:8px; height:8px; border-radius:50%; background:${color};"></span>${p.name}${rmTag}</span>`;
       }).join('')
     : '—';
 
   const infoRows = [
     ['참가자', participantsHtml],
     ['인증 거리', r ? `${r.distanceKm.toFixed(1)} km` : '—'],
-    ['버프/스킬', r ? `${r.singleTeam ? '단일팀 스킬 발동' : `버프 ×${r.buffMultiplier}`}${fmtGaugeEffect(r.gaugeDelta)}` : '—'],
+    ['버프/스킬', r ? `${buffSkillLabel(r)}${fmtGaugeEffect(r.gaugeDelta)}` : '—'],
     ['번개 시작', fmtAt(c.startAt) ?? '—'],
     ['사진 기록 시각', r?.certAt
       ? `${fmtAt(r.certAt)}${stale ? ' <span style="color:#fbbf24; font-weight:700;">⚠️ 일정과 어긋남</span>' : ''}`

@@ -1108,7 +1108,7 @@ export function getCertReviews() {
       reviewStatus: b.reviewStatus ?? null,   // null = 심사 기능 도입 전 완료분
       result: b.result ?? null,
       participants: (b.result?.participantIds ?? b.participants ?? [])
-        .map(pid => { const p = playerById(pid); return { name: p?.name ?? '?', team: adminSecretOf(pid)?.team ?? null }; }),
+        .map(pid => { const p = playerById(pid); const s = adminSecretOf(pid); return { name: p?.name ?? '?', team: s?.team ?? null, runningMate: !!s?.runningMate }; }),
     }))
     .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
 }

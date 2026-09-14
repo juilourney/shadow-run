@@ -33,6 +33,7 @@ export const CONFIG = {
   voteMinRatio: 0.3,            // 페널티 최소 기준: 전체 표의 30% 이상 + 단독 1위여야 적발
   // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일 — 실제 계산은 서버 game-rules.js)
   skillPerHeadKm: 5,
+  runningMateSkillMult: 2,      // 러닝메이트가 낀 단일팀 번개 → 팀 스킬 ×이 값(서버 game-rules.js와 동일)
   singleTeamMin: 3,             // 단일팀 번개 최소 인원
   boltMaxHeads: 4,              // 번개 최대 인원
   abilityWeeklyLimit: 3,        // 탐정/밀정 능력 사용 횟수 — 주(1~3주차)당 한도, 매주 초기화
@@ -1073,6 +1074,10 @@ export async function completeBolt(boltId, distanceKm, participantIds, _ignoredB
 
   // 전체 공개 소식 — km·버프 수치는 싣지 않는다(게이지 숫자 비공개 설계). boltId는 불인정 시 삭제용.
   pushTimelineEvent({ kind: 'bolt', title: bolt?.title ?? data.result.boltTitle, count: data.result.participantCount, boltId });
+  // 단일팀(같은 팀) 러닝메이트 축포만 타임라인에 공개(혼합팀 러닝메이트는 알리지 않음). 정체는 비공개.
+  if (data.result.singleTeam && data.result.card?.name === '러닝메이트') {
+    pushTimelineEvent({ kind: 'runmate', title: bolt?.title ?? data.result.boltTitle, boltId });
+  }
 
   return { ...data.result, card: data.card };
 }
@@ -1143,10 +1148,10 @@ export async function rejectBoltCert(boltId) {
       km: increment(-r.distanceKm), boltsCompleted: increment(-1),
     }));
   }
-  // 이 번개의 "완료됐습니다" 소식 삭제 — 남겨두면 취소 소식과 완료 소식이 나란히 보여
+  // 이 번개의 "완료됐습니다"·"러닝메이트 축포" 소식 삭제 — 남겨두면 취소 소식과 나란히 보여
   // 다시 완료된 것처럼 오해를 부른다
   for (const e of state.timeline) {
-    if (e.kind === 'bolt' && e.boltId === boltId) {
+    if ((e.kind === 'bolt' || e.kind === 'runmate') && e.boltId === boltId) {
       writes.push(deleteDoc(doc(db, 'timeline', e.id)));
     }
   }
@@ -1197,6 +1202,9 @@ export async function reapproveBoltCert(boltId) {
   applyGaugeDelta({ pacer: d.pacer, ghost: d.ghost });
 
   pushTimelineEvent({ kind: 'bolt', title: bolt.title, count: r.participantCount, boltId });
+  if (r.singleTeam && r.card?.name === '러닝메이트') {
+    pushTimelineEvent({ kind: 'runmate', title: bolt.title, boltId });
+  }
 }
 
 // 투표 지목 — '이 사람은 상대팀'이라는 추측 (+ 역할 지목: role|null=기권)

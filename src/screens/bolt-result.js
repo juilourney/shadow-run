@@ -104,13 +104,18 @@ export function openResultView() {
 
   // 버프/스킬 섹션
   const buffEl = document.getElementById('result-buff-section');
+  const isRunningMate = !!card && card.name === '러닝메이트';
   if (solo) {
     buffEl.innerHTML = soloBlock(distanceKm);          // 혼자 달림 — 버프 없음(×1)
+  } else if (isRunningMate && singleTeam) {
+    // 단일팀 러닝메이트 → 팀 스킬 ×N 축포(누가 러닝메이트인지는 비공개, 발동은 공개·축하)
+    const skillDesc = buildSkillEffect(boltTeam, participantCount, distanceKm, true);
+    buffEl.innerHTML = runningMateSkillBlock(card, skillDesc);
   } else if (singleTeam && card) {
     const skillDesc = buildSkillEffect(boltTeam, participantCount, distanceKm);
     buffEl.innerHTML = singleTeamBlock(card, skillDesc);
-  } else if (card && card.name === '러닝메이트') {
-    buffEl.innerHTML = runningMateBlock(card, distanceKm, participantCount);   // 누가 러닝메이트인지는 비공개
+  } else if (isRunningMate) {
+    buffEl.innerHTML = runningMateBlock(card, distanceKm, participantCount);   // 혼합팀 인원수 배수(누구인지 비공개)
   } else if (!singleTeam && card) {
     buffEl.innerHTML = buffCardBlock(card, distanceKm);
   } else {
@@ -118,7 +123,7 @@ export function openResultView() {
   }
 
   // 합계
-  const total = calcTotal(singleTeam, boltTeam, distanceKm, buffMultiplier, participantCount);
+  const total = calcTotal(singleTeam, boltTeam, distanceKm, buffMultiplier, participantCount, isRunningMate);
   document.getElementById('result-total-km').innerHTML =
     `${total.km.toFixed(1)}<span style="font-size:18px;font-weight:400;color:#52525b;"> km</span>`;
   document.getElementById('result-total-desc').textContent = total.desc;
@@ -201,6 +206,23 @@ function runningMateBlock(card, distanceKm, count) {
   </div>`;
 }
 
+// 단일팀 러닝메이트 → 팀 스킬 ×N 축포. 발동은 축하하되 누가 러닝메이트인지는 안 밝힌다.
+function runningMateSkillBlock(card, skillDesc) {
+  return `
+  <div style="background:${card.bg};border:1px solid ${card.border};border-radius:20px;padding:14px 18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <p style="font-size:12px;color:#52525b;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">러닝메이트 발동</p>
+      <span class="chip" style="background:${card.bg};color:${card.color};font-size:10px;">팀 스킬 폭발</span>
+    </div>
+    <p style="font-size:16px;font-weight:700;color:${card.color};">${card.icon} ${card.desc}</p>
+    <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <p style="font-size:12px;color:#52525b;">스킬 효과</p>
+      <p style="font-size:13px;font-weight:700;color:${card.color};text-align:right;">${skillDesc}</p>
+    </div>
+  </div>`;
+}
+
 function singleTeamBlock(card, skillDesc) {
   return `
   <div style="background:${card.bg};border:1px solid ${card.border};border-radius:20px;padding:14px 18px;">
@@ -223,15 +245,15 @@ function skillTotal(distanceKm, count) {
   return count * distanceKm * CONFIG.skillPerHeadKm;
 }
 
-function buildSkillEffect(team, count, distanceKm) {
-  const total = skillTotal(distanceKm, count);
+function buildSkillEffect(team, count, distanceKm, runningMate = false) {
+  const total = skillTotal(distanceKm, count) * (runningMate ? CONFIG.runningMateSkillMult : 1);
   if (team === 'pacer') return `팀 게이지 +${total.toFixed(0)}km 추가`;
   return `상대 −${(total / 2).toFixed(0)} / 우리 +${(total / 2).toFixed(0)}km`;
 }
 
-function calcTotal(singleTeam, team, distanceKm, buffMultiplier, count) {
+function calcTotal(singleTeam, team, distanceKm, buffMultiplier, count, runningMate = false) {
   if (singleTeam) {
-    const skill = skillTotal(distanceKm, count);
+    const skill = skillTotal(distanceKm, count) * (runningMate ? CONFIG.runningMateSkillMult : 1);
     if (team === 'pacer') {
       return { km: distanceKm + skill, desc: `기본 ${distanceKm.toFixed(1)} + 시너지 ${skill.toFixed(0)}` };
     }

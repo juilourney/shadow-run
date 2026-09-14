@@ -11,6 +11,7 @@ export const RULES = {
   //   고스트 게이지 : 절반을 상대에서 깎고 절반을 우리에게 더함(당겨오기) → 총 스윙 동일
   // 거리를 곱하므로 멀리 뛸수록 보너스도 커진다(4명×10km면 200km로 종전과 동일).
   skillPerHeadKm: 5,
+  runningMateSkillMult: 2,  // 러닝메이트가 낀 단일팀 번개 → 팀 스킬 ×이 값(히든 축포)
   singleTeamMin: 3,
   fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
   certBufferMin: 120,     // 인증 마감 버퍼(분)
@@ -44,14 +45,16 @@ export const PACER_SKILL = { name: '시너지 스킬', icon: '🔥', multiplier:
 export const GHOST_SKILL = { name: '게이지 스킬', icon: '⚔️', multiplier: 1, color: '#fb7185', bg: 'rgba(251,113,133,.15)', border: 'rgba(251,113,133,.35)', desc: '달린 거리만큼 상대 게이지 직접 감소 · 전략형 스킬' };
 // 혼자 달린 번개(참가자 1명) — 버프 미적용, 실제 거리만 ×1 적립.
 export const SOLO_CARD = { name: '혼자 달림', icon: '×1', multiplier: 1, color: '#71717a', bg: 'rgba(113,113,122,.12)', border: 'rgba(113,113,122,.25)', desc: '혼자 달린 번개는 버프 없이 실제 거리만 적립됩니다' };
-// 러닝메이트가 낀 번개 — 참가자 수만큼 배수(multiplier는 complete-bolt가 인원수로 채움).
-export const RUNNING_MATE_CARD = { name: '러닝메이트', icon: '🤝', multiplier: 1, color: '#34d399', bg: 'rgba(52,211,153,.15)', border: 'rgba(52,211,153,.4)', desc: '러닝메이트가 함께 달렸습니다 · 함께 달린 인원만큼 배수 적립' };
+// 러닝메이트가 낀 단일팀 번개 — 팀 스킬 ×N 발동. 결과 화면엔 '축포' 카드로 뜨고(발동은 공개·축하),
+// 누가 러닝메이트인지는 드러내지 않는다(정체만 비공개).
+export const RUNNING_MATE_CARD = { name: '러닝메이트', icon: '🎆', multiplier: 1, color: '#fbbf24', bg: 'rgba(251,191,36,.15)', border: 'rgba(251,191,36,.4)', desc: '러닝메이트의 기운이 터졌다! 팀 스킬이 폭발합니다' };
+// 러닝메이트가 낀 혼합팀 번개 — 참가자 수만큼 배수(multiplier는 complete-bolt가 인원수로 채움).
+export const RUNNING_MATE_MIX_CARD = { name: '러닝메이트', icon: '🤝', multiplier: 1, color: '#34d399', bg: 'rgba(52,211,153,.15)', border: 'rgba(52,211,153,.4)', desc: '러닝메이트가 함께 달렸습니다 · 함께 달린 인원만큼 배수 적립' };
 
-// 이 번개에서 러닝메이트 효과가 발동하는가 — 단일팀이 아니고, 인증 2명 이상,
-// 그중 러닝메이트가 1명 이상. (엘리트·앵커에는 태그가 안 붙으므로 그들은 러닝메이트가 아님)
-export function isRunningMateBolt(ids, playerMap, singleTeam) {
-  if (singleTeam || !ids || ids.length < 2) return false;
-  return ids.some(id => playerMap[id]?.runningMate);
+// 인증자 중 러닝메이트가 1명 이상인가. 단일팀 팀 스킬 ×N 발동·축포 카드 판정에 쓴다.
+// (엘리트·앵커에는 러닝메이트 태그가 안 붙으므로 그들은 러닝메이트가 아니다)
+export function hasRunningMate(ids, playerMap) {
+  return !!ids && ids.some(id => playerMap[id]?.runningMate);
 }
 
 const opponentOf = team => (team === 'pacer' ? 'ghost' : 'pacer');
@@ -94,9 +97,11 @@ export function isSingleTeamBolt(ids, playerMap) {
 //  반환: { gaugeDelta:{pacer,ghost}, perPlayerKmInc(=distanceKm), singleTeam, boltTeam }
 export function computeCompletion({ bolt, playerMap, distanceKm, participantIds, buffMultiplier, isTug }) {
   const singleTeam = isSingleTeamBolt(participantIds, playerMap);
-  // 러닝메이트가 발동하면 인원수 배수(buffMultiplier에 인원수가 담겨 옴)가 적용되고,
-  // 엘리트 ×2·앵커 양방향 능력은 무효가 된다. 단 적발 −50%와 줄다리기 양방향은 유지.
-  const runningMate = isRunningMateBolt(participantIds, playerMap, singleTeam);
+  const rm = hasRunningMate(participantIds, playerMap);
+  // 러닝메이트 효과는 팀 구성에 따라 둘로 갈린다:
+  //  · 혼합팀(mixedRM): 인원수 배수(buffMultiplier에 인원수가 담겨 옴) + 엘리트 ×2·앵커 양방향 무효
+  //  · 단일팀: 팀 스킬 ×N (아래 skill 블록에서 rmBoost로 반영), 엘리트·앵커는 정상 동작
+  const mixedRM = rm && !singleTeam;
   const delta = { pacer: 0, ghost: 0 };
 
   for (const pid of participantIds) {
@@ -104,15 +109,13 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
     if (!p) continue;
     const stripped = !!p.abilityStripped;
     let km = distanceKm * (singleTeam ? 1 : buffMultiplier);
-    if (!runningMate && p.role === 'elite' && !stripped) km *= RULES.eliteMultiplier;
+    if (!mixedRM && p.role === 'elite' && !stripped) km *= RULES.eliteMultiplier;
     if (p.penalized) km *= RULES.votePenalty;
 
-    // 앵커 양방향은 러닝메이트 발동 시 무효(러닝메이트 우선). 줄다리기 기간 양방향은 기간
-    // 규칙이라 러닝메이트와 무관하게 유지된다.
-    const bidirectional = isTug || (!runningMate && p.role === 'anchor' && !stripped);
+    // 앵커 양방향은 혼합팀 러닝메이트 발동 시 무효(러닝메이트 우선). 줄다리기 기간 양방향은
+    // 기간 규칙이라 러닝메이트와 무관하게 유지된다.
+    const bidirectional = isTug || (!mixedRM && p.role === 'anchor' && !stripped);
     if (bidirectional) {
-      // 줄다리기 기간엔 "게이지 줄다리기"라는 이름 그대로 전원이 양방향(내 팀 +, 상대 −)으로 움직인다.
-      // 앵커는 탐색 기간에도 항상 양방향이라, 탐색 기간에만 일반 러너 대비 차별점을 갖는다.
       delta[p.team] += km;
       delta[opponentOf(p.team)] -= km;
     } else {
@@ -124,7 +127,8 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
   if (singleTeam) {
     boltTeam = playerMap[participantIds[0]]?.team ?? null;
     const heads = participantIds.length;
-    const skill = heads * distanceKm * RULES.skillPerHeadKm;   // 총 효과(양 팀 동일)
+    // 러닝메이트가 낀 단일팀 번개는 팀 스킬 ×N(축포). 배수만 커질 뿐 정체는 드러나지 않는다.
+    const skill = heads * distanceKm * RULES.skillPerHeadKm * (rm ? RULES.runningMateSkillMult : 1);
     if (boltTeam === 'pacer') {
       delta.pacer += skill;                 // 시너지 — 전부 우리 쪽에 적립
     } else {

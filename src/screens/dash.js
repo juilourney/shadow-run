@@ -391,7 +391,7 @@ const TIMELINE_TEAM_LABEL = { pacer: '페이서', ghost: '고스트' };
 
 // 소식 분류 — 기록 종류를 게임 도메인 3개로 묶어 필터링한다(순서는 시간순 유지).
 const TIMELINE_CATEGORY = {
-  bolt: 'bolt', reject: 'bolt',     // 번개 — 활동
+  bolt: 'bolt', reject: 'bolt', runmate: 'bolt',   // 번개 — 활동(러닝메이트 축포 포함)
   team: 'vote', role: 'vote', fail: 'vote',   // 투표 — 정체 공개
   ability: 'spy',                   // 첩보 — 탐정·밀정
 };
@@ -507,6 +507,10 @@ function timelineRow(e) {
   } else if (e.kind === 'tug') {
     icon = '🪢'; tint = 'rgba(251,113,133,.05)'; textColor = '#e4e4e7';
     body = `<b>${e.week}주차 줄다리기</b> 결과가 나왔어요 · <span style="color:#71717a;">탭하여 보기</span>`;
+  } else if (e.kind === 'runmate') {
+    // 러닝메이트 축포 — 단일팀 번개에서 발동. 누가 러닝메이트인지는 비공개.
+    icon = '🎆'; tint = 'rgba(251,191,36,.08)'; textColor = '#e4e4e7';
+    body = `<b style="color:#fbbf24;">${e.title}</b> 번개에 러닝메이트의 기운이 터졌다! 팀 스킬 폭발 🔥`;
   } else if (e.kind === 'ability') {
     // 신원·대상·확인 결과는 비공개 — 어떤 역할이 움직였는지만 익명 표시
     const isSpy = e.abilityRole === 'spy';

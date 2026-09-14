@@ -76,6 +76,9 @@ export async function onRequestPost(context) {
         const pRes = await fetch(firestoreUrl(env, `players/${topId}`), { headers: authHeaders });
         const pf = pRes.ok ? fromFirestoreFields((await pRes.json()).fields) : {};
 
+        // 이미 팀이 공개된 사람은 재적발·이중 페널티 없음(투표 화면에서도 제외되지만 방어적으로 한 번 더)
+        if (pf.publicTeam) continue;
+
         const update = {
           publicTeam: target.team,
           penalized: true,

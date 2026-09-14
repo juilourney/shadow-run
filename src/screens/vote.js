@@ -6,6 +6,12 @@ const TEAM_META = {
   ghost: { label: '고스트', color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.25)' },
 };
 
+// 지목 가능한 참가자 — 본인 제외 + 이미 팀이 공개(적발)된 사람 제외.
+// 이미 공개된 사람은 다시 찍을 이유가 없고, 재적발·이중 페널티도 막는다.
+function votablePlayers() {
+  return getPlayers({ excludeSelf: true }).filter(p => !p.publicTeam);
+}
+
 // 역할 지목 후보 (기권 기본 + 5개 특수역할)
 const ROLE_GUESS = [
   { key: '',          label: '기권' },
@@ -133,7 +139,7 @@ export function render() {
   const { nextLabel, nextRound, currentRound, isVotingNow } = getVoteStatus();
   const v = getVote();
   const me = getMe();
-  const playerRows = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
+  const playerRows = votablePlayers().map((p, i) => playerRowHtml(p, i, v)).join('');
 
   return `
 <div class="game-section" id="gs-vote">
@@ -379,7 +385,7 @@ export function init() {
     const container = document.getElementById('player-list');
     if (!container) return;
     const v = getVote();
-    container.innerHTML = getPlayers({ excludeSelf: true }).map((p, i) => playerRowHtml(p, i, v)).join('');
+    container.innerHTML = votablePlayers().map((p, i) => playerRowHtml(p, i, v)).join('');
 
     container.querySelectorAll('.vote-btn').forEach(btn => {
       btn.addEventListener('click', () => {

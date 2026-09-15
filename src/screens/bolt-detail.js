@@ -370,7 +370,9 @@ let certAt = null;
 
 async function handleUpload(file) {
   showAnalyzing();
-  const small = await resizeImage(file, 600, 0.65);
+  // 600px·0.65는 거리 숫자가 흐려 오인식(예: 21→33.8)이 났다. 1080px·0.85로 올려 선명도·인식률을
+  // 높인다(base64 ~200KB대라 Firestore 1MB 한도에 여유). 관리자 심사 사진도 또렷해진다.
+  const small = await resizeImage(file, 1080, 0.85);
   if (!small) { showManualFallback(); return; }
   certPhoto = small;
   const rec = await recognizeCert(small);

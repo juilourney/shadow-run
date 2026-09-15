@@ -2,6 +2,7 @@ import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
 import { goToScreen, syncTabbarOnScroll, reengageScrollSnap } from './utils/nav.js';
+import { initPullToRefresh } from './utils/pull-refresh.js';
 import { state } from './state.js';
 import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe, takeReassignNotice, ROLES } from './store.js';
 import { applyTeamTheme } from './utils/theme.js';
@@ -59,6 +60,10 @@ OVERLAYS.forEach(s => {
 createTabbar(app);
 createEdgeBlur(app);
 createFaq(app);
+
+// 아래로 당기면 새로고침 — 게임 각 섹션의 세로 스크롤 영역(.scroll-body)에 붙인다.
+// 가로 스와이프(섹션 이동)엔 양보하므로 좌우 네비와 충돌하지 않는다.
+initPullToRefresh([...gameWrap.querySelectorAll('.scroll-body')]);
 
 // 손가락 스와이프로 섹션이 바뀌면 탭바 동기화 + 알약을 진행도만큼 이동.
 // 예전엔 IntersectionObserver로 '어느 섹션이 화면의 절반을 넘었나'를 봤는데,

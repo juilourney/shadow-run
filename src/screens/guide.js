@@ -83,7 +83,7 @@ export function guideBody() {
         </div>
         <div style="background:rgba(255,255,255,.04); border-radius:14px; padding:14px 16px;">
           <p style="font-size:12px; font-weight:700; color:#a1a1aa; letter-spacing:.04em; margin-bottom:6px;">줄다리기 기간 · 목 ~ 토</p>
-          <p style="font-size:13px; color:#e4e4e7; line-height:1.65;">게이지 줄다리기라는 이름 그대로, 달린 마일리지만큼 우리 팀에 더해지는 동시에 상대팀 게이지에서도 깎입니다. 본격적인 승부를 벌이는 시기입니다.</p>
+          <p style="font-size:13px; color:#e4e4e7; line-height:1.65;">이 기간엔 달린 마일리지는 물론 팀 스킬·버프로 얻은 양까지 전부, 우리 팀에 더해지는 동시에 같은 양이 상대팀 게이지에서도 깎입니다(완전 1:1). 팀 구분 없이 획득한 만큼 그대로 줄을 당겨오는 본격 승부기입니다.</p>
         </div>
       </div>
     `)}
@@ -91,8 +91,8 @@ export function guideBody() {
     ${section('⚡', '번개와 팀 고유 스킬', `
       ${para('번개는 최대 4명까지 모일 수 있으며, 팀 구성에 따라 스킬이 발동됩니다.')}
       ${row('단일팀 번개', '3~4명이 같은 팀일 때 팀 고유 스킬이 자동 발동됩니다.')}
-      ${row('<span style="color:#38bdf8;">\'페이서 시너지\'</span>', '달린 마일리지가 그대로 적립되고, 여기에 <b style="color:#e4e4e7;">인원 × 거리 × 5km</b>가 우리 팀 게이지에 추가됩니다.<br/><span style="color:#71717a;">예: 4명이 10km를 달리면 → 40km + 시너지 200km</span>', '#38bdf8')}
-      ${row('<span style="color:#c084fc;">\'고스트 게이지\'</span>', '달린 마일리지가 그대로 적립되고, 여기에 <b style="color:#e4e4e7;">인원 × 거리 × 5km</b>를 상대 게이지에서 당겨옵니다(절반은 상대에서 깎고, 절반은 우리에 더함).<br/><span style="color:#71717a;">예: 4명이 10km를 달리면 → 우리 +140km(적립 40 + 당겨오기 100) / 상대 −100km</span>', '#c084fc')}
+      ${row('<span style="color:#38bdf8;">\'페이서 시너지\'</span>', '달린 마일리지가 그대로 적립되고, 여기에 <b style="color:#e4e4e7;">인원 × 거리 × 5km</b>가 우리 팀 게이지에 추가됩니다.<br/><span style="color:#71717a;">예: 4명이 10km를 달리면 → 40km + 시너지 200km</span><br/><span style="color:#71717a;">줄다리기 기간엔 이 시너지 전부(인원×거리×5km)를 상대 게이지에서도 그대로 깎아옵니다.</span>', '#38bdf8')}
+      ${row('<span style="color:#c084fc;">\'고스트 게이지\'</span>', '달린 마일리지가 그대로 적립되고, 여기에 <b style="color:#e4e4e7;">인원 × 거리 × 5km</b>를 상대 게이지에서 당겨옵니다(절반은 상대에서 깎고, 절반은 우리에 더함).<br/><span style="color:#71717a;">예: 4명이 10km를 달리면 → 우리 +140km(적립 40 + 당겨오기 100) / 상대 −100km</span><br/><span style="color:#71717a;">줄다리기 기간엔 절반이 아니라 전부(인원×거리×5km)를 우리에 더하고 같은 양을 상대에서 깎습니다.</span>', '#c084fc')}
       ${row('일반 번개', '버프카드가 랜덤으로 적용되어 마일리지가 최대 3배까지 오를 수 있습니다.<br/><span style="color:#71717a;">단, 혼자 달리면 버프 없이 실제 거리만 적립됩니다.</span>')}
       ${row('잠금 기능', '번개가 시작되기 전까지 방장이 참가자 입장을 잠글 수 있습니다.')}
       ${row('인증 마감 시한', '시작 시각 + 예상 완주 시간(거리×페이스) + 2시간이 지나면 번개가 자동 만료됩니다.')}

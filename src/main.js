@@ -142,6 +142,16 @@ function onAppResume(e) {
   checkForUpdate();
   reconnectFirestore();
   if (document.getElementById('s-game')?.classList.contains('active')) reengageScrollSnap();
+  // 백그라운드였다가 자정을 넘겨 게임이 끝난 채로 복귀하면, 즉시 결과 화면으로 강제 전환한다.
+  // 대시보드뿐 아니라 번개 상세·진행·버프·결과 화면에 있어도 보낸다(이름/대기/카드/이미 결과 화면은 제외).
+  // (게임 중 30초 타이머는 포그라운드에서만 확실하므로 복귀 시 한 번 더 확인 — 시각 기반이라 캐시와 무관)
+  if (state.roleConfirmed && getCalendar().ended) {
+    const STOP = ['s-name', 's-waiting', 's-card', 's-end'];
+    if (!STOP.some(id => document.getElementById(id)?.classList.contains('active'))) {
+      end.openEndView();
+      goToScreen('s-end');
+    }
+  }
 }
 document.addEventListener('visibilitychange', onAppResume);
 window.addEventListener('pageshow', onAppResume);

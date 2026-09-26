@@ -129,7 +129,13 @@ export function computeCompletion({ bolt, playerMap, distanceKm, participantIds,
     const heads = participantIds.length;
     // 러닝메이트가 낀 단일팀 번개는 팀 스킬 ×N(축포). 배수만 커질 뿐 정체는 드러나지 않는다.
     const skill = heads * distanceKm * RULES.skillPerHeadKm * (rm ? RULES.runningMateSkillMult : 1);
-    if (boltTeam === 'pacer') {
+    if (isTug) {
+      // 줄다리기 기간: 팀 스킬도 '획득분만큼 그대로 상대에서 당겨온다'(완전 1:1). 개인 적립·버프
+      // 적립이 이미 양방향이듯, 팀 스킬도 양 팀 대칭으로 줄을 당긴다 — 어느 팀이든 같은 양이 움직인다.
+      // (탐색 기간엔 아래 팀별 고유 방식: 페이서=시너지 적립 / 고스트=절반 당겨오기)
+      delta[boltTeam] += skill;
+      delta[opponentOf(boltTeam)] -= skill;
+    } else if (boltTeam === 'pacer') {
       delta.pacer += skill;                 // 시너지 — 전부 우리 쪽에 적립
     } else {
       delta.pacer -= skill / 2;             // 게이지 — 절반씩 당겨온다(상대 −, 우리 +)

@@ -548,10 +548,24 @@ function sweepExpiredBolts() {
   }
 }
 
+// 게임이 끝나면 완료되지 못한 '모집 중(open·예정)' 번개는 이제 진행될 수 없으므로 정리(삭제)한다.
+// 진행 중(running)은 삭제하지 않는다 — 그 참가자는 결과 화면으로 보내는 것으로 처리(라우팅).
+const _endDeleteRequested = new Set();
+function sweepEndedBolts() {
+  if (!getCalendar().ended) return;
+  for (const b of state.bolts) {
+    if (b.status === 'open' && !_endDeleteRequested.has(b.id)) {
+      _endDeleteRequested.add(b.id);
+      deleteDoc(doc(db, 'bolts', b.id)).catch(err => console.warn('종료 정리 삭제 실패:', err.message));
+    }
+  }
+}
+
 
 export function getBolts() {
   sweepAutoStartBolts();
   sweepExpiredBolts();
+  sweepEndedBolts();
   const myId = myPlayer().id;
   return state.bolts.map(b => ({
     ...b,
@@ -1021,6 +1035,9 @@ export async function joinBolt(boltId) {
   if (joined && joined !== boltId) throw new Error('이미 다른 번개에 참여 중입니다');
   const bolt = state.bolts.find(b => b.id === boltId);
   if (!bolt) throw new Error('번개를 찾을 수 없습니다');
+  // 모집(open) 상태에서만 참가 가능 — 시작된 뒤엔 방장 인증 목록이 고정돼 늦게 참가하면
+  // 명단엔 남아도 완료에서 누락된다(설계상 진행중 참가 불가).
+  if (bolt.status !== 'open') throw new Error('이미 시작된 번개예요');
   if (bolt.locked) throw new Error('잠긴 번개입니다');
   if (bolt.participants.length >= bolt.max) throw new Error('정원이 찼습니다');
 

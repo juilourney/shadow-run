@@ -38,6 +38,12 @@ export async function onRequestPost(context) {
     if (!['open', 'running'].includes(bolt.status)) {
       return json({ error: '이미 완료됐거나 종료된 번개입니다' }, 409);
     }
+    // 이미 완료 기록(result)이 있는 번개는 재완료 금지 — 완료(done)됐던 번개가 클라이언트
+    // 쓰기로 running/open으로 되살아나도(startBolt·자동시작 스윕은 서버 선점이 없다) 게이지·
+    // 마일리지가 두 번 적립되는 사고를 막는 최종 방어선. 정상 첫 완료는 result가 없다.
+    if (bolt.result) {
+      return json({ error: '이미 완료 기록이 있는 번개입니다', duplicate: true }, 409);
+    }
 
     // 참가자 검증 — 체크인 목록은 실제 참여자의 부분집합이어야 함
     const boltParticipants = bolt.participants || [];

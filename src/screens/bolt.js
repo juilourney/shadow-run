@@ -183,6 +183,14 @@ export function init() {
     const rawDatetime = document.getElementById('create-datetime').value;
     const time = formatBoltTime(rawDatetime);
     const startAt = rawDatetime ? new Date(rawDatetime).getTime() : null;  // 인증 마감 판정용
+    // 게임 기간 밖 날짜 차단 — datetime-local의 min/max는 직접 입력·붙여넣기를 못 막으므로 제출 때 한 번 더 검증
+    if (startAt != null) {
+      const cal = getCalendar();
+      if (startAt < cal.start.getTime() || startAt >= cal.end.getTime()) {
+        showToast('게임 기간 안의 날짜만 선택할 수 있어요');
+        return;
+      }
+    }
     try {
       await storeCreateBolt({ title, place, distance, pace, time, startAt });
       closeCreateOverlay();

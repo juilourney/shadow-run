@@ -40,6 +40,11 @@ export async function onRequestPost(context) {
     if (bolt.status !== 'expired') {
       return json({ error: '만료된 번개만 이 방법으로 처리할 수 있습니다', status: bolt.status }, 409);
     }
+    // 이미 완료 기록(result)이 있으면 재완료 금지 — 완료됐다가 되살아나 만료된 번개(result 보존)를
+    // 다시 인정하면 게이지·마일리지가 이중 적립된다. 진짜 미완료 만료분은 result가 없다.
+    if (bolt.result) {
+      return json({ error: '이미 완료 기록이 있는 번개입니다', duplicate: true }, 409);
+    }
 
     const boltParticipants = bolt.participants || [];
     const checkedIds = participantIds.filter(id => boltParticipants.includes(id));

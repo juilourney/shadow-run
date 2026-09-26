@@ -557,7 +557,10 @@ const TIMELINE_EMPTY = `
 function ensureEndShown() {
   if (!getCalendar().ended) return;
   if (!getMe().team) return;   // 배정된 참가자에게만(이름 화면 등엔 안 뜸)
-  if (!document.getElementById('s-game')?.classList.contains('active')) return;
+  // 대시보드든 번개 상세·진행·버프·결과 화면이든, 게임 진행 중 어디에 있어도 결과 화면으로 보낸다.
+  // (이름/대기/카드/이미 결과 화면일 때만 제외)
+  const STOP = ['s-name', 's-waiting', 's-card', 's-end'];
+  if (STOP.some(id => document.getElementById(id)?.classList.contains('active'))) return;
   openEndView();
   goToScreen('s-end');
 }

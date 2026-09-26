@@ -15,7 +15,7 @@
   pointer-events: none;        /* 빈 좌우 영역이 뒤 콘텐츠 터치를 막지 않게 */
 }
 .tabbar {
-  --tab-w: 56px;
+  --tab-w: 44px;   /* 탭 슬롯 폭 — 좁힐수록 아이콘이 촘촘해지고 바도 좁아진다(터치영역 유지 위해 44px 이상 권장) */
   --tab-n: 5;
   --pad: 6px;
   position: relative;

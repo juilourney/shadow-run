@@ -4,8 +4,7 @@
 // 서버가 유일한 계산 주체 — 클라이언트마다 각자 랜덤을 돌리면 기기별로 결과가 달라지는 문제를 막는다.
 import { getAccessToken, firestoreUrl, toFirestoreValue, toFirestoreFields, fromFirestoreFields } from '../_lib/firebase-admin.js';
 import { verifyAdminAuth, unauthorized } from '../_lib/admin-auth.js';
-
-const SPECIAL_ROLES = ['elite', 'anchor', 'double', 'detective', 'spy'];
+import { SPECIAL_ROLES } from '../../shared/rules.js';
 
 function shuffle(arr) {
   const a = [...arr];

@@ -1,7 +1,7 @@
 import { createTabbar }   from './components/tabbar.js';
 import { createEdgeBlur } from './components/edge-blur.js';
 import { createFaq }      from './components/faq.js';
-import { goToScreen, syncTabbarOnScroll, reengageScrollSnap } from './utils/nav.js';
+import { goToScreen, syncTabbarOnScroll, reengageScrollSnap, SECTION_IDS } from './utils/nav.js';
 import { initPullToRefresh } from './utils/pull-refresh.js';
 import { state } from './state.js';
 import { getConfirmedRecord, getSavedName, clearConfirmedRecord, clearSavedIdentity, isSavedNameStale, isNameRegistered, getAssignment, isAssignmentLoaded, isRosterLoaded, isSettingsLoaded, subscribe, reconnectFirestore, getCalendar, joinRoster, nameEq, applyServerMe, takeReassignNotice, ROLES } from './store.js';
@@ -27,7 +27,7 @@ import { fetchMe, playerLogin } from './auth.js';
 import * as end        from './screens/end.js';
 
 const INTRO    = [name, card, role, waiting];
-const GAME     = [dash, bolt, vote, members, guide];
+const GAME     = [dash, bolt, vote, members, guide];   // 순서 = nav.js TABS 순서
 const OVERLAYS = [boltJoin, boltDetail, boltProgress, boltBuff, boltResult, end];
 
 const app = document.getElementById('app');
@@ -68,7 +68,6 @@ initPullToRefresh([...gameWrap.querySelectorAll('.scroll-body')]);
 // 손가락 스와이프로 섹션이 바뀌면 탭바 동기화 + 알약을 진행도만큼 이동.
 // 예전엔 IntersectionObserver로 '어느 섹션이 화면의 절반을 넘었나'를 봤는데,
 // 가로 스냅에서는 스크롤 위치 하나로 정확히 알 수 있어 더 단순하다.
-const SECTION_IDS = ['gs-dash', 'gs-bolt', 'gs-vote', 'gs-members', 'gs-guide'];
 const pill = document.getElementById('tabbar-pill');
 const tabEls = [...document.querySelectorAll('#global-tabbar .tab')];
 

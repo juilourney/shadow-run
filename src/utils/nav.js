@@ -14,12 +14,20 @@ export function setScrollLock(locked) {
   document.documentElement.classList.toggle('lock-scroll', locked);
 }
 
-export const SECTION_IDS = ['gs-dash', 'gs-bolt', 'gs-vote', 'gs-members', 'gs-guide'];
+// 게임 탭(가로 스와이프 섹션)의 단일 정의 — 탭을 추가·삭제·재배열할 때는 여기만 고친다.
+// 탭바 아이콘·탭 개수(--tab-n)·섹션 순서가 전부 이 배열에서 파생된다.
+// ※ main.js의 GAME 화면 모듈 배열도 같은 순서여야 한다(섹션 DOM 순서 = 스와이프 순서).
+export const TABS = [
+  { tab: 'home',    section: 'gs-dash',    icon: 'ti-home-dot' },
+  { tab: 'bolt',    section: 'gs-bolt',    icon: 'ti-bolt' },
+  { tab: 'vote',    section: 'gs-vote',    icon: 'ti-vote' },
+  { tab: 'members', section: 'gs-members', icon: 'ti-users' },
+  { tab: 'guide',   section: 'gs-guide',   icon: 'ti-book' },
+];
 
-const SECTION_TAB = {
-  'gs-dash': 'home', 'gs-bolt': 'bolt', 'gs-vote': 'vote',
-  'gs-members': 'members', 'gs-guide': 'guide',
-};
+export const SECTION_IDS = TABS.map(t => t.section);
+
+const SECTION_TAB = Object.fromEntries(TABS.map(t => [t.section, t.tab]));
 
 // 사파리(WebKit)는 scroll-snap-type을 최초 페인트 이후 동적으로 바꾸면(클래스 토글 등)
 // 스냅 엔진이 새 값을 인식하지 못해 스와이프 잠금이 풀린 것처럼 동작하는 경우가 있다.

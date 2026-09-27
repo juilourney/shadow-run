@@ -2,23 +2,9 @@
 // 클라이언트가 게이지 증감량을 보내면 조작 가능하므로(승부 조작), 서버가 실제 번개·역할·설정
 // 데이터에서 직접 계산한다. 역할/팀은 항상 서버가 읽은 players 문서 기준(클라 신뢰 안 함).
 
-export const RULES = {
-  eliteMultiplier: 2,
-  votePenalty: 0.5,
-  penaltyClearBolts: 3,   // 적발 후 이만큼 번개를 완주(인증)하면 페널티 해제 (src/store.js CONFIG와 동일)
-  // 팀 고유 스킬 총 효과 = 인원 × 달린거리 × 5km (양 팀 동일).
-  //   페이서 시너지 : 전부 우리 게이지에 적립
-  //   고스트 게이지 : 절반을 상대에서 깎고 절반을 우리에게 더함(당겨오기) → 총 스윙 동일
-  // 거리를 곱하므로 멀리 뛸수록 보너스도 커진다(4명×10km면 200km로 종전과 동일).
-  skillPerHeadKm: 5,
-  runningMateSkillMult: 2,  // 러닝메이트가 낀 단일팀 번개 → 팀 스킬 ×이 값(히든 축포)
-  singleTeamMin: 3,
-  fallbackPaceSec: 420,   // 페이스 미공개 시 가정 페이스(초/km) = 7:00
-  certBufferMin: 120,     // 인증 마감 버퍼(분)
-  abilityWeeklyLimit: 3,  // 탐정/밀정 주당 사용 한도 (src/store.js CONFIG와 동일)
-  roleRevealThreshold: 0.6, // 역할 공개·능력 박탈 기준 (동일)
-  voteMinRatio: 0.3,      // 적발 최소 득표 비율 (동일)
-};
+// 수치 규칙은 참가자 앱과 공용 — shared/rules.js 한 곳에서 관리한다.
+import { RULES } from '../../shared/rules.js';
+export { RULES };
 
 // 현재 주차(1~weeks). 시작 전이면 0. src/store.js getCalendar().week와 같은 식이며,
 // computeIsTug와 동일하게 KST 벽시계 날짜로 계산해 클라이언트와 일치시킨다.
